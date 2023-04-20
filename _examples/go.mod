@@ -2,7 +2,7 @@ module example
 
 go 1.18
 
-require github.com/goccy/go-zetasqlite v0.6.6
+require github.com/Recidiviz/go-zetasqlite v0.6.6
 
 require (
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
@@ -13,4 +13,4 @@ require (
 	gonum.org/v1/gonum v0.11.0 // indirect
 )
 
-replace github.com/goccy/go-zetasqlite => ../
+replace github.com/Recidiviz/go-zetasqlite => ../

@@ -11,9 +11,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/Recidiviz/go-zetasqlite"
+	"github.com/Recidiviz/go-zetasqlite/internal"
 	"github.com/chzyer/readline"
-	"github.com/goccy/go-zetasqlite"
-	"github.com/goccy/go-zetasqlite/internal"
 	"github.com/jessevdk/go-flags"
 	"golang.org/x/crypto/ssh/terminal"
 )
