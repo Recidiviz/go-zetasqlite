@@ -1,10 +1,10 @@
-module github.com/goccy/go-zetasqlite/cmd/zetasqlite-cli
+module github.com/Recidiviz/go-zetasqlite/cmd/zetasqlite-cli
 
 go 1.18
 
 require (
 	github.com/chzyer/readline v1.5.1
-	github.com/goccy/go-zetasqlite v0.4.0
+	github.com/Recidiviz/go-zetasqlite v0.4.0
 	github.com/jessevdk/go-flags v1.5.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 )
@@ -44,4 +44,4 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 )
 
-replace github.com/goccy/go-zetasqlite => ../../
+replace github.com/Recidiviz/go-zetasqlite => ../../
