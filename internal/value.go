@@ -1627,6 +1627,7 @@ func (d DateValue) Interface() interface{} {
 }
 
 const (
+	// TODO(colincadams): no T
 	datetimeFormat = "2006-01-02T15:04:05.999999"
 )
 
@@ -2008,6 +2009,7 @@ func (t TimestampValue) ToInt64() (int64, error) {
 }
 
 func (t TimestampValue) ToString() (string, error) {
+	// TODO(colincadams): no T
 	return time.Time(t).Format(time.RFC3339Nano), nil
 }
 

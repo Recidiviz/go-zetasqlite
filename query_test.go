@@ -3767,6 +3767,46 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008"}},
 		},
 		{
+			name:         "cast datetime as string 1",
+			query:        `SELECT SAFE.PARSE_DATE('%m/%d/%Y', "01/25/1987")`,
+			expectedRows: [][]interface{}{{"1987-01-25"}},
+		},
+		{
+			name:         "cast datetime as string 2",
+			query:        `SELECT SAFE_CAST(SAFE.PARSE_DATE('%m/%d/%Y', "01/25/1987") AS DATETIME)`,
+			expectedRows: [][]interface{}{{"1987-01-25T00:00:00"}},
+		},
+		{
+			name:         "cast datetime as string 3", // fail
+			query:        `SELECT CAST(SAFE_CAST(SAFE.PARSE_DATE('%m/%d/%Y', "01/25/1987") AS DATETIME) AS STRING)`,
+			expectedRows: [][]interface{}{{"1987-01-25 00:00:00"}},
+		},
+		{
+			name:         "cast datetime as string 4", // fail
+			query:        `SELECT CAST(SAFE_CAST(DATE(1987, 1, 25) AS DATETIME) AS STRING)`,
+			expectedRows: [][]interface{}{{"1987-01-25 00:00:00"}},
+		},
+		{
+			name:         "cast datetime as string 5", // fail
+			query:        `SELECT CAST(DATETIME(1987, 1, 25, 0, 0, 0) AS STRING)`,
+			expectedRows: [][]interface{}{{"1987-01-25 00:00:00"}},
+		},
+		{
+			name:         "cast datetime as string 6",
+			query:        `SELECT DATETIME(1987, 1, 25, 0, 0, 0)`,
+			expectedRows: [][]interface{}{{"1987-01-25T00:00:00"}},
+		},
+		{
+			name:         "cast datetime as string 7", // fail
+			query:        `SELECT CAST(DATETIME(1987, 1, 25, 0, 0, 0) AS STRING FORMAT 'YYYY-MM-DD HH:MM:SS')`,
+			expectedRows: [][]interface{}{{"1987-01-25 00:00:00"}},
+		},
+		{
+			name:         "new test", // fail
+			query:        `SELECT PARSE_DATE('%m/%d/%y', '5/20/2000')`,
+			expectedRows: [][]interface{}{{"1987-01-25 00:00:00"}},
+		},
+		{
 			name:         "parse datetime",
 			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
