@@ -378,7 +378,24 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		return FloatValue(f64), nil
-	case types.STRING, types.ENUM:
+	case types.STRING:
+		switch v.(type) {
+		// If this is coming from a date/time, the format is slightly different
+		// than when just writing the value out as a string.
+		// TODO(colindadams): Are the formats different between these?
+		case DateValue, DatetimeValue, TimeValue, TimestampValue:
+			valueTime, err := v.ToTime()
+			if err != nil {
+				return nil, err
+			}
+			return StringValue(valueTime.Format("2006-01-02 15:04:05.999999")), nil
+		}
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(s), nil
+	case types.ENUM:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
