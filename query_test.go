@@ -3654,6 +3654,11 @@ WITH markdown AS (
 			expectedRows: [][]interface{}{{nil, nil, nil}},
 		},
 		{
+			name:         "regexp_replace null",
+			query:        `SELECT REGEXP_REPLACE(NULL, r'\:\d\d\d', ''), REGEXP_REPLACE('abc', NULL, ''), REGEXP_REPLACE('abc', r'\:\d\d\d', NULL)`,
+			expectedRows: [][]interface{}{{nil, nil, nil}},
+		},
+		{
 			name: "regexp_substr",
 			query: `
 WITH example AS (
