@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"sync"
@@ -576,7 +577,11 @@ func (s *WindowFuncAggregatedStatus) currentRangeValue() (int64, error) {
 	if len(curValue.OrderBy) == 0 {
 		return 0, fmt.Errorf("required order by column for analytic range scanning")
 	}
-	return curValue.OrderBy[len(curValue.OrderBy)-1].Value.ToInt64()
+	orderByValue := curValue.OrderBy[len(curValue.OrderBy)-1].Value
+	if orderByValue == nil {
+		return math.MinInt64, nil
+	}
+	return orderByValue.ToInt64()
 }
 
 func (s *WindowFuncAggregatedStatus) partitionedCurrentRangeValue() (int64, error) {
@@ -613,7 +618,11 @@ func (s *WindowFuncAggregatedStatus) lookupMaxIndexFromRangeValue(rangeValue int
 		if len(value.OrderBy) == 0 {
 			continue
 		}
-		target, err := value.OrderBy[len(value.OrderBy)-1].Value.ToInt64()
+		targetValue := value.OrderBy[len(value.OrderBy)-1].Value
+		if targetValue == nil {
+			continue
+		}
+		target, err := targetValue.ToInt64()
 		if err != nil {
 			return 0, err
 		}
