@@ -3752,6 +3752,12 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "base date is epoch",
+			query: `SELECT PARSE_DATE("%m", "03")`,
+			expectedRows: [][]interface{}{
+				{"1970-03-01"},
+			}},
+		{
 			name: "extract date",
 			query: `
 SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date),
