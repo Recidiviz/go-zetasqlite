@@ -721,6 +721,7 @@ var tokensAfterFromClause = [...]string{"WHERE", "GROUP BY", "HAVING", "QUALIFY"
 var removeExpressions = regexp.MustCompile(`\(.+?\)`)
 
 func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
+	removeExpressions := regexp.MustCompile(`\(.+?\)`)
 	if n.node == nil {
 		return "", nil
 	}
