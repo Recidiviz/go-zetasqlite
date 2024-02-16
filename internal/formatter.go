@@ -475,7 +475,7 @@ func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Co
 	case ast.FrameUnitRange:
 		unit = "RANGE"
 	default:
-		return "", fmt.Errorf("unexpected frame unit %s", node.FrameUnit())
+		return "", fmt.Errorf("unexpected frame unit %d", node.FrameUnit())
 	}
 	return fmt.Sprintf("%s BETWEEN %s AND %s", unit, sql[0], sql[1]), nil
 }
@@ -1121,7 +1121,6 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ctx = withAnalyticInputScan(ctx, formattedInput)
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
 	var scanOrderBy []*analyticOrderBy
 	for _, group := range n.node.FunctionGroupList() {
