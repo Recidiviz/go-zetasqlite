@@ -117,7 +117,6 @@ func (f *ARRAY_CONCAT_AGG) Step(v *ArrayValue, opt *AggregatorOption) error {
 
 func (f *ARRAY_CONCAT_AGG) Done() (Value, error) {
 	f.values = sortAggregatedValues(f.values, f.opt)
-
 	if f.opt != nil && f.opt.Limit != nil {
 		minLen := int64(len(f.values))
 		if *f.opt.Limit < minLen {
