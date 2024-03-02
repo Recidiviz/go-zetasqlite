@@ -188,7 +188,7 @@ func ARRAY_ORDINAL(v Value, idx int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	if idx < 1 || len(array.values) <= idx {
+	if idx < 1 || len(array.values) < idx {
 		return nil, fmt.Errorf("ORDINAL(%d) is out of range", idx)
 	}
 	return array.values[idx-1], nil
@@ -199,7 +199,7 @@ func ARRAY_SAFE_ORDINAL(v Value, idx int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	if idx < 1 || len(array.values) <= idx {
+	if idx < 1 || len(array.values) < idx {
 		return nil, nil
 	}
 	return array.values[idx-1], nil
@@ -214,7 +214,7 @@ func LIKE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	wildcard := strings.Replace(vb, "%", ".*", -1)
+	wildcard := strings.Replace(regexp.QuoteMeta(vb), "%", ".*", -1)
 	matchLimits := fmt.Sprintf("^%s$", wildcard)
 	re, err := regexp.Compile(matchLimits)
 	if err != nil {
@@ -224,22 +224,16 @@ func LIKE(a, b Value) (Value, error) {
 }
 
 func BETWEEN(target, start, end Value) (Value, error) {
-	t, err := target.ToInt64()
+	greaterThanStart, err := target.GTE(start)
 	if err != nil {
 		return nil, err
 	}
-	s, err := start.ToInt64()
+	lessThanEnd, err := target.LTE(end)
 	if err != nil {
 		return nil, err
 	}
-	e, err := end.ToInt64()
-	if err != nil {
-		return nil, err
-	}
-	if s <= t && t <= e {
-		return BoolValue(true), nil
-	}
-	return BoolValue(false), nil
+
+	return BoolValue(greaterThanStart && lessThanEnd), nil
 }
 
 func IN(a Value, values ...Value) (Value, error) {
@@ -381,6 +375,9 @@ func IFNULL(expr, nullResult Value) (Value, error) {
 }
 
 func NULLIF(expr, exprToMatch Value) (Value, error) {
+	if expr == nil {
+		return nil, nil
+	}
 	cond, err := expr.EQ(exprToMatch)
 	if err != nil {
 		return nil, err

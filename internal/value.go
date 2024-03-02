@@ -244,7 +244,12 @@ func (sv StringValue) ToInt64() (int64, error) {
 	if sv == "" {
 		return 0, nil
 	}
-	return strconv.ParseInt(string(sv), 0, 64)
+	toParse := string(sv)
+	base := 10
+	if strings.Contains(strings.ToLower(toParse), "0x") {
+		base = 0
+	}
+	return strconv.ParseInt(toParse, base, 64)
 }
 
 func (sv StringValue) ToString() (string, error) {
@@ -298,15 +303,6 @@ func (sv StringValue) ToTime() (time.Time, error) {
 		return parseTime(raw)
 	case isTimestamp(raw):
 		return parseTimestamp(raw, time.UTC)
-	}
-	if f, err := strconv.ParseFloat(raw, 64); err == nil {
-		return TimestampFromFloatValue(f)
-	}
-	if i64, err := strconv.ParseInt(raw, 10, 64); err == nil {
-		if i64 > time.Unix(0, 0).Unix()*int64(time.Millisecond) {
-			return TimestampFromInt64Value(i64)
-		}
-		return DateFromInt64Value(i64)
 	}
 	return time.Time{}, fmt.Errorf("failed to convert %s to time.Time type", sv)
 }

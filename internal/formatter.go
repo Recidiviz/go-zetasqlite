@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/goccy/go-json"
@@ -336,6 +337,21 @@ func (n *AggregateFunctionCallNode) FormatSQL(ctx context.Context) (string, erro
 	), nil
 }
 
+var windowFuncFixedRanges = map[string]string{
+	"zetasqlite_window_ntile":        "ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+	"zetasqlite_window_cume_dist":    "GROUPS BETWEEN 1 FOLLOWING AND UNBOUNDED FOLLOWING",
+	"zetasqlite_window_dense_rank":   "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+	"zetasqlite_window_rank":         "GROUPS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW EXCLUDE TIES",
+	"zetasqlite_window_percent_rank": "GROUPS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+	"zetasqlite_window_row_number":   "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+	"zetasqlite_window_lag":          "ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+	"zetasqlite_window_lead":         "ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING",
+}
+
+var windowFunctionsIgnoreNullsByDefault = map[string]bool{
+	"zetasqlite_window_percentile_disc": true,
+}
+
 func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
@@ -346,70 +362,122 @@ func (n *AnalyticFunctionCallNode) FormatSQL(ctx context.Context) (string, error
 	if err != nil {
 		return "", err
 	}
-	var opts []string
-	if n.node.Distinct() {
-		opts = append(opts, "zetasqlite_distinct()")
-	}
-	switch n.node.NullHandlingModifier() {
-	case ast.RespectNulls:
-		// do nothing
-	default:
-		opts = append(opts, "zetasqlite_ignore_nulls()")
-	}
-	args = append(args, opts...)
-	for _, column := range analyticPartitionColumnNamesFromContext(ctx) {
-		args = append(args, getWindowPartitionOptionFuncSQL(column))
-	}
-	for _, col := range orderColumns {
-		args = append(args, getWindowOrderByOptionFuncSQL(col.column, col.isAsc))
-	}
-	windowFrame := n.node.WindowFrame()
-	if windowFrame != nil {
-		args = append(args, getWindowFrameUnitOptionFuncSQL(windowFrame.FrameUnit()))
-		startSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.StartExpr(), true)
-		if err != nil {
-			return "", err
-		}
-		endSQL, err := n.getWindowBoundaryOptionFuncSQL(ctx, windowFrame.EndExpr(), false)
-		if err != nil {
-			return "", err
-		}
-		args = append(args, startSQL)
-		args = append(args, endSQL)
-	}
-	args = append(args, getWindowRowIDOptionFuncSQL())
-	input := analyticInputScanFromContext(ctx)
 	funcMap := funcMapFromContext(ctx)
+
+	overClause := []string{}
+	partitionColumns := analyticPartitionColumnNamesFromContext(ctx)
+
+	if len(partitionColumns) > 0 {
+		overClause = append(overClause, "PARTITION BY")
+		columns := []string{}
+		for _, column := range partitionColumns {
+			columns = append(columns, fmt.Sprintf("%s COLLATE zetasqlite_collate", column))
+		}
+		overClause = append(overClause, strings.Join(columns, ", "))
+	}
+
+	frame := n.node.WindowFrame()
+	frameSQL, found := windowFuncFixedRanges[funcName]
+	if found && frame != nil {
+		return "", fmt.Errorf("%s: window framing clause is not allowed for analytic function", n.node.BaseFunctionCallNode.Function().Name())
+	}
+	if !found {
+		frameSQL, err = n.getWindowBoundaryOptionFuncSQL(ctx, n.node.WindowFrame())
+		if err != nil {
+			return "", nil
+		}
+	}
+
+	if len(orderColumns) > 0 {
+		overClause = append(overClause, "ORDER BY")
+		columns := []string{}
+		for _, column := range orderColumns {
+			dir := "ASC"
+			if !column.isAsc {
+				dir = "DESC"
+			}
+			columns = append(columns, fmt.Sprintf("%s COLLATE zetasqlite_collate %s", column.column, dir))
+		}
+		overClause = append(overClause, strings.Join(columns, ", "))
+	}
+
+	overClause = append(overClause, frameSQL)
+
+	if n.node.Distinct() {
+		args = append(args, "zetasqlite_distinct()")
+	}
+
+	_, ignoreNullsByDefault := windowFunctionsIgnoreNullsByDefault[funcName]
+
+	switch n.node.NullHandlingModifier() {
+	case ast.IgnoreNulls:
+		args = append(args, "zetasqlite_ignore_nulls()")
+	case ast.DefaultNullHandling:
+		if ignoreNullsByDefault {
+			args = append(args, "zetasqlite_ignore_nulls()")
+		}
+	}
+
 	if spec, exists := funcMap[funcName]; exists {
 		return spec.CallSQL(ctx, n.node.BaseFunctionCallNode, args)
 	}
 	return fmt.Sprintf(
-		"( SELECT %s(%s) %s )",
+		"%s(%s) OVER (%s)",
 		funcName,
 		strings.Join(args, ","),
-		input,
+		strings.Join(overClause, " "),
 	), nil
 }
 
-func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, expr *ast.WindowFrameExprNode, isStart bool) (string, error) {
-	typ := expr.BoundaryType()
-	switch typ {
-	case ast.UnboundedPrecedingType, ast.CurrentRowType, ast.UnboundedFollowingType:
-		if isStart {
-			return getWindowBoundaryStartOptionFuncSQL(typ, ""), nil
-		}
-		return getWindowBoundaryEndOptionFuncSQL(typ, ""), nil
-	case ast.OffsetPrecedingType, ast.OffsetFollowingType:
-		literal, err := newNode(expr.Expression()).FormatSQL(ctx)
-		if err != nil {
-			return "", err
-		}
-		if isStart {
-			return getWindowBoundaryStartOptionFuncSQL(typ, literal), nil
-		}
-		return getWindowBoundaryEndOptionFuncSQL(typ, literal), nil
+func getWindowBoundarySQL(boundaryType ast.BoundaryType, literal string) string {
+	switch boundaryType {
+	case ast.UnboundedPrecedingType:
+		return "UNBOUNDED PRECEDING"
+	case ast.OffsetPrecedingType:
+		return fmt.Sprintf("%s PRECEDING", literal)
+	case ast.CurrentRowType:
+		return "CURRENT ROW"
+	case ast.OffsetFollowingType:
+		return fmt.Sprintf("%s FOLLOWING", literal)
+	case ast.UnboundedFollowingType:
+		return "UNBOUNDED FOLLOWING"
 	}
-	return "", fmt.Errorf("unexpected boundary type %d", typ)
+	return ""
+}
+
+func (n *AnalyticFunctionCallNode) getWindowBoundaryOptionFuncSQL(ctx context.Context, node *ast.WindowFrameNode) (string, error) {
+	if node == nil {
+		return "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING", nil
+	}
+
+	frames := [2]*ast.WindowFrameExprNode{node.StartExpr(), node.EndExpr()}
+	sql := []string{}
+	for _, expr := range frames {
+
+		typ := expr.BoundaryType()
+		switch typ {
+		case ast.UnboundedPrecedingType, ast.CurrentRowType, ast.UnboundedFollowingType:
+			sql = append(sql, getWindowBoundarySQL(typ, ""))
+		case ast.OffsetPrecedingType, ast.OffsetFollowingType:
+			literal, err := newNode(expr.Expression()).FormatSQL(ctx)
+			if err != nil {
+				return "", err
+			}
+			sql = append(sql, getWindowBoundarySQL(typ, literal))
+		default:
+			return "", fmt.Errorf("unexpected boundary type %d", typ)
+		}
+	}
+	var unit string
+	switch node.FrameUnit() {
+	case ast.FrameUnitRows:
+		unit = "ROWS"
+	case ast.FrameUnitRange:
+		unit = "RANGE"
+	default:
+		return "", fmt.Errorf("unexpected frame unit %d", node.FrameUnit())
+	}
+	return fmt.Sprintf("%s BETWEEN %s AND %s", unit, sql[0], sql[1]), nil
 }
 
 func (n *ExtendedCastElementNode) FormatSQL(ctx context.Context) (string, error) {
@@ -668,11 +736,36 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
+
+		array := fmt.Sprintf("json_each(zetasqlite_decode_array(%s))", arrayExpr)
+		var arrayJoinExpr string
+		if n.node.JoinExpr() != nil {
+			arrayJoinExpr, err = newNode(n.node.JoinExpr()).FormatSQL(ctx)
+			if err != nil {
+				return "", err
+			}
+			// RIGHT JOINs on array expressions are not supported by BigQuery
+			var joinMode string
+			if n.node.IsOuter() {
+				joinMode = "LEFT OUTER JOIN"
+			} else {
+				joinMode = "INNER JOIN"
+			}
+			arrayJoinExpr = fmt.Sprintf("%s %s ON %s",
+				joinMode,
+				array,
+				arrayJoinExpr,
+			)
+		} else {
+			// If there is no join expression, use a CROSS JOIN
+			arrayJoinExpr = fmt.Sprintf(", %s", array)
+		}
+
 		return fmt.Sprintf(
-			"SELECT *, json_each.value AS `%s` %s, json_each(zetasqlite_decode_array(%s))",
+			"SELECT *, json_each.value AS `%s` %s %s",
 			colName,
 			formattedInput,
-			arrayExpr,
+			arrayJoinExpr,
 		), nil
 	}
 	return fmt.Sprintf(
@@ -686,7 +779,10 @@ func (n *ColumnHolderNode) FormatSQL(ctx context.Context) (string, error) {
 	return "", nil
 }
 
+var tokensAfterFromClause = [...]string{"WHERE", "GROUP BY", "HAVING", "QUALIFY", "WINDOW", "ORDER BY", "COLLATE"}
+
 func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
+	removeExpressions := regexp.MustCompile(`\(.+?\)`)
 	if n.node == nil {
 		return "", nil
 	}
@@ -704,8 +800,17 @@ func (n *FilterScanNode) FormatSQL(ctx context.Context) (string, error) {
 			return fmt.Sprintf("%s HAVING %s", input, filter), nil
 		}
 	}
-	if strings.Contains(input, "WHERE") && input[len(input)-1] != ')' {
-		// expected to qualify clause
+	currentQuery := string(removeExpressions.ReplaceAllString(input, ""))
+
+	// Qualify the statement if the input is not wrapped in parens
+	queryWrappedInParens := currentQuery == ""
+	containsTokens := false
+	// and the input contains a token that would result in a syntax error
+	for _, token := range tokensAfterFromClause {
+		containsTokens = containsTokens || strings.Contains(currentQuery, token)
+	}
+
+	if !queryWrappedInParens && containsTokens {
 		return fmt.Sprintf("( %s ) WHERE %s", input, filter), nil
 	}
 	return fmt.Sprintf("%s WHERE %s", input, filter), nil
@@ -1041,8 +1146,8 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	ctx = withAnalyticInputScan(ctx, formattedInput)
 	orderColumnNames := analyticOrderColumnNamesFromContext(ctx)
+	var scanOrderBy []*analyticOrderBy
 	for _, group := range n.node.FunctionGroupList() {
 		if group.PartitionBy() != nil {
 			var partitionColumns []string
@@ -1052,10 +1157,12 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 					partitionColumns,
 					colName,
 				)
-				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+				order := &analyticOrderBy{
 					column: colName,
 					isAsc:  true,
-				})
+				}
+				orderColumnNames.values = append(orderColumnNames.values, order)
+				scanOrderBy = append(scanOrderBy, order)
 			}
 			ctx = withAnalyticPartitionColumnNames(ctx, partitionColumns)
 		}
@@ -1063,15 +1170,21 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 			for _, item := range group.OrderBy().OrderByItemList() {
 				colName := uniqueColumnName(ctx, item.ColumnRef().Column())
 				formattedColName := fmt.Sprintf("`%s`", colName)
-				orderColumnNames.values = append(orderColumnNames.values, &analyticOrderBy{
+				order := &analyticOrderBy{
 					column: formattedColName,
 					isAsc:  !item.IsDescending(),
-				})
+				}
+				orderColumnNames.values = append(orderColumnNames.values, order)
+				scanOrderBy = append(scanOrderBy, order)
 			}
 		}
 		if _, err := newNode(group).FormatSQL(ctx); err != nil {
 			return "", err
 		}
+
+		// Reset context after each analytic function group
+		orderColumnNames.values = []*analyticOrderBy{}
+		ctx = withAnalyticPartitionColumnNames(ctx, nil)
 	}
 	columns := []string{}
 	columnMap := columnRefMap(ctx)
@@ -1088,7 +1201,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 		}
 	}
 	var orderColumnFormattedNames []string
-	for _, col := range orderColumnNames.values {
+	for _, col := range scanOrderBy {
 		if col.isAsc {
 			orderColumnFormattedNames = append(
 				orderColumnFormattedNames,
@@ -1107,7 +1220,7 @@ func (n *AnalyticScanNode) FormatSQL(ctx context.Context) (string, error) {
 	}
 	orderColumnNames.values = []*analyticOrderBy{}
 	return fmt.Sprintf(
-		"SELECT %s FROM (SELECT *, ROW_NUMBER() OVER() AS `row_id` %s) %s",
+		"SELECT %s %s %s",
 		strings.Join(columns, ","),
 		formattedInput,
 		orderBy,

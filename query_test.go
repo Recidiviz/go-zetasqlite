@@ -159,6 +159,11 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{true}},
 		},
 		{
+			name:         "like operator - special regex characters",
+			query:        `SELECT 'my*string' LIKE '%%*%%', 'my*string' LIKE '%%([][%';`,
+			expectedRows: [][]interface{}{{true, false}},
+		},
+		{
 			name:         "like operator2",
 			query:        `SELECT "abcd" LIKE "%a%"`,
 			expectedRows: [][]interface{}{{true}},
@@ -189,14 +194,16 @@ func TestQuery(t *testing.T) {
 			expectedRows: [][]interface{}{{true, nil}},
 		},
 		{
-			name:         "in operator",
-			query:        `SELECT 3 IN (1, 2, 3, 4), (SELECT NULL) IN (3)`,
-			expectedRows: [][]interface{}{{true, nil}},
+			name:  "in operator",
+			query: `SELECT 3 IN (1, 2, 3, 4), null IN (1), null IN (null)`,
+			// When left-hand side is null, null is always returned
+			expectedRows: [][]interface{}{{true, nil, nil}},
 		},
 		{
-			name:         "not in operator",
-			query:        `SELECT 5 NOT IN (1, 2, 3, 4), (SELECT NULL) IN (3)`,
-			expectedRows: [][]interface{}{{true, nil}},
+			name:  "not in operator",
+			query: `SELECT 5 NOT IN (1, 2, 3, 4), null NOT IN (1), null NOT IN (null)`,
+			// When left-hand side is null, null is always returned
+			expectedRows: [][]interface{}{{true, nil, nil}},
 		},
 		{
 			name:         "is null operator",
@@ -471,6 +478,11 @@ FROM UNNEST([1, 2, 3, 4]) AS val`,
 			expectedRows: [][]interface{}{{int64(10)}},
 		},
 		{
+			name:         "nullif null",
+			query:        `SELECT NULLIF(null, 0)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name:         "rounding",
 			query:        `SELECT ROUND(2.0), ROUND(2.3), ROUND(2.8), ROUND(2.5), ROUND(-2.3), ROUND(-2.8), ROUND(-2.5)`,
 			expectedRows: [][]interface{}{{float64(2.0), float64(2.0), float64(3.0), float64(3.0), float64(-2.0), float64(-3.0), float64(-3.0)}},
@@ -523,6 +535,12 @@ FROM Items`,
 				"coffee",
 				nil,
 			}},
+		},
+		{
+			name: "array boundary indexing test",
+			query: `WITH toks AS (SELECT ['one', 'two'] AS digits)
+					SELECT digits[SAFE_ORDINAL(2)], digits[ORDINAL(2)], digits[OFFSET(1)], digits[SAFE_OFFSET(1)] FROM toks`,
+			expectedRows: [][]interface{}{{"two", "two", "two", "two"}},
 		},
 		{
 			name: "create function",
@@ -620,6 +638,13 @@ FROM Items`,
 			expectedErr: "ARRAY_AGG: input value must be not null",
 		},
 		{
+			name:  "array_agg with null in order by",
+			query: `WITH toks AS (SELECT '1' AS x, '1' as y UNION ALL SELECT '2', null) SELECT ARRAY_AGG(x ORDER BY y) FROM toks`,
+			expectedRows: [][]interface{}{{
+				[]interface{}{"2", "1"},
+			}},
+		},
+		{
 			name:        "array_agg with struct",
 			query:       `SELECT b, ARRAY_AGG(a) FROM UNNEST([STRUCT(1 AS a, 2 AS b), STRUCT(NULL AS a, 2 AS b)]) GROUP BY b`,
 			expectedErr: "ARRAY_AGG: input value must be not null",
@@ -666,6 +691,13 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 )`,
 			expectedRows: [][]interface{}{{
 				[]interface{}{nil, int64(1), int64(2), int64(3), int64(4), int64(5), int64(6), int64(7), int64(8), int64(9)},
+			}},
+		},
+		{
+			name:  "array_concat_agg with null in order by",
+			query: `WITH toks AS (SELECT ['1'] AS x, '1' as y UNION ALL SELECT ['2', '3'], null) SELECT ARRAY_CONCAT_AGG(x ORDER BY y) FROM toks`,
+			expectedRows: [][]interface{}{{
+				[]interface{}{"3", "2", "1"},
 			}},
 		},
 		{
@@ -795,12 +827,12 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 		},
 		{
 			name:         "max from date group",
-			query:        `SELECT MAX(x) AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			query:        `SELECT MAX(x) AS max FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
 			expectedRows: [][]interface{}{{"2022-02-01"}},
 		},
 		{
 			name:         "max window from date group",
-			query:        `SELECT MAX(x) OVER() AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			query:        `SELECT MAX(x) OVER() AS max FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
 			expectedRows: [][]interface{}{{"2022-02-01"}, {"2022-02-01"}, {"2022-02-01"}, {"2022-02-01"}},
 		},
 		{
@@ -810,18 +842,28 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 		},
 		{
 			name:         "min from date group",
-			query:        `SELECT MIN(x) AS min FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
+			query:        `SELECT MIN(x) AS min FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
 			expectedRows: [][]interface{}{{"2021-03-01"}},
 		},
 		{
 			name:         "min window from date group",
-			query:        `SELECT MIN(x) OVER() AS max FROM UNNEST(['2022-01-01', '2022-02-01', '2022-01-02', '2021-03-01']) AS x`,
-			expectedRows: [][]interface{}{{"2021-03-01"}, {"2021-03-01"}, {"2021-03-01"}, {"2021-03-01"}},
+			query:        `SELECT MIN(x) OVER(),  MAX(x) OVER() FROM UNNEST([DATE '2022-01-01', DATE '2022-02-01', DATE '2022-01-02', DATE '2021-03-01']) AS x`,
+			expectedRows: [][]interface{}{{"2021-03-01", "2022-02-01"}, {"2021-03-01", "2022-02-01"}, {"2021-03-01", "2022-02-01"}, {"2021-03-01", "2022-02-01"}},
 		},
 		{
 			name:         "string_agg",
 			query:        `SELECT STRING_AGG(fruit) AS string_agg FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit`,
 			expectedRows: [][]interface{}{{"apple,pear,banana,pear"}},
+		},
+		{
+			name:         "string_agg with length 0",
+			query:        `SELECT STRING_AGG(fruit) FROM UNNEST(ARRAY<STRING>[]) fruit;`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "string_agg with null",
+			query:        `SELECT STRING_AGG(null) FROM UNNEST(ARRAY<STRING>[]);`,
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name:         "string_agg with delimiter",
@@ -849,10 +891,10 @@ SELECT ARRAY_CONCAT_AGG(x) AS array_concat_agg FROM (
 			expectedRows: [][]interface{}{{"pear & banana"}},
 		},
 		{
+			// TODO: add NULL back to the unnest once ORDER BY does not crash on NULL
 			name:  "string_agg with window",
-			query: `SELECT fruit, STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) FROM UNNEST(["apple", NULL, "pear", "banana", "pear"]) AS fruit`,
+			query: `SELECT fruit, STRING_AGG(fruit, " & ") OVER (ORDER BY LENGTH(fruit)) FROM UNNEST(["apple", "pear", "banana", "pear"]) AS fruit`,
 			expectedRows: [][]interface{}{
-				{nil, nil},
 				{"pear", "pear & pear"},
 				{"pear", "pear & pear"},
 				{"apple", "pear & pear & apple"},
@@ -1594,7 +1636,8 @@ WITH finishers AS
   UNION ALL SELECT 'Jen Edwards', TIMESTAMP '2016-10-18 3:06:36+00', 'F30-34'
   UNION ALL SELECT 'Meghan Lederer', TIMESTAMP '2016-10-18 3:07:41+00', 'F30-34'
   UNION ALL SELECT 'Carly Forte', TIMESTAMP '2016-10-18 3:08:58+00', 'F25-29'
-  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34')
+  UNION ALL SELECT 'Lauren Reasoner', TIMESTAMP '2016-10-18 3:10:14+00', 'F30-34'
+  UNION ALL SELECT 'Nilly Nada', TIMESTAMP '2016-10-18 3:10:14+00', null)
 SELECT name,
   FORMAT_TIMESTAMP('%X', finish_time) AS finish_time,
   division,
@@ -1602,6 +1645,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers`,
 			expectedRows: [][]interface{}{
+				{"Nilly Nada", "03:10:14", nil, "Nobody"},
 				{"Carly Forte", "03:08:58", "F25-29", "Nobody"},
 				{"Sophia Liu", "02:51:45", "F30-34", "Jen Edwards"},
 				{"Nikki Leith", "02:59:01", "F30-34", "Meghan Lederer"},
@@ -1705,6 +1749,20 @@ FROM cte LIMIT 1`,
 		//				{nil, float64(0), float64(1), float64(2.6), float64(3)},
 		//			},
 		//		},
+		{
+			name: `percentile_disc single`,
+			query: `
+SELECT
+  x,
+  PERCENTILE_DISC(x, 0) OVER() AS min
+FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
+			expectedRows: [][]interface{}{
+				{"c", "a"},
+				{nil, "a"},
+				{"b", "a"},
+				{"a", "a"},
+			},
+		},
 		{
 			name: `percentile_disc`,
 			query: `
@@ -1856,6 +1914,18 @@ FROM Numbers`,
 			},
 		},
 		{
+			name: "window dense_rank with mixed types",
+			query: `SELECT DENSE_RANK() OVER(ORDER BY dt ASC )
+FROM (
+  SELECT DATE '2024-01-01' AS dt
+  UNION ALL SELECT DATETIME '2024-01-01'
+) r`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(1)},
+			},
+		},
+		{
 			name: "window dense_rank with group",
 			query: `
 WITH finishers AS
@@ -1937,8 +2007,7 @@ SELECT name,
 FROM finishers`,
 			expectedRows: [][]interface{}{
 				{"Sophia Liu", "02:51:45", "F30-34", float64(0.25)},
-				// FIXME: care same ordered value.
-				{"Nikki Leith", "02:59:01", "F30-34", float64(0.5)},
+				{"Nikki Leith", "02:59:01", "F30-34", float64(0.75)},
 				{"Meghan Lederer", "02:59:01", "F30-34", float64(0.75)},
 				{"Jen Edwards", "03:06:36", "F30-34", float64(1)},
 				{"Lisa Stelzner", "02:54:11", "F35-39", float64(0.25)},
@@ -2028,6 +2097,114 @@ WITH Produce AS
 				[]interface{}{"kale", "vegetable", int64(23), int64(1), int64(4)},
 			},
 		},
+		// statistical aggregate functions
+		{
+			name: "corr window",
+			query: `
+SELECT CORR(y, x) OVER () FROM
+UNNEST([STRUCT(1.0 AS y, 5.0 AS x),
+	  (3.0, 9.0),
+	  (4.0, 7.0)]);`,
+			expectedRows: [][]interface{}{
+				{0.6546536707079772},
+				{0.6546536707079772},
+				{0.6546536707079772},
+			},
+		},
+		{
+			name: "covar_pop window",
+			query: `
+SELECT COVAR_POP(y, x) OVER () FROM
+  UNNEST([STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (9.0, 3.0)])
+`,
+			expectedRows: [][]interface{}{
+				// TODO(goccy/go-zetasqlite#168): Use population covariance instead of sample covariance
+				// expected rows should actually be {-1.6800000000000002},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+			},
+		},
+		{
+			name: "covar_samp window",
+			query: `
+SELECT COVAR_SAMP(y, x) OVER () FROM
+UNNEST([STRUCT(1.0 AS y, 1.0 AS x),
+      (2.0, 6.0),
+      (9.0, 3.0),
+      (2.0, 6.0),
+      (9.0, 3.0)])`,
+
+			expectedRows: [][]interface{}{
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+				{-2.1},
+			},
+		},
+		{
+			name:  "stddev_pop window",
+			query: `SELECT STDDEV_POP(x) OVER () FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{3.265986323710904},
+				{3.265986323710904},
+				{3.265986323710904},
+			},
+		},
+		{
+			name:  "stddev window",
+			query: `SELECT STDDEV(x) OVER () FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(4)},
+				{float64(4)},
+				{float64(4)},
+			},
+		},
+		{
+			name:  "stddev_samp window",
+			query: `SELECT STDDEV_SAMP(x) OVER () FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(4)},
+				{float64(4)},
+				{float64(4)},
+			},
+		},
+
+		{
+			name:  "var_pop window",
+			query: `SELECT VAR_POP(x) OVER() FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{10.666666666666666},
+				{10.666666666666666},
+				{10.666666666666666},
+			},
+		},
+		{
+			name:  "variance window",
+			query: `SELECT VARIANCE(x) OVER()  FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(16)},
+				{float64(16)},
+				{float64(16)},
+			},
+		},
+		{
+			name:  "var_samp window",
+			query: `SELECT VAR_SAMP(x) OVER()  FROM UNNEST([10, 14, 18]) x`,
+			expectedRows: [][]interface{}{
+				{float64(16)},
+				{float64(16)},
+				{float64(16)},
+			},
+		},
+		// navigation functions
 		{
 			name: "window lag",
 			query: `
@@ -2061,6 +2238,28 @@ FROM finishers`,
 				{"Lauren Matthews", createTimestampFormatFromString("2016-10-18 03:01:17+00"), "F35-39", "Lisa Stelzner"},
 				{"Desiree Berry", createTimestampFormatFromString("2016-10-18 03:05:42+00"), "F35-39", "Lauren Matthews"},
 				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
+			},
+		},
+		// Regression test for https://github.com/goccy/go-zetasqlite/issues/160
+		{
+			name: "window partitions are distinct from each other",
+			query: `
+WITH inventory AS (
+  SELECT 'banana' AS item, 'fruit' AS kind, 2 AS purchases
+  UNION ALL SELECT 'onion', 'vegetable', 3
+  UNION ALL SELECT 'orange', 'fruit', 4
+  ORDER BY item ASC
+)
+SELECT
+  item,
+  purchases,
+  LEAD(item) OVER (PARTITION BY kind ORDER BY item ASC) AS next_in_kind,
+  LAG(item) OVER (ORDER BY purchases ASC) AS next_best_seller
+FROM inventory`,
+			expectedRows: [][]interface{}{
+				{"banana", int64(2), "orange", nil},
+				{"orange", int64(4), nil, "onion"},
+				{"onion", int64(3), nil, "banana"},
 			},
 		},
 		{
@@ -2186,6 +2385,26 @@ FROM UNNEST([
 			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
 			expectedRows: [][]interface{}{
 				{[]interface{}{int64(1), int64(2), int64(3)}},
+			},
+		},
+		// Regression tests for goccy/go-zetasqlite#176
+		{
+			name: "array scan left outer join",
+			query: `WITH produce AS (select 'lettuce' AS item UNION ALL SELECT 'banana')
+SELECT item, in_stock_items is not null AS item_in_stock FROM produce
+LEFT OUTER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
+			expectedRows: [][]interface{}{
+				{"lettuce", true},
+				{"banana", false},
+			},
+		},
+		{
+			name: "array scan inner join",
+			query: `WITH produce AS (select 'lettuce' AS item UNION ALL SELECT 'banana')
+SELECT item, in_stock_items is not null AS item_in_stock FROM produce
+INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
+			expectedRows: [][]interface{}{
+				{"lettuce", true},
 			},
 		},
 		{
@@ -2515,6 +2734,22 @@ FROM
 				},
 			},
 		},
+		// Regression test for goccy/go-zetasqlite#179
+		{
+			name: "null array scan",
+			query: `
+WITH file AS (
+  SELECT 1 AS file_id, ARRAY<STRING>["r", "w"] AS modes
+  UNION ALL SELECT 2, ARRAY<STRING>["w"]
+)
+SELECT id,
+(SELECT mode FROM UNNEST(modes) AS mode WHERE mode = 'w') IS NOT NULL AS write_mode,
+(SELECT mode FROM UNNEST(modes) AS mode WHERE mode = 'r') IS NOT NULL AS read_mode
+FROM UNNEST([1, 2, 3]) id
+LEFT JOIN file on file.file_id = id`,
+			expectedRows: [][]interface{}{{int64(1), true, true}, {int64(2), true, false}, {int64(3), false, false}},
+		},
+
 		{
 			name: "array_reverse function",
 			query: `
@@ -2781,6 +3016,35 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 				{"cabbage", int64(3)},
 			},
 		},
+		// Regression test goccy/go-zetasqlite#150
+		{
+			name: "qualify group",
+			query: `
+				WITH produce AS (
+					SELECT 'kale' AS item, 23 AS purchases
+				)
+				SELECT item, sum(purchases)
+				FROM produce
+				GROUP BY item
+				QUALIFY ROW_NUMBER() OVER (PARTITION BY item ORDER BY item) = 1
+			`,
+			expectedRows: [][]interface{}{{"kale", int64(23)}},
+		},
+		// Regression test goccy/go-zetasqlite#147
+		{
+			name: "subselect qualifier",
+			query: `
+				WITH produce AS (SELECT 'banana' AS item, 3 AS purchases),
+				toks AS (
+					SELECT item FROM (
+						SELECT * FROM produce
+						WHERE item = 'banana'
+					) sub
+					WHERE purchases = 3
+				)
+				SELECT * FROM toks;`,
+			expectedRows: [][]interface{}{{"banana"}},
+		},
 		{
 			name: "qualify direct",
 			query: `
@@ -2803,6 +3067,12 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:       `SELECT CAST("apple" AS INT64) AS not_a_number`,
 			expectedErr: `failed to analyze: INVALID_ARGUMENT: Could not cast literal "apple" to type INT64 [at 1:13]`,
 		},
+		// Regression test for goccy/go-zetasqlite#175
+		{
+			name:        "cast integer to datetime",
+			query:       `WITH toks AS (SELECT "20100317" AS dt) SELECT CAST(dt AS DATETIME) FROM toks;`,
+			expectedErr: "failed to convert 20100317 to time.Time type",
+		},
 		{
 			name:         "safe cast",
 			query:        `SELECT SAFE_CAST(x AS STRING) FROM UNNEST([1, 2, 3]) AS x`,
@@ -2817,6 +3087,18 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			name:         "cast string to int64",
 			query:        `SELECT CAST('0x87a' as INT64), CAST(CONCAT('0x', '87a') as INT64), CAST(SUBSTR('q0x87a', 2) as INT64), CAST(s AS INT64) FROM (SELECT CONCAT('0x', '87a') AS s)`,
 			expectedRows: [][]interface{}{{int64(2170), int64(2170), int64(2170), int64(2170)}},
+		},
+		{
+			name: "cast string to int64 - leading zeros",
+			query: `WITH toks AS (
+				SELECT "000800" AS x
+				UNION ALL SELECT "-0900"
+				UNION ALL SELECT "+000100"
+				UNION ALL SELECT "0"
+				UNION ALL SELECT "0000"
+			)
+			SELECT ARRAY_AGG(CAST(x AS INT64)) FROM toks`,
+			expectedRows: [][]interface{}{{[]any{int64(800), int64(-900), int64(100), int64(0), int64(0)}}},
 		},
 
 		// hash functions
@@ -2869,11 +3151,21 @@ SELECT characters, BYTE_LENGTH(characters), bytes, BYTE_LENGTH(bytes) FROM examp
 			expectedRows: [][]interface{}{{"абвгд", int64(10), "0LDQsdCy0LPQtA==", int64(10)}},
 		},
 		{
+			name:         "byte_length null",
+			query:        `SELECT BYTE_LENGTH(NULL)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name: "char_length",
 			query: `
 WITH example AS (SELECT 'абвгд' AS characters)
 SELECT characters, CHAR_LENGTH(characters) FROM example`,
 			expectedRows: [][]interface{}{{"абвгд", int64(5)}},
+		},
+		{
+			name:         "char_length null",
+			query:        `SELECT CHAR_LENGTH(NULL)`,
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name: "character_length",
@@ -2889,13 +3181,13 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 		},
 		{
 			name:         "code_points_to_bytes",
-			query:        `SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100])`,
-			expectedRows: [][]interface{}{{"QWJDZA=="}},
+			query:        `SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]), CODE_POINTS_TO_BYTES(NULL)`,
+			expectedRows: [][]interface{}{{"QWJDZA==", nil}},
 		},
 		{
 			name:         "code_points_to_string",
-			query:        `SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]), CODE_POINTS_TO_STRING([97, 0, 0xF9B5]), CODE_POINTS_TO_STRING([65, 255, NULL, 1024])`,
-			expectedRows: [][]interface{}{{"AÿȁЀ", "a例", nil}},
+			query:        `SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]), CODE_POINTS_TO_STRING([97, 0, 0xF9B5]), CODE_POINTS_TO_STRING([65, 255, NULL, 1024]), CODE_POINTS_TO_STRING(NULL)`,
+			expectedRows: [][]interface{}{{"AÿȁЀ", "a例", nil, nil}},
 		},
 		// TODO: currently collate function is unsupported.
 		//{
@@ -2908,8 +3200,8 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 		//},
 		{
 			name:         "concat",
-			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923)`,
-			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923"}},
+			query:        `SELECT CONCAT('T.P.', ' ', 'Bar'), CONCAT('Summer', ' ', 1923), CONCAT("abc"), CONCAT(1), CONCAT('A', NULL, 'C'), CONCAT(NULL)`,
+			expectedRows: [][]interface{}{{"T.P. Bar", "Summer 1923", "abc", "1", nil, nil}},
 		},
 		// TODO: currently unsupported CONTAINS_SUBSTR function because ZetaSQL library doesn't support it.
 		//{
@@ -2998,8 +3290,8 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 		//},
 		{
 			name:         "ends_with",
-			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e')`,
-			expectedRows: [][]interface{}{{true, false, true}},
+			query:        `SELECT ENDS_WITH('apple', 'e'), ENDS_WITH('banana', 'e'), ENDS_WITH('orange', 'e'), ENDS_WITH('foo', NULL), ENDS_WITH(NULL, 'foo')`,
+			expectedRows: [][]interface{}{{true, false, true, nil, nil}},
 		},
 		{
 			name:         "format %d",
@@ -3023,8 +3315,8 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 		},
 		{
 			name:         "format %s",
-			query:        `SELECT FORMAT('-%s-', 'abcd efg')`,
-			expectedRows: [][]interface{}{{"-abcd efg-"}},
+			query:        `SELECT FORMAT('-%s-', 'abcd efg'), FORMAT('-%s-', CAST(NULL AS STRING)), FORMAT('-%s %s-', 'x', CAST(NULL AS STRING))`,
+			expectedRows: [][]interface{}{{"-abcd efg-", nil, nil}},
 		},
 		{
 			name:         "format %f %E",
@@ -3041,21 +3333,27 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			query:        `SELECT FORMAT('%t', timestamp '2015-09-01 12:34:56 America/Los_Angeles')`,
 			expectedRows: [][]interface{}{{"2015-09-01 19:34:56+00"}},
 		},
+		// This fails in ZetaSQL base code.
+		// {
+		// 	name:         "format null",
+		// 	query:        `SELECT FORMAT(NULL, 'abc')`,
+		// 	expectedRows: [][]interface{}{{nil}},
+		// },
 
 		{
 			name:         "from_base32",
-			query:        `SELECT FROM_BASE32('MFRGGZDF74======')`,
-			expectedRows: [][]interface{}{{"YWJjZGX/"}},
+			query:        `SELECT FROM_BASE32('MFRGGZDF74======'), FROM_BASE32(NULL)`,
+			expectedRows: [][]interface{}{{"YWJjZGX/", nil}},
 		},
 		{
 			name:         "from_base64",
-			query:        `SELECT FROM_BASE64('/+A=')`,
-			expectedRows: [][]interface{}{{"/+A="}},
+			query:        `SELECT FROM_BASE64('/+A='), FROM_BASE64(NULL)`,
+			expectedRows: [][]interface{}{{"/+A=", nil}},
 		},
 		{
 			name:         "from_hex",
-			query:        `SELECT FROM_HEX('00010203aaeeefff'), FROM_HEX('0AF'), FROM_HEX('666f6f626172')`,
-			expectedRows: [][]interface{}{{"AAECA6ru7/8=", "AK8=", "Zm9vYmFy"}},
+			query:        `SELECT FROM_HEX('00010203aaeeefff'), FROM_HEX('0AF'), FROM_HEX('666f6f626172'), FROM_HEX(NULL)`,
+			expectedRows: [][]interface{}{{"AAECA6ru7/8=", "AK8=", "Zm9vYmFy", nil}},
 		},
 		{
 			name: "initcap",
@@ -3065,7 +3363,8 @@ WITH example AS
   SELECT 'Hello World-everyone!' AS value UNION ALL
   SELECT 'tHe dog BARKS loudly+friendly' AS value UNION ALL
   SELECT 'apples&oranges;&pears' AS value UNION ALL
-  SELECT 'καθίσματα ταινιών' AS value
+  SELECT 'καθίσματα ταινιών' AS value UNION ALL
+  SELECT NULL as value
 )
 SELECT value, INITCAP(value) AS initcap_value FROM example`,
 			expectedRows: [][]interface{}{
@@ -3073,6 +3372,7 @@ SELECT value, INITCAP(value) AS initcap_value FROM example`,
 				{"tHe dog BARKS loudly+friendly", "The Dog Barks Loudly+Friendly"},
 				{"apples&oranges;&pears", "Apples&Oranges;&Pears"},
 				{"καθίσματα ταινιών", "Καθίσματα Ταινιών"},
+				{nil, nil},
 			},
 		},
 		{
@@ -3083,7 +3383,9 @@ WITH example AS
   SELECT 'hello WORLD!' AS value, '' AS delimiters UNION ALL
   SELECT 'καθίσματα ταιντιώ@ν' AS value, 'τ@' AS delimiters UNION ALL
   SELECT 'Apples1oranges2pears' AS value, '12' AS delimiters UNION ALL
-  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters
+  SELECT 'tHisEisEaESentence' AS value, 'E' AS delimiters UNION ALL
+  SELECT NULL AS value, '' AS delimiters UNION ALL
+  SELECT 'foo' AS value, NULL AS delimiters
 )
 SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM example`,
 			expectedRows: [][]interface{}{
@@ -3091,6 +3393,8 @@ SELECT value, delimiters, INITCAP(value, delimiters) AS initcap_value FROM examp
 				{"καθίσματα ταιντιώ@ν", "τ@", "ΚαθίσματΑ τΑιντΙώ@Ν"},
 				{"Apples1oranges2pears", "12", "Apples1Oranges2Pears"},
 				{"tHisEisEaESentence", "E", "ThisEIsEAESentence"},
+				{nil, "", nil},
+				{"foo", nil, nil},
 			},
 		},
 		{
@@ -3106,7 +3410,11 @@ WITH example AS
  SELECT 'banana' as source_value, 'an' as search_value, -3 as position, 1 as occurrence UNION ALL
  SELECT 'banana' as source_value, 'ann' as search_value, 1 as position, 1 as occurrence UNION ALL
  SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 1 as occurrence UNION ALL
- SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as occurrence
+ SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, 2 as occurrence UNION ALL
+ SELECT NULL as source_value, 'oo' as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, NULL as search_value, 1 as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, 'oo' as search_value, NULL as position, 1 as occurrence UNION ALL
+ SELECT 'helloooo' as source_value, 'oo' as search_value, 1 as position, NULL as occurrence
 ) SELECT source_value, search_value, position, occurrence, INSTR(source_value, search_value, position, occurrence) FROM example`,
 			expectedRows: [][]interface{}{
 				{"banana", "an", int64(1), int64(1), int64(2)},
@@ -3118,12 +3426,16 @@ WITH example AS
 				{"banana", "ann", int64(1), int64(1), int64(0)},
 				{"helloooo", "oo", int64(1), int64(1), int64(5)},
 				{"helloooo", "oo", int64(1), int64(2), int64(6)},
+				{nil, "oo", int64(1), int64(1), nil},
+				{"helloooo", nil, int64(1), int64(1), nil},
+				{"helloooo", "oo", nil, int64(1), nil},
+				{"helloooo", "oo", int64(1), nil, nil},
 			},
 		},
 		{
 			name:         "left with string value",
-			query:        `SELECT LEFT('apple', 3), LEFT('banana', 3), LEFT('абвгд', 3)`,
-			expectedRows: [][]interface{}{{"app", "ban", "абв"}},
+			query:        `SELECT LEFT('apple', 3), LEFT('banana', 3), LEFT('абвгд', 3), LEFT(NULL, 3), LEFT('apple', NULL)`,
+			expectedRows: [][]interface{}{{"app", "ban", "абв", nil, nil}},
 		},
 		{
 			name:         "left with bytes value",
@@ -3132,18 +3444,18 @@ WITH example AS
 		},
 		{
 			name:         "length",
-			query:        `SELECT LENGTH('абвгд'), LENGTH(CAST('абвгд' AS BYTES))`,
-			expectedRows: [][]interface{}{{int64(5), int64(10)}},
+			query:        `SELECT LENGTH('абвгд'), LENGTH(CAST('абвгд' AS BYTES)), LENGTH(NULL)`,
+			expectedRows: [][]interface{}{{int64(5), int64(10), nil}},
 		},
 		{
 			name:         "lpad string without pattern",
-			query:        `SELECT LPAD(t, len) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4)])`,
-			expectedRows: [][]interface{}{{"  abc"}, {"ab"}, {"  例子"}},
+			query:        `SELECT LPAD(t, len) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4),(NULL, 2),('abc', NULL)])`,
+			expectedRows: [][]interface{}{{"  abc"}, {"ab"}, {"  例子"}, {nil}, {nil}},
 		},
 		{
 			name:         "lpad string with pattern",
-			query:        `SELECT LPAD(t, len, pattern) FROM UNNEST([STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),('abc', 5, '-'),('例子', 5, '中文')])`,
-			expectedRows: [][]interface{}{{"defdeabc"}, {"--abc"}, {"中文中例子"}},
+			query:        `SELECT LPAD(t, len, pattern) FROM UNNEST([STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),('abc', 5, '-'),('例子', 5, '中文'),('abc', 5, NULL)])`,
+			expectedRows: [][]interface{}{{"defdeabc"}, {"--abc"}, {"中文中例子"}, {nil}},
 		},
 		{
 			name:         "lpad bytes without pattern",
@@ -3157,18 +3469,23 @@ WITH example AS
 		},
 		{
 			name:         "lower",
-			query:        `SELECT LOWER('FOO'), LOWER('BAR'), LOWER('BAZ')`,
-			expectedRows: [][]interface{}{{"foo", "bar", "baz"}},
+			query:        `SELECT LOWER('FOO'), LOWER('BAR'), LOWER('BAZ'), LOWER(NULL)`,
+			expectedRows: [][]interface{}{{"foo", "bar", "baz", nil}},
 		},
 		{
 			name:         "ltrim",
-			query:        `SELECT LTRIM('   apple   '), LTRIM('***apple***', '*')`,
-			expectedRows: [][]interface{}{{"apple   ", "apple***"}},
+			query:        `SELECT LTRIM('   apple   '), LTRIM('***apple***', '*'), LTRIM(NULL), LTRIM(' . ', NULL)`,
+			expectedRows: [][]interface{}{{"apple   ", "apple***", nil, nil}},
 		},
 		{
 			name:         "normalize",
 			query:        `SELECT a, b, a = b FROM (SELECT NORMALIZE('\u00ea') as a, NORMALIZE('\u0065\u0302') as b)`,
 			expectedRows: [][]interface{}{{"ê", "ê", true}},
+		},
+		{
+			name:         "normalize null",
+			query:        `SELECT NORMALIZE(NULL)`,
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name: "normalize with nfkc",
@@ -3218,12 +3535,17 @@ SELECT characters, OCTET_LENGTH(characters), bytes, OCTET_LENGTH(bytes) FROM exa
 			expectedRows: [][]interface{}{{"абвгд", int64(10), "0LDQsdCy0LPQtA==", int64(10)}},
 		},
 		{
+			name:         "octet_length null",
+			query:        `SELECT OCTET_LENGTH(NULL)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name: "regexp_contains",
 			query: `
 SELECT email, REGEXP_CONTAINS(email, r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+')
- FROM (SELECT ['foo@example.com', 'bar@example.org', 'www.example.net'] AS addresses),
+ FROM (SELECT ['foo@example.com', 'bar@example.org', 'www.example.net', NULL] AS addresses),
  UNNEST(addresses) AS email`,
-			expectedRows: [][]interface{}{{"foo@example.com", true}, {"bar@example.org", true}, {"www.example.net", false}},
+			expectedRows: [][]interface{}{{"foo@example.com", true}, {"bar@example.org", true}, {"www.example.net", false}, {nil, nil}},
 		},
 		{
 			name: "regexp_contains2",
@@ -3243,12 +3565,19 @@ FROM
 			},
 		},
 		{
-			name: "regexp_extract",
-			query: `
-WITH email_addresses AS (
- SELECT 'foo@example.com' as email UNION ALL SELECT 'bar@example.org' as email UNION ALL SELECT 'baz@example.net' as email
-) SELECT REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+') FROM email_addresses`,
-			expectedRows: [][]interface{}{{"foo"}, {"bar"}, {"baz"}},
+			name:         "regexp_contains null pattern",
+			query:        `SELECT REGEXP_CONTAINS('abc', NULL)`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
+			name:         "regexp_extract",
+			query:        `SELECT email, REGEXP_EXTRACT(email, r'^[a-zA-Z0-9_.+-]+') FROM UNNEST(['foo@example.com', 'bar@example.com', 'baz@example.net', NULL]) email`,
+			expectedRows: [][]interface{}{{"foo@example.com", "foo"}, {"bar@example.com", "bar"}, {"baz@example.net", "baz"}, {nil, nil}},
+		},
+		{
+			name:         "regexp_extract null pattern",
+			query:        `SELECT REGEXP_EXTRACT('abc', NULL)`,
+			expectedRows: [][]interface{}{{nil}},
 		},
 		{
 			name: "regexp_extract with capture",
@@ -3272,8 +3601,12 @@ WITH example AS
    SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 2 UNION ALL
    SELECT 'Hello Helloo and Hellooo', 'H?ello+', 3, 3 UNION ALL
    SELECT 'Hello Helloo and Hellooo', 'H?ello+', 20, 1 UNION ALL
-   SELECT 'cats&dogs&rabbits' ,'\\w+&', 1, 2 UNION ALL
-   SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3
+   SELECT 'cats&dogs&rabbits', '\\w+&', 1, 2 UNION ALL
+   SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3 UNION ALL
+   SELECT NULL,'\\w+&', 1, 2 UNION ALL
+   SELECT 'cats&dogs&rabbits', NULL, 1, 2 UNION ALL
+   SELECT 'cats&dogs&rabbits', '\\w+&', NULL, 2 UNION ALL
+   SELECT 'cats&dogs&rabbits', '\\w+&', 1, NULL
 ) SELECT value, regex, position, occurrence, REGEXP_EXTRACT(value, regex, position, occurrence) FROM example`,
 			expectedRows: [][]interface{}{
 				{"Hello Helloo and Hellooo", "H?ello+", int64(1), int64(1), "Hello"},
@@ -3287,6 +3620,10 @@ WITH example AS
 				{"Hello Helloo and Hellooo", "H?ello+", int64(20), int64(1), nil},
 				{"cats&dogs&rabbits", `\w+&`, int64(1), int64(2), "dogs&"},
 				{"cats&dogs&rabbits", `\w+&`, int64(2), int64(3), nil},
+				{nil, `\w+&`, int64(1), int64(2), nil},
+				{"cats&dogs&rabbits", nil, int64(1), int64(2), nil},
+				{"cats&dogs&rabbits", `\w+&`, nil, int64(2), nil},
+				{"cats&dogs&rabbits", `\w+&`, int64(1), nil, nil},
 			},
 		},
 		{
@@ -3295,19 +3632,28 @@ WITH example AS
 			expectedRows: [][]interface{}{{[]interface{}{"function(x)", "function(y)"}}},
 		},
 		{
+			name:         "regexp_extract_all null",
+			query:        "SELECT REGEXP_EXTRACT_ALL(NULL, '`(.+?)`'), REGEXP_EXTRACT_ALL('abc123', NULL)",
+			expectedRows: [][]interface{}{{nil, nil}},
+		},
+		{
 			name: "regexp_instr",
 			query: `
 WITH example AS (
   SELECT 'ab@gmail.com' AS source_value, '@[^.]*' AS regexp UNION ALL
   SELECT 'ab@mail.com', '@[^.]*' UNION ALL
   SELECT 'abc@gmail.com', '@[^.]*' UNION ALL
-  SELECT 'abc.com', '@[^.]*'
+  SELECT 'abc.com', '@[^.]*' UNION ALL
+  SELECT NULL, '@[^.]*' UNION ALL
+  SELECT 'abc.com', NULL
 ) SELECT source_value, regexp, REGEXP_INSTR(source_value, regexp) FROM example`,
 			expectedRows: [][]interface{}{
 				{"ab@gmail.com", "@[^.]*", int64(3)},
 				{"ab@mail.com", "@[^.]*", int64(3)},
 				{"abc@gmail.com", "@[^.]*", int64(4)},
 				{"abc.com", "@[^.]*", int64(0)},
+				{nil, "@[^.]*", nil},
+				{"abc.com", nil, nil},
 			},
 		},
 		{
@@ -3317,13 +3663,15 @@ WITH example AS (
   SELECT 'a@gmail.com b@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position UNION ALL
   SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 2 UNION ALL
   SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 3 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', 4 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com', '@[^.]*', NULL
 ) SELECT source_value, regexp, position, REGEXP_INSTR(source_value, regexp, position) FROM example`,
 			expectedRows: [][]interface{}{
 				{"a@gmail.com b@gmail.com", "@[^.]*", int64(1), int64(2)},
 				{"a@gmail.com b@gmail.com", "@[^.]*", int64(2), int64(2)},
 				{"a@gmail.com b@gmail.com", "@[^.]*", int64(3), int64(14)},
 				{"a@gmail.com b@gmail.com", "@[^.]*", int64(4), int64(14)},
+				{"a@gmail.com b@gmail.com", "@[^.]*", nil, nil},
 			},
 		},
 		{
@@ -3332,12 +3680,14 @@ WITH example AS (
 WITH example AS (
   SELECT 'a@gmail.com b@gmail.com c@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence UNION ALL
   SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 2 UNION ALL
-  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, 3 UNION ALL
+  SELECT 'a@gmail.com b@gmail.com c@gmail.com', '@[^.]*', 1, NULL
 ) SELECT source_value, regexp, position, occurrence, REGEXP_INSTR(source_value, regexp, position, occurrence) FROM example`,
 			expectedRows: [][]interface{}{
 				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(1), int64(2)},
 				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(2), int64(14)},
 				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), int64(3), int64(26)},
+				{"a@gmail.com b@gmail.com c@gmail.com", "@[^.]*", int64(1), nil, nil},
 			},
 		},
 		{
@@ -3345,11 +3695,13 @@ WITH example AS (
 			query: `
 WITH example AS (
   SELECT 'a@gmail.com' AS source_value, '@[^.]*' AS regexp, 1 AS position, 1 AS occurrence, 0 AS o_position UNION ALL
-  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, 1 UNION ALL
+  SELECT 'a@gmail.com', '@[^.]*', 1, 1, NULL
 ) SELECT source_value, regexp, position, occurrence, o_position, REGEXP_INSTR(source_value, regexp, position, occurrence, o_position) FROM example`,
 			expectedRows: [][]interface{}{
 				{"a@gmail.com", "@[^.]*", int64(1), int64(1), int64(0), int64(2)},
 				{"a@gmail.com", "@[^.]*", int64(1), int64(1), int64(1), int64(8)},
+				{"a@gmail.com", "@[^.]*", int64(1), int64(1), nil, nil},
 			},
 		},
 		{
@@ -3364,14 +3716,36 @@ WITH markdown AS (
 				{"<h1>Another heading</h1>"},
 			},
 		},
+		// Regression tests for goccy/go-zetasqlite#178
+		{
+			name:  "regexp_replace quoted",
+			query: `SELECT REGEXP_REPLACE('"quote123"', r'["\d]', '')`,
+			expectedRows: [][]interface{}{
+				{"quote"},
+			},
+		},
+
+		{
+			name:         "regexp_replace null",
+			query:        `SELECT REGEXP_REPLACE(NULL, r'\:\d\d\d', ''), REGEXP_REPLACE('abc', NULL, ''), REGEXP_REPLACE('abc', r'\:\d\d\d', NULL)`,
+			expectedRows: [][]interface{}{{nil, nil, nil}},
+		},
 		{
 			name: "regexp_substr",
 			query: `
 WITH example AS (
-  SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS occurrence
+  SELECT 'Hello World Helloo' AS value, 'H?ello+' AS regex, 1 AS position, 1 AS occurrence UNION ALL
+  SELECT NULL, 'H?ello+', 1, 1 UNION ALL
+  SELECT 'Hello World Helloo', NULL, 1, 1 UNION ALL
+  SELECT 'Hello World Helloo', 'H?ello+', NULL, 1 UNION ALL
+  SELECT 'Hello World Helloo', 'H?ello+', 1, NULL
 ) SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex, position, occurrence) FROM example`,
 			expectedRows: [][]interface{}{
 				{"Hello World Helloo", "H?ello+", int64(1), int64(1), "Hello"},
+				{nil, "H?ello+", int64(1), int64(1), nil},
+				{"Hello World Helloo", nil, int64(1), int64(1), nil},
+				{"Hello World Helloo", "H?ello+", nil, int64(1), nil},
+				{"Hello World Helloo", "H?ello+", int64(1), nil, nil},
 			},
 		},
 		{
@@ -3389,6 +3763,11 @@ WITH desserts AS (
 			},
 		},
 		{
+			name:         "replace null",
+			query:        `SELECT REPLACE(NULL, 'foo', ''), REPLACE('abc', NULL, ''), REPLACE('abc', 'foo', NULL)`,
+			expectedRows: [][]interface{}{{nil, nil, nil}},
+		},
+		{
 			name:  "repeat",
 			query: `SELECT t, n, REPEAT(t, n) FROM UNNEST([STRUCT('abc' AS t, 3 AS n),('例子', 2),('abc', null),(null, 3)])`,
 			expectedRows: [][]interface{}{
@@ -3403,11 +3782,13 @@ WITH desserts AS (
 			query: `
 WITH example AS (
   SELECT 'foo' AS sample_string, b'bar' AS sample_bytes UNION ALL
-  SELECT 'абвгд' AS sample_string, b'123' AS sample_bytes
+  SELECT 'абвгд', b'123' UNION ALL
+  SELECT CAST(NULL AS STRING), CAST(NULL AS BYTES)
 ) SELECT sample_string, REVERSE(sample_string), sample_bytes, REVERSE(sample_bytes) FROM example`,
 			expectedRows: [][]interface{}{
 				{"foo", "oof", "YmFy", "cmFi"},
 				{"абвгд", "дгвба", "MTIz", "MzIx"},
+				{nil, nil, nil, nil},
 			},
 		},
 		{
@@ -3416,12 +3797,14 @@ WITH example AS (
 WITH examples AS (
   SELECT 'apple' as example UNION ALL
   SELECT 'banana' as example UNION ALL
-  SELECT 'абвгд' as example
+  SELECT 'абвгд' as example UNION ALL
+  SELECT NULL as example
 ) SELECT example, RIGHT(example, 3) FROM examples`,
 			expectedRows: [][]interface{}{
 				{"apple", "ple"},
 				{"banana", "ana"},
 				{"абвгд", "вгд"},
+				{nil, nil},
 			},
 		},
 		{
@@ -3440,11 +3823,13 @@ WITH examples AS (
 		},
 		{
 			name:  "rpad string",
-			query: `SELECT t, len, FORMAT('%T', RPAD(t, len)) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4)])`,
+			query: `SELECT t, len, FORMAT('%T', RPAD(t, len)) FROM UNNEST([STRUCT('abc' AS t, 5 AS len),('abc', 2),('例子', 4),(NULL, 2),('abc', NULL)])`,
 			expectedRows: [][]interface{}{
 				{"abc", int64(5), `"abc  "`},
 				{"abc", int64(2), `"ab"`},
 				{"例子", int64(4), `"例子  "`},
+				{nil, int64(2), nil},
+				{"abc", nil, nil},
 			},
 		},
 		{
@@ -3452,10 +3837,12 @@ WITH examples AS (
 			query: `SELECT t, len, pattern, FORMAT('%T', RPAD(t, len, pattern)) FROM UNNEST([
   STRUCT('abc' AS t, 8 AS len, 'def' AS pattern),
   ('abc', 5, '-'),
+  ('abc', 5, NULL),
   ('例子', 5, '中文')])`,
 			expectedRows: [][]interface{}{
 				{"abc", int64(8), "def", `"abcdefde"`},
 				{"abc", int64(5), "-", `"abc--"`},
+				{"abc", int64(5), nil, nil},
 				{"例子", int64(5), "中文", `"例子中文中"`},
 			},
 		},
@@ -3489,12 +3876,14 @@ WITH examples AS (
 WITH items AS (
   SELECT '***apple***' as item UNION ALL
   SELECT '***banana***' as item UNION ALL
-  SELECT '***orange***' as item
+  SELECT '***orange***' as item UNION ALL
+  SELECT NULL as item
 ) SELECT RTRIM(item, '*') FROM items`,
 			expectedRows: [][]interface{}{
 				{"***apple"},
 				{"***banana"},
 				{"***orange"},
+				{nil},
 			},
 		},
 		{
@@ -3515,8 +3904,8 @@ WITH items AS (
 		},
 		{
 			name:         "safe_convert_bytes_to_string",
-			query:        `SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2')`,
-			expectedRows: [][]interface{}{{"�"}},
+			query:        `SELECT SAFE_CONVERT_BYTES_TO_STRING(b'\xc2'), SAFE_CONVERT_BYTES_TO_STRING(NULL)`,
+			expectedRows: [][]interface{}{{"�", nil}},
 		},
 		{
 			name: "soundex",
@@ -3548,28 +3937,34 @@ WITH example AS (
 WITH letters AS (
   SELECT '' as letter_group UNION ALL
   SELECT 'a' as letter_group UNION ALL
-  SELECT 'b c d' as letter_group
+  SELECT 'b c d' as letter_group UNION ALL
+  SELECT NULL as letter_group
 ) SELECT SPLIT(letter_group, ' ') FROM letters`,
 			expectedRows: [][]interface{}{
 				{[]interface{}{""}},
 				{[]interface{}{"a"}},
 				{[]interface{}{"b", "c", "d"}},
+				{[]interface{}{}},
 			},
+		}, {
+			name:         "split null delimiter",
+			query:        `SELECT SPLIT('abc', NULL), SPLIT(b'\xab\xcd\xef\xaa\xbb', NULL)`,
+			expectedRows: [][]interface{}{{[]interface{}{}, []interface{}{}}},
 		},
 		{
 			name:         "starts_with",
-			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b')`,
-			expectedRows: [][]interface{}{{false, true, true}},
+			query:        `SELECT STARTS_WITH('foo', 'b'), STARTS_WITH('bar', 'b'), STARTS_WITH('baz', 'b'), STARTS_WITH(NULL, 'a'), STARTS_WITH('a', NULL)`,
+			expectedRows: [][]interface{}{{false, true, true, nil, nil}},
 		},
 		{
 			name:         "strpos",
-			query:        `SELECT STRPOS('foo@example.com', '@'), STRPOS('foobar@example.com', '@'), STRPOS('foobarbaz@example.com', '@'), STRPOS('quxexample.com', '@')`,
-			expectedRows: [][]interface{}{{int64(4), int64(7), int64(10), int64(0)}},
+			query:        `SELECT STRPOS('foo@example.com', '@'), STRPOS('foobar@example.com', '@'), STRPOS('foobarbaz@example.com', '@'), STRPOS('quxexample.com', '@'), STRPOS(NULL, 'a'), STRPOS('a', NULL)`,
+			expectedRows: [][]interface{}{{int64(4), int64(7), int64(10), int64(0), nil, nil}},
 		},
 		{
 			name:         "substr",
-			query:        `SELECT SUBSTR('apple', 2), SUBSTR('apple', 2, 2), SUBSTR('apple', -2), SUBSTR('apple', 1, 123), SUBSTR('apple', 123)`,
-			expectedRows: [][]interface{}{{"pple", "pp", "le", "apple", ""}},
+			query:        `SELECT SUBSTR('apple', 2), SUBSTR('apple', 2, 2), SUBSTR('apple', -2), SUBSTR('apple', 1, 123), SUBSTR('apple', 123), SUBSTR(NULL, 1, 1), SUBSTR('foo', NULL, 1), SUBSTR('foo', 1, NULL)`,
+			expectedRows: [][]interface{}{{"pple", "pp", "le", "apple", "", nil, nil, nil}},
 		},
 		{
 			name:         "substring",
@@ -3578,23 +3973,24 @@ WITH letters AS (
 		},
 		{
 			name:         "to_base32",
-			query:        `SELECT TO_BASE32(b'abcde\xFF')`,
-			expectedRows: [][]interface{}{{"MFRGGZDF74======"}},
+			query:        `SELECT TO_BASE32(b'abcde\xFF'), TO_BASE32(NULL)`,
+			expectedRows: [][]interface{}{{"MFRGGZDF74======", nil}},
 		},
 		{
 			name:         "to_base64",
-			query:        `SELECT TO_BASE64(b'\377\340')`,
-			expectedRows: [][]interface{}{{"/+A="}},
+			query:        `SELECT TO_BASE64(b'\377\340'), TO_BASE64(NULL)`,
+			expectedRows: [][]interface{}{{"/+A=", nil}},
 		},
 		{
 			name:  "to_code_points with string value",
-			query: `SELECT word, TO_CODE_POINTS(word) FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama']) AS word`,
+			query: `SELECT word, TO_CODE_POINTS(word) FROM UNNEST(['foo', 'bar', 'baz', 'giraffe', 'llama', NULL]) AS word`,
 			expectedRows: [][]interface{}{
 				{"foo", []interface{}{int64(102), int64(111), int64(111)}},
 				{"bar", []interface{}{int64(98), int64(97), int64(114)}},
 				{"baz", []interface{}{int64(98), int64(97), int64(122)}},
 				{"giraffe", []interface{}{int64(103), int64(105), int64(114), int64(97), int64(102), int64(102), int64(101)}},
 				{"llama", []interface{}{int64(108), int64(108), int64(97), int64(109), int64(97)}},
+				{nil, []interface{}{}},
 			},
 		},
 		{
@@ -3614,25 +4010,31 @@ WITH letters AS (
 		},
 		{
 			name:         "to_hex",
-			query:        `SELECT TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF'), TO_HEX(b'foobar')`,
-			expectedRows: [][]interface{}{{"00010203aaeeefff", "666f6f626172"}},
+			query:        `SELECT TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF'), TO_HEX(b'foobar'), TO_HEX(NULL)`,
+			expectedRows: [][]interface{}{{"00010203aaeeefff", "666f6f626172", nil}},
 		},
 		{
 			name: "translate",
 			query: `
 WITH example AS (
   SELECT 'This is a cookie' AS expression, 'sco' AS source_characters, 'zku' AS target_characters UNION ALL
-  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as target_characters
+  SELECT 'A coaster' AS expression, 'co' AS source_characters, 'k' as target_characters UNION ALL
+  SELECT NULL, 'co', 'k' UNION ALL
+  SELECT 'A coaster', NULL, 'k' UNION ALL
+  SELECT 'A coaster', 'co', NULL
 ) SELECT expression, source_characters, target_characters, TRANSLATE(expression, source_characters, target_characters) FROM example`,
 			expectedRows: [][]interface{}{
 				{"This is a cookie", "sco", "zku", "Thiz iz a kuukie"},
 				{"A coaster", "co", "k", "A kaster"},
+				{nil, "co", "k", nil},
+				{"A coaster", nil, "k", nil},
+				{"A coaster", "co", nil, nil},
 			},
 		},
 		{
 			name:         "trim",
-			query:        `SELECT TRIM('   apple   '), TRIM('***apple***', '*')`,
-			expectedRows: [][]interface{}{{"apple", "apple"}},
+			query:        `SELECT TRIM('   apple   '), TRIM('***apple***', '*'), TRIM(NULL), TRIM('abc', NULL)`,
+			expectedRows: [][]interface{}{{"apple", "apple", nil, nil}},
 		},
 		{
 			name:         "unicode",
@@ -3641,8 +4043,25 @@ WITH example AS (
 		},
 		{
 			name:         "upper",
-			query:        `SELECT UPPER('foo'), UPPER('bar'), UPPER('baz')`,
-			expectedRows: [][]interface{}{{"FOO", "BAR", "BAZ"}},
+			query:        `SELECT UPPER('foo'), UPPER('bar'), UPPER('baz'), UPPER(NULL)`,
+			expectedRows: [][]interface{}{{"FOO", "BAR", "BAZ", nil}},
+		},
+
+		// Regression tests for goccy/go-zetasqlite#177
+		{
+			name:         "least greatest between string",
+			query:        `SELECT LEAST("a", "b"), GREATEST("a", "b"), "b" BETWEEN "a" AND "c";`,
+			expectedRows: [][]interface{}{{"a", "b", true}},
+		},
+		{
+			name:         "least greatest between integer",
+			query:        `SELECT LEAST(1, 2), GREATEST(1, 2), 2 BETWEEN 1 AND 3;`,
+			expectedRows: [][]interface{}{{int64(1), int64(2), true}},
+		},
+		{
+			name:         "least greatest date",
+			query:        `SELECT LEAST(DATE '2024-02-27', DATE '2024-02-28'), GREATEST(DATE '2024-02-27', DATE '2024-02-28');`,
+			expectedRows: [][]interface{}{{"2024-02-27", "2024-02-28"}},
 		},
 
 		// date functions
@@ -3675,7 +4094,8 @@ WITH example AS (
 			query: `SELECT PARSE_DATE("%m", "03")`,
 			expectedRows: [][]interface{}{
 				{"1970-03-01"},
-			}},
+			},
+		},
 		{
 			name: "extract date",
 			query: `
@@ -3750,6 +4170,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		},
 
 		{
+			name:         "cast date as string",
+			query:        `SELECT CAST(DATE("2022-08-01 06:47:51.123456-07:00") AS STRING)`,
+			expectedRows: [][]interface{}{{"2022-08-01"}},
+		},
+
+		{
 			name:         "last_day",
 			query:        `SELECT LAST_DAY(DATE '2008-11-25') AS last_day`,
 			expectedRows: [][]interface{}{{"2008-11-30"}},
@@ -3778,22 +4204,22 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date exceeding month maximum",
 			query:       `SELECT PARSE_DATE("%m", "14")`,
-			expectedErr: "could not parse month: part [14] is greater than maximum value [12]",
+			expectedErr: "error parsing [14] with format [%m]: could not parse month: part [14] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse date beneath month minimum",
 			query:       `SELECT PARSE_DATE("%m", "0")`,
-			expectedErr: "could not parse month: part [0] is less than minimum value [1]",
+			expectedErr: "error parsing [0] with format [%m]: could not parse month: part [0] is less than minimum value [1]",
 		},
 		{
 			name:        "parse date exceeding day maximum",
 			query:       `SELECT PARSE_DATE("%d", "32")`,
-			expectedErr: "could not parse day number: part [32] is greater than maximum value [31]",
+			expectedErr: "error parsing [32] with format [%d]: could not parse day number: part [32] is greater than maximum value [31]",
 		},
 		{
 			name:        "parse date beneath day minimum",
 			query:       `SELECT PARSE_DATE("%d", "0")`,
-			expectedErr: "could not parse day number: part [0] is less than minimum value [1]",
+			expectedErr: "error parsing [0] with format [%d]: could not parse day number: part [0] is less than minimum value [1]",
 		},
 		{
 			name:         "parse date with single-digit month %m",
@@ -3816,19 +4242,29 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008-12-25"}},
 		},
 		{
+			name:         "parse date with %e",
+			query:        `SELECT PARSE_DATE('%e', ' 3'), PARSE_DATE('%e', '20');`,
+			expectedRows: [][]interface{}{{"1970-01-03", "1970-01-20"}},
+		},
+		{
+			name:         "parse date with %e - leading space allows multiple digits",
+			query:        `SELECT PARSE_DATE('%e', ' 20');`,
+			expectedRows: [][]interface{}{{"1970-01-20"}},
+		},
+		{
 			name:        "parse date with %F no day field",
 			query:       `SELECT PARSE_DATE("%F", "2008-01") AS parsed`,
-			expectedErr: "could not parse year-month-day format: [-] not found after [2008-01]",
+			expectedErr: "error parsing [2008-01] with format [%F]: could not parse year-month-day format: [-] not found after [2008-01]",
 		},
 		{
 			name:        "parse date with %F no month field",
 			query:       `SELECT PARSE_DATE("%F", "2008") AS parsed`,
-			expectedErr: "could not parse year-month-day format: [-] not found after [2008]",
+			expectedErr: "error parsing [2008] with format [%F]: could not parse year-month-day format: [-] not found after [2008]",
 		},
 		{
 			name:        "parse date with %F separator but no month",
 			query:       `SELECT PARSE_DATE("%F", "2008-") AS parsed`,
-			expectedErr: "could not parse year-month-day format: month number: empty text",
+			expectedErr: "error parsing [2008-] with format [%F]: could not parse year-month-day format: could not parse month: empty text after [2008-]",
 		},
 		{
 			name:         "parse date with %F",
@@ -3843,7 +4279,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATE("%Y %A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: "could not parse year: leading character is not a digit",
+			expectedErr: "error parsing [Thursday Dec 25 2008] with format [%Y %A %b %e]: could not parse year: leading character is not a digit",
 		},
 		{
 			name:         "safe parse date ( the year element is in different locations )",
@@ -3853,7 +4289,7 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse date ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATE("%A %b %e", "Thursday Dec 25 2008")`,
-			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+			expectedErr: `error parsing [Thursday Dec 25 2008] with format [%A %b %e]: found unparsed text [ 2008]`,
 		},
 		{
 			name:         "unix_date",
@@ -3966,6 +4402,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008"}},
 		},
 		{
+			name:         "cast datetime as string",
+			query:        `SELECT CAST(DATETIME(TIMESTAMP("2022-08-01 06:47:51.123456-07:00")) AS STRING)`,
+			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456"}},
+		},
+		{
+			name:         "cast date as datetime",
+			query:        `SELECT CAST(DATE("1987-01-25") AS DATETIME)`,
+			expectedRows: [][]interface{}{{"1987-01-25T00:00:00"}},
+		},
+		{
 			name:         "parse datetime",
 			query:        `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{"2008-12-25T07:30:00"}},
@@ -3978,12 +4424,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse datetime ( the year element is in different locations )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
+			expectedErr: "error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %Y %I:%M:%S]: could not parse hour number: leading character is not a digit",
 		},
 		{
 			name:        "parse datetime ( one of the year elements is missing )",
 			query:       `SELECT PARSE_DATETIME("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+			expectedErr: `error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %I:%M:%S]: found unparsed text [ 2008]`,
 		},
 		{
 			name:         "parse datetime %F respectfully consuming digits",
@@ -4039,13 +4485,18 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse_time with %R without minute element",
 			query:       `SELECT PARSE_TIME("%R", "14")`,
-			expectedErr: "could not parse hour:minute format: character after hour [14] is not a [:]",
+			expectedErr: "error parsing [14] with format [%R]: could not parse hour:minute format: [:] not found after [14]",
 		},
 
 		{
 			name:        "parse_time with %R without separator",
 			query:       `SELECT PARSE_TIME("%R", "14")`,
-			expectedErr: "could not parse hour:minute format: character after hour [14] is not a [:]",
+			expectedErr: "error parsing [14] with format [%R]: could not parse hour:minute format: [:] not found after [14]",
+		},
+		{
+			name:         "format_time with %k %l",
+			query:        `SELECT FORMAT_TIME("%k", TIME "15:30:00"), FORMAT_TIME("%l", TIME "15:30:00");`,
+			expectedRows: [][]interface{}{{"15", " 3"}},
 		},
 		{
 			name:         "format_time with %R",
@@ -4063,6 +4514,21 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"12.345678"}},
 		},
 		{
+			name:         "cast time as string",
+			query:        `SELECT CAST(TIME("2022-08-01 06:47:51.123456-04:00") AS STRING)`,
+			expectedRows: [][]interface{}{{"10:47:51.123456"}},
+		},
+		{
+			name:         "cast time with timezone as string",
+			query:        `SELECT CAST(TIME("2022-08-01 06:47:51.123456-04:00", "America/Los_Angeles") AS STRING)`,
+			expectedRows: [][]interface{}{{"03:47:51.123456"}},
+		},
+		{
+			name:         "cast time from datetime as string",
+			query:        `SELECT CAST(TIME(DATETIME(TIMESTAMP("2022-08-01 06:47:51.123456-04:00"))) AS STRING)`,
+			expectedRows: [][]interface{}{{"10:47:51.123456"}},
+		},
+		{
 			name:         "parse time with %I:%M:%S",
 			query:        `SELECT PARSE_TIME("%I:%M:%S", "07:30:00")`,
 			expectedRows: [][]interface{}{{"07:30:00"}},
@@ -4075,12 +4541,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse time ( the seconds element is in different locations )",
 			query:       `SELECT PARSE_TIME("%S:%I:%M", "07:30:00")`,
-			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
+			expectedErr: "error parsing [07:30:00] with format [%S:%I:%M]: could not parse hour number: part [30] is greater than maximum value [12]",
 		},
 		{
 			name:        "parse time ( one of the seconds elements is missing )",
 			query:       `SELECT PARSE_TIME("%I:%M", "07:30:00")`,
-			expectedErr: `found unused format element [':' '0' '0']`,
+			expectedErr: `error parsing [07:30:00] with format [%I:%M]: found unparsed text [:00]`,
 		},
 
 		// timestamp functions
@@ -4215,6 +4681,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"+00:00"}},
 		},
 		{
+			name:         "cast timestamp as string",
+			query:        `SELECT CAST(TIMESTAMP("2022-08-01 06:47:51.123456-07:00") AS STRING);`,
+			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456+00"}},
+		},
+		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
@@ -4223,6 +4694,35 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "parse timestamp with %c",
 			query:        `SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
+		},
+		{
+			name:         "parse timestamp with %k",
+			query:        `SELECT PARSE_TIMESTAMP("%k", " 9");`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("1970-01-01 09:00:00+00")}},
+		},
+		{
+			name:         "parse timestamp with %k",
+			query:        `SELECT PARSE_TIMESTAMP("%k", " 9");`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("1970-01-01 09:00:00+00")}},
+		},
+		{name: "parse_timestamp with %D",
+			query:        `SELECT PARSE_TIMESTAMP("%D", "02/02/99");`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("1999-02-02 00:00:00+00")}},
+		},
+		{
+			name:  "parse timestamp with %p",
+			query: `SELECT PARSE_TIMESTAMP("%I%p", "9am"), PARSE_TIMESTAMP("%I%p", "12am"), PARSE_TIMESTAMP("%l%p", " 12pm"), PARSE_TIMESTAMP("%I%p", "10PM");`,
+			expectedRows: [][]interface{}{{
+				createTimestampFormatFromString("1970-01-01 09:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 00:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 12:00:00+00"),
+				createTimestampFormatFromString("1970-01-01 22:00:00+00"),
+			}},
+		},
+		{
+			name:         "parse timestamp with extra whitespace ",
+			query:        `SELECT PARSE_TIMESTAMP("%m/%d/%Y  %H:%M:%S", "7/2/2020    09:24:28")`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString("2020-07-02 9:24:28+00")}},
 		},
 		{
 			name:         "parse timestamp with %Y-%m-%d %H:%M:%S%Ez",
@@ -4237,12 +4737,12 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 		{
 			name:        "parse timestamp ( the year element is in different locations )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %Y %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: "could not parse hour number: part [30] is greater than maximum value [12]",
+			expectedErr: "error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %Y %I:%M:%S]: could not parse hour number: leading character is not a digit",
 		},
 		{
 			name:        "parse timestamp ( one of the year elements is missing )",
 			query:       `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S", "Thu Dec 25 07:30:00 2008")`,
-			expectedErr: `found unused format element [' ' '2' '0' '0' '8']`,
+			expectedErr: `error parsing [Thu Dec 25 07:30:00 2008] with format [%a %b %e %I:%M:%S]: found unparsed text [ 2008]`,
 		},
 		{
 			name:         "timestamp_seconds",

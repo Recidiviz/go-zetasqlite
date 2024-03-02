@@ -151,7 +151,9 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 		return boolValueFromLiteral(v.SQLLiteral(0))
 	case types.FLOAT, types.DOUBLE:
 		return floatValueFromLiteral(v.SQLLiteral(0))
-	case types.STRING, types.ENUM:
+	case types.STRING:
+		return StringValue(v.StringValue()), nil
+	case types.ENUM:
 		return stringValueFromLiteral(v.SQLLiteral(0))
 	case types.BYTES:
 		return bytesValueFromLiteral(v.SQLLiteral(0))
@@ -206,9 +208,6 @@ func floatValueFromLiteral(lit string) (FloatValue, error) {
 }
 
 func stringValueFromLiteral(lit string) (StringValue, error) {
-	if strings.HasPrefix(lit, `'`) {
-		return StringValue(strings.Trim(lit, `'`)), nil
-	}
 	v, err := strconv.Unquote(lit)
 	if err != nil {
 		return "", fmt.Errorf("failed to unquote from string literal: %w", err)
@@ -377,7 +376,25 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return nil, err
 		}
 		return FloatValue(f64), nil
-	case types.STRING, types.ENUM:
+	case types.STRING:
+		switch v.(type) {
+		// If this is coming from a date/time, the format is slightly different
+		// than when just writing the value out as a string.
+		case DateValue:
+			return convertTimeValueToStringWithFormat(v, "2006-01-02")
+		case DatetimeValue:
+			return convertTimeValueToStringWithFormat(v, "2006-01-02 15:04:05.999999")
+		case TimeValue:
+			return convertTimeValueToStringWithFormat(v, "15:04:05.999999")
+		case TimestampValue:
+			return convertTimeValueToStringWithFormat(v, "2006-01-02 15:04:05.999999-07")
+		}
+		s, err := v.ToString()
+		if err != nil {
+			return nil, err
+		}
+		return StringValue(s), nil
+	case types.ENUM:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
@@ -504,6 +521,14 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		return v, nil
 	}
 	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
+}
+
+func convertTimeValueToStringWithFormat(v Value, format string) (Value, error) {
+	valueTime, err := v.ToTime()
+	if err != nil {
+		return nil, err
+	}
+	return StringValue(valueTime.UTC().Format(format)), nil
 }
 
 func ValueFromGoValue(v interface{}) (Value, error) {
