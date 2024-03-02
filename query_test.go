@@ -180,23 +180,23 @@ func TestQuery(t *testing.T) {
 		},
 		{
 			name:         "between operator",
-			query:        `SELECT DATE "2022-09-10" BETWEEN "2022-09-01" and "2022-10-01"`,
-			expectedRows: [][]interface{}{{true}},
+			query:        `SELECT DATE "2022-09-10" BETWEEN "2022-09-01" and "2022-10-01", (SELECT NULL) BETWEEN 0 AND 2`,
+			expectedRows: [][]interface{}{{true, nil}},
 		},
 		{
 			name:         "not between operator",
-			query:        `SELECT DATE "2020-09-10" NOT BETWEEN "2022-09-01" and "2022-10-01"`,
-			expectedRows: [][]interface{}{{true}},
+			query:        `SELECT DATE "2020-09-10" NOT BETWEEN "2022-09-01" and "2022-10-01", (SELECT NULL) BETWEEN 0 AND 2`,
+			expectedRows: [][]interface{}{{true, nil}},
 		},
 		{
 			name:         "in operator",
-			query:        `SELECT 3 IN (1, 2, 3, 4)`,
-			expectedRows: [][]interface{}{{true}},
+			query:        `SELECT 3 IN (1, 2, 3, 4), (SELECT NULL) IN (3)`,
+			expectedRows: [][]interface{}{{true, nil}},
 		},
 		{
 			name:         "not in operator",
-			query:        `SELECT 5 NOT IN (1, 2, 3, 4)`,
-			expectedRows: [][]interface{}{{true}},
+			query:        `SELECT 5 NOT IN (1, 2, 3, 4), (SELECT NULL) IN (3)`,
+			expectedRows: [][]interface{}{{true, nil}},
 		},
 		{
 			name:         "is null operator",
