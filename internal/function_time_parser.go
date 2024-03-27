@@ -746,7 +746,23 @@ func hour12Formatter(t *time.Time) ([]rune, error) {
 }
 
 func dayOfYearParser(text []rune, t *time.Time) (int, error) {
-	return 0, fmt.Errorf("unimplemented day of year matcher")
+	progress, d, err := parseDigitRespectingOptionalPlaces(text, 0, 366)
+	dayOfYear := int(d) - 1
+	if err != nil {
+		return 0, fmt.Errorf("could not parse day of year number: %s", err)
+	}
+	stubDate := time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, dayOfYear)
+	*t = time.Date(
+		int(t.Year()),
+		stubDate.Month(),
+		int(stubDate.Day()),
+		int(t.Hour()),
+		int(t.Minute()),
+		int(t.Second()),
+		int(t.Nanosecond()),
+		t.Location(),
+	)
+	return progress, nil
 }
 
 func dayOfYearFormatter(t *time.Time) ([]rune, error) {

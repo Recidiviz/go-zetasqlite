@@ -4109,6 +4109,34 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "base date is epoch julian",
+			query: `SELECT PARSE_DATE("%j", "001")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-01"},
+			},
+		},
+		{
+			name:  "base date is epoch julian different day",
+			query: `SELECT PARSE_DATE("%j", "002")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-02"},
+			},
+		},
+		{
+			name:  "parse date with two digit year and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "70002")`,
+			expectedRows: [][]interface{}{
+				{"1970-01-02"},
+			},
+		},
+		{
+			name:  "parse date with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "24120")`,
+			expectedRows: [][]interface{}{
+				{"2024-04-30"},
+			},
+		},
+		{
 			name: "extract date",
 			query: `
 SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH FROM date),
