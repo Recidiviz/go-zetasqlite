@@ -4130,10 +4130,24 @@ WITH example AS (
 			},
 		},
 		{
+			name:  "parse date with two digit year before 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "95033")`,
+			expectedRows: [][]interface{}{
+				{"1995-02-02"},
+			},
+		},
+		{
 			name:  "parse date with two digit year after 2000 and julian day",
+			query: `SELECT PARSE_DATE("%y%j", "22120")`,
+			expectedRows: [][]interface{}{
+				{"2022-04-30"},
+			},
+		},
+		{
+			name:  "parse date with two digit year after 2000 and julian day leap year",
 			query: `SELECT PARSE_DATE("%y%j", "24120")`,
 			expectedRows: [][]interface{}{
-				{"2024-04-30"},
+				{"2024-04-29"},
 			},
 		},
 		{
