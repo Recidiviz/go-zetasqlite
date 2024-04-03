@@ -833,6 +833,18 @@ SELECT LOGICAL_OR(x) AS logical_or FROM toks`,
 			expectedRows: [][]interface{}{{false}},
 		},
 		{
+			name: "logical_and with window",
+			query: `WITH toks AS ( SELECT true AS x UNION ALL SELECT false UNION ALL SELECT true)
+							SELECT LOGICAL_AND(x) OVER (ORDER BY x) FROM toks`,
+			expectedRows: [][]interface{}{{false}, {false}, {false}},
+		},
+		{
+			name: "logical_or with window",
+			query: `WITH toks AS ( SELECT true AS x UNION ALL SELECT false UNION ALL SELECT true)
+							SELECT LOGICAL_OR(x) OVER (ORDER BY x) FROM toks`,
+			expectedRows: [][]interface{}{{true}, {true}, {true}},
+		},
+		{
 			name:         "max from int group",
 			query:        `SELECT MAX(x) AS max FROM UNNEST([8, 37, 4, 55]) AS x`,
 			expectedRows: [][]interface{}{{int64(55)}},
