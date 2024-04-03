@@ -449,7 +449,7 @@ func (f *WINDOW_LOGICAL_OR) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 		}
 	}
 
-	return BoolValue(true), nil
+	return BoolValue(false), nil
 }
 
 type WINDOW_PERCENTILE_CONT struct {
