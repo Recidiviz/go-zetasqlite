@@ -421,7 +421,7 @@ func (f *WINDOW_LOGICAL_AND) Done(agg *WindowFuncAggregatedStatus) (Value, error
 			return nil, err
 		}
 
-		if b == false {
+		if !b {
 			return BoolValue(false), nil
 		}
 	}
@@ -444,7 +444,7 @@ func (f *WINDOW_LOGICAL_OR) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 			return nil, err
 		}
 
-		if b == true {
+		if b {
 			return BoolValue(true), nil
 		}
 	}
