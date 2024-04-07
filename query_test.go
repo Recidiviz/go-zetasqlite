@@ -39,6 +39,27 @@ func TestQuery(t *testing.T) {
 		expectedRows [][]interface{}
 		expectedErr  string
 	}{
+		// Regression test for https://github.com/goccy/go-zetasqlite/issues/191
+		{
+			name: "distinct union",
+			query: `WITH toks AS (SELECT true AS x, 1 AS y)
+					SELECT DISTINCT x, x as y FROM toks`,
+			expectedRows: [][]interface{}{{true, true}},
+		},
+		{
+			name: "with scan union all",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT x FROM toks)
+UNION ALL
+(WITH toks2 AS (SELECT 2 AS x) SELECT x FROM toks2)`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
+		},
+		{
+			name: "having with union all",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT COUNT(x) AS total_rows FROM toks WHERE x > 0 HAVING total_rows >= 0)
+UNION ALL
+(WITH toks2 AS (SELECT 2 AS x) SELECT COUNT(x) AS total_rows FROM toks2 WHERE x > 0 HAVING total_rows >= 0)`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(1)}},
+		},
 		// priority 2 operator
 		{
 			name:         "unary plus operator",
@@ -831,6 +852,59 @@ SELECT LOGICAL_AND(x) AS logical_or FROM toks`,
 			query: ` WITH toks AS (SELECT FALSE AS x UNION ALL SELECT FALSE UNION ALL SELECT NULL)
 SELECT LOGICAL_OR(x) AS logical_or FROM toks`,
 			expectedRows: [][]interface{}{{false}},
+		},
+		{name: "logical_and default",
+			query: `SELECT LOGICAL_AND(a) OVER (ORDER BY b), a, b
+FROM (
+  SELECT CAST(a AS BOOL) AS a, b FROM UNNEST([
+      STRUCT(False AS a, 1 AS b),
+      STRUCT(False AS a, 2 AS b),
+      STRUCT(false AS a, 3 AS b),
+      STRUCT(False AS a, 4 AS b)
+  ])
+);`,
+			expectedRows: [][]interface{}{
+				{false, false, int64(1)},
+				{false, false, int64(2)},
+				{false, false, int64(3)},
+				{false, false, int64(4)},
+			}},
+		{name: "logical_and no rows",
+			query:        `SELECT LOGICAL_AND(a) OVER (ORDER BY a) FROM ( SELECT CAST(a AS BOOL) AS a FROM UNNEST([]) a );`,
+			expectedRows: make([][]interface{}, 0),
+		},
+		{
+			name: "logical_and with window",
+			query: `WITH toks AS ( SELECT true AS x UNION ALL SELECT false UNION ALL SELECT true)
+							SELECT LOGICAL_AND(x) OVER (ORDER BY x) FROM toks`,
+			expectedRows: [][]interface{}{{false}, {false}, {false}},
+		},
+
+		{name: "logical_or window default",
+			query: `SELECT LOGICAL_OR(a) OVER (ORDER BY b), a, b
+FROM (
+  SELECT CAST(a AS BOOL) AS a, b FROM UNNEST([
+      STRUCT(False AS a, 1 AS b),
+      STRUCT(False AS a, 2 AS b),
+      STRUCT(True AS a, 3 AS b),
+      STRUCT(False AS a, 4 AS b)
+  ])
+);`,
+			expectedRows: [][]interface{}{
+				{false, false, int64(1)},
+				{false, false, int64(2)},
+				{true, true, int64(3)},
+				{true, false, int64(4)},
+			}},
+		{name: "logical_or window no rows",
+			query:        `SELECT LOGICAL_OR(a) OVER (ORDER BY a) FROM ( SELECT CAST(a AS BOOL) AS a FROM UNNEST([]) a );`,
+			expectedRows: make([][]interface{}, 0),
+		},
+		{
+			name: "logical_or with window",
+			query: `WITH toks AS ( SELECT true AS x UNION ALL SELECT false UNION ALL SELECT true)
+							SELECT LOGICAL_OR(x) OVER (ORDER BY x) FROM toks`,
+			expectedRows: [][]interface{}{{false}, {true}, {true}},
 		},
 		{
 			name:         "max from int group",
@@ -1807,7 +1881,6 @@ FROM UNNEST(['c', NULL, 'b', 'a']) AS x`,
 				{"a", nil, "a", "c"},
 			},
 		},
-
 		{
 			name: "window range",
 			query: `
@@ -2391,6 +2464,15 @@ FROM UNNEST([
 			name:         "make_array",
 			query:        `SELECT a, b FROM UNNEST([STRUCT(DATE(2022, 1, 1) AS a, 1 AS b)])`,
 			expectedRows: [][]interface{}{{"2022-01-01", int64(1)}},
+		},
+		{
+			name: "unnest with offset",
+			query: `SELECT *
+FROM UNNEST(['foo', 'bar', 'baz'])
+  AS element
+WITH OFFSET AS offset
+ORDER BY offset DESC;`,
+			expectedRows: [][]interface{}{{"baz", int64(2)}, {"bar", int64(1)}, {"foo", int64(0)}},
 		},
 		{
 			name:  "array function",
@@ -3026,6 +3108,15 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 				{"kale", int64(1)},
 				{"lettuce", int64(2)},
 				{"cabbage", int64(3)},
+			},
+		},
+		// Regression test goccy/go-zetasqlite#123
+		{
+			name: "qualify without group by / where / having",
+			query: `WITH toks AS (SELECT 1 AS x UNION ALL SELECT 2 AS x)
+			SELECT x FROM toks QUALIFY MAX(x) OVER (PARTITION BY x) > 1`,
+			expectedRows: [][]interface{}{
+				{int64(2)},
 			},
 		},
 		// Regression test goccy/go-zetasqlite#150
@@ -4128,6 +4219,51 @@ WITH example AS (
   EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
 `,
 			expectedRows: [][]interface{}{{"2014-12-29T00:00:00", int64(2015)}},
+		},
+    {
+			name: "PIVOT",
+			query: `
+WITH produce AS (
+	SELECT 'Kale' AS product, 51 AS sales, 'Q1' AS quarter, 2020 AS year UNION ALL
+	SELECT 'Kale', 23, 'Q2', 2020 UNION ALL
+	SELECT 'Kale', 45, 'Q3', 2020 UNION ALL
+	SELECT 'Kale', 3, 'Q4', 2020 UNION ALL
+	SELECT 'Kale', 70, 'Q1', 2021 UNION ALL
+	SELECT 'Kale', 85, 'Q2', 2021 UNION ALL
+	SELECT 'Apple', 77, 'Q1', 2020 UNION ALL
+	SELECT 'Apple', 0, 'Q2', 2020 UNION ALL
+	SELECT 'Apple', 1, 'Q1', 2021
+)
+SELECT * FROM
+  Produce
+  PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
+`,
+			expectedRows: [][]interface{}{
+				{"Apple", int64(2020), int64(77), int64(0), nil, nil},
+				{"Apple", int64(2021), int64(1), nil, nil, nil},
+				{"Kale", int64(2020), int64(51), int64(23), int64(45), int64(3)},
+				{"Kale", int64(2021), int64(70), int64(85), nil, nil},
+			},
+		},
+		{
+			name: "UNPIVOT",
+			query: `
+WITH Produce AS (
+  SELECT 'Kale' as product, 51 as Q1, 23 as Q2, 45 as Q3, 3 as Q4 UNION ALL
+  SELECT 'Apple', 77, 0, 25, 2)
+SELECT * FROM Produce
+UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
+`,
+			expectedRows: [][]interface{}{
+				{"Kale", int64(51), "Q1"},
+				{"Kale", int64(23), "Q2"},
+				{"Kale", int64(45), "Q3"},
+				{"Kale", int64(3), "Q4"},
+				{"Apple", int64(77), "Q1"},
+				{"Apple", int64(0), "Q2"},
+				{"Apple", int64(25), "Q3"},
+				{"Apple", int64(2), "Q4"},
+			},
 		},
 		{
 			name:         "date_sub",
