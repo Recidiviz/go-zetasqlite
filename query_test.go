@@ -6945,6 +6945,7 @@ SELECT c1 * ? * ? FROM t1;
 			expectedRows: [][]interface{}{{int64(6)}},
 		},
 		{
+<<<<<<< HEAD
 			name: "function call with many arguments - under limit",
 			query: fmt.Sprintf(
 				`select concat(%s "a")`,
@@ -7275,6 +7276,22 @@ ORDER BY sum_total DESC`,
 				{[]interface{}{
 					map[string]interface{}{"name": "item3", "price": int64(30)},
 				}, int64(150)},
+			},
+		},
+		{
+			name: "table default value",
+			query: `
+CREATE TEMP TABLE t1 (
+       id INT64,
+       name STRING DEFAULT LOWER("DEFAULT EXPRESSION"),
+       ts DATE DEFAULT DATE "2024-04-14",
+       state STRING DEFAULT "' escape test"
+);
+       INSERT INTO t1 (id) VALUES (1);
+SELECT * FROM t1;
+`,
+			expectedRows: [][]interface{}{
+				{int64(1), "default expression", "2024-04-14", "' escape test"},
 			},
 		},
 	} {
