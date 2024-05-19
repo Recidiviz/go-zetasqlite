@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
+	"google.golang.org/api/bigquery/v2"
 	internal "github.com/goccy/go-zetasqlite/internal"
 	_ "modernc.org/sqlite"
 	"sync"
@@ -127,6 +128,10 @@ func (c *ZetaSQLiteConn) NamePath() []string {
 // If max name path is specified, an error is returned if the number is exceeded.
 func (c *ZetaSQLiteConn) AddNamePath(path string) error {
 	return c.analyzer.AddNamePath(path)
+}
+
+func (c *ZetaSQLiteConn) SetQueryParameters(parameters []*bigquery.QueryParameter) {
+	c.analyzer.SetQueryParameters(parameters)
 }
 
 func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
