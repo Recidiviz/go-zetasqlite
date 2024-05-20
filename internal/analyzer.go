@@ -220,9 +220,15 @@ func (a *Analyzer) configureQueryParameters(options *zetasql.AnalyzerOptions) er
 		}
 
 		if parameter.Name == "" {
-			options.AddPositionalQueryParameter(parameterType)
+			err = options.AddPositionalQueryParameter(parameterType)
+			if err != nil {
+				return err
+			}
 		} else {
-			options.AddQueryParameter(parameter.Name, parameterType)
+			err = options.AddQueryParameter(parameter.Name, parameterType)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -343,7 +349,7 @@ func ZetaSQLTypeFromBigQueryType(t *bigquery.QueryParameterType) (types.Type, er
 	case "INTERVAL":
 		zetasqlType = types.IntervalType()
 	default:
-		return nil, fmt.Errorf("unsupported query parameter type: %s", t)
+		return nil, fmt.Errorf("unsupported query parameter type: %s", t.Type)
 	}
 	return zetasqlType, nil
 
