@@ -1,283 +1,283 @@
 package internal
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"sync"
 
 	"github.com/goccy/go-json"
-	"github.com/mattn/go-sqlite3"
+	"modernc.org/sqlite"
 )
 
-var normalFuncs = []*FuncInfo{
-	{Name: "add", BindFunc: bindAdd},
-	{Name: "subtract", BindFunc: bindSub},
-	{Name: "multiply", BindFunc: bindMul},
-	{Name: "divide", BindFunc: bindOpDiv},
-	{Name: "equal", BindFunc: bindEqual},
-	{Name: "not_equal", BindFunc: bindNotEqual},
-	{Name: "greater", BindFunc: bindGreater},
-	{Name: "greater_or_equal", BindFunc: bindGreaterOrEqual},
-	{Name: "less", BindFunc: bindLess},
-	{Name: "less_or_equal", BindFunc: bindLessOrEqual},
-	{Name: "bitwise_not", BindFunc: bindBitNot},
-	{Name: "bitwise_left_shift", BindFunc: bindBitLeftShift},
-	{Name: "bitwise_right_shift", BindFunc: bindBitRightShift},
-	{Name: "bitwise_and", BindFunc: bindBitAnd},
-	{Name: "bitwise_or", BindFunc: bindBitOr},
-	{Name: "bitwise_xor", BindFunc: bindBitXor},
-	{Name: "in_array", BindFunc: bindInArray},
-	{Name: "get_struct_field", BindFunc: bindStructField},
-	{Name: "get_json_field", BindFunc: bindJsonField},
-	{Name: "subscript", BindFunc: bindSubscript},
-	{Name: "array_at_offset", BindFunc: bindArrayAtOffset},
-	{Name: "array_at_ordinal", BindFunc: bindArrayAtOrdinal},
-	{Name: "safe_array_at_offset", BindFunc: bindSafeArrayAtOffset},
-	{Name: "safe_array_at_ordinal", BindFunc: bindSafeArrayAtOrdinal},
-	{Name: "is_distinct_from", BindFunc: bindIsDistinctFrom},
-	{Name: "is_not_distinct_from", BindFunc: bindIsNotDistinctFrom},
+var normalFuncs = map[string]*FuncInfo{
+	"add":                   {Name: "add", BindFunc: bindAdd},
+	"subtract":              {Name: "subtract", BindFunc: bindSub},
+	"multiply":              {Name: "multiply", BindFunc: bindMul},
+	"divide":                {Name: "divide", BindFunc: bindOpDiv},
+	"equal":                 {Name: "equal", BindFunc: bindEqual},
+	"not_equal":             {Name: "not_equal", BindFunc: bindNotEqual},
+	"greater":               {Name: "greater", BindFunc: bindGreater},
+	"greater_or_equal":      {Name: "greater_or_equal", BindFunc: bindGreaterOrEqual},
+	"less":                  {Name: "less", BindFunc: bindLess},
+	"less_or_equal":         {Name: "less_or_equal", BindFunc: bindLessOrEqual},
+	"bitwise_not":           {Name: "bitwise_not", BindFunc: bindBitNot},
+	"bitwise_left_shift":    {Name: "bitwise_left_shift", BindFunc: bindBitLeftShift},
+	"bitwise_right_shift":   {Name: "bitwise_right_shift", BindFunc: bindBitRightShift},
+	"bitwise_and":           {Name: "bitwise_and", BindFunc: bindBitAnd},
+	"bitwise_or":            {Name: "bitwise_or", BindFunc: bindBitOr},
+	"bitwise_xor":           {Name: "bitwise_xor", BindFunc: bindBitXor},
+	"in_array":              {Name: "in_array", BindFunc: bindInArray},
+	"get_struct_field":      {Name: "get_struct_field", BindFunc: bindStructField},
+	"get_json_field":        {Name: "get_json_field", BindFunc: bindJsonField},
+	"subscript":             {Name: "subscript", BindFunc: bindSubscript},
+	"array_at_offset":       {Name: "array_at_offset", BindFunc: bindArrayAtOffset},
+	"array_at_ordinal":      {Name: "array_at_ordinal", BindFunc: bindArrayAtOrdinal},
+	"safe_array_at_offset":  {Name: "safe_array_at_offset", BindFunc: bindSafeArrayAtOffset},
+	"safe_array_at_ordinal": {Name: "safe_array_at_ordinal", BindFunc: bindSafeArrayAtOrdinal},
+	"is_distinct_from":      {Name: "is_distinct_from", BindFunc: bindIsDistinctFrom},
+	"is_not_distinct_from":  {Name: "is_not_distinct_from", BindFunc: bindIsNotDistinctFrom},
 
 	// security functions
-	{Name: "session_user", BindFunc: bindSessionUser},
+	"session_user": {Name: "session_user", BindFunc: bindSessionUser},
 
 	// uuid functions
-	{Name: "generate_uuid", BindFunc: bindGenerateUUID},
+	"generate_uuid": {Name: "generate_uuid", BindFunc: bindGenerateUUID},
 
 	// debugging functions
-	{Name: "error", BindFunc: bindError},
+	"error": {Name: "error", BindFunc: bindError},
 
 	// date functions
-	{Name: "current_date", BindFunc: bindCurrentDate},
-	{Name: "extract", BindFunc: bindExtract},
-	{Name: "extract_date", BindFunc: bindExtractDate},
-	{Name: "date", BindFunc: bindDate},
-	{Name: "date_add", BindFunc: bindDateAdd},
-	{Name: "date_sub", BindFunc: bindDateSub},
-	{Name: "date_diff", BindFunc: bindDateDiff},
-	{Name: "date_trunc", BindFunc: bindDateTrunc},
-	{Name: "date_from_unix_date", BindFunc: bindDateFromUnixDate},
-	{Name: "format_date", BindFunc: bindFormatDate},
-	{Name: "last_day", BindFunc: bindLastDay},
-	{Name: "parse_date", BindFunc: bindParseDate},
-	{Name: "unix_date", BindFunc: bindUnixDate},
+	"current_date":        {Name: "current_date", BindFunc: bindCurrentDate},
+	"extract":             {Name: "extract", BindFunc: bindExtract},
+	"extract_date":        {Name: "extract_date", BindFunc: bindExtractDate},
+	"date":                {Name: "date", BindFunc: bindDate},
+	"date_add":            {Name: "date_add", BindFunc: bindDateAdd},
+	"date_sub":            {Name: "date_sub", BindFunc: bindDateSub},
+	"date_diff":           {Name: "date_diff", BindFunc: bindDateDiff},
+	"date_trunc":          {Name: "date_trunc", BindFunc: bindDateTrunc},
+	"date_from_unix_date": {Name: "date_from_unix_date", BindFunc: bindDateFromUnixDate},
+	"format_date":         {Name: "format_date", BindFunc: bindFormatDate},
+	"last_day":            {Name: "last_day", BindFunc: bindLastDay},
+	"parse_date":          {Name: "parse_date", BindFunc: bindParseDate},
+	"unix_date":           {Name: "unix_date", BindFunc: bindUnixDate},
 
 	// datetime functions
-	{Name: "current_datetime", BindFunc: bindCurrentDatetime},
-	{Name: "datetime", BindFunc: bindDatetime},
-	{Name: "datetime_add", BindFunc: bindDatetimeAdd},
-	{Name: "datetime_sub", BindFunc: bindDatetimeSub},
-	{Name: "datetime_diff", BindFunc: bindDatetimeDiff},
-	{Name: "datetime_trunc", BindFunc: bindDatetimeTrunc},
-	{Name: "format_datetime", BindFunc: bindFormatDatetime},
-	{Name: "parse_datetime", BindFunc: bindParseDatetime},
+	"current_datetime": {Name: "current_datetime", BindFunc: bindCurrentDatetime},
+	"datetime":         {Name: "datetime", BindFunc: bindDatetime},
+	"datetime_add":     {Name: "datetime_add", BindFunc: bindDatetimeAdd},
+	"datetime_sub":     {Name: "datetime_sub", BindFunc: bindDatetimeSub},
+	"datetime_diff":    {Name: "datetime_diff", BindFunc: bindDatetimeDiff},
+	"datetime_trunc":   {Name: "datetime_trunc", BindFunc: bindDatetimeTrunc},
+	"format_datetime":  {Name: "format_datetime", BindFunc: bindFormatDatetime},
+	"parse_datetime":   {Name: "parse_datetime", BindFunc: bindParseDatetime},
 
 	// time functions
-	{Name: "current_time", BindFunc: bindCurrentTime},
-	{Name: "time", BindFunc: bindTime},
-	{Name: "time_add", BindFunc: bindTimeAdd},
-	{Name: "time_sub", BindFunc: bindTimeSub},
-	{Name: "time_diff", BindFunc: bindTimeDiff},
-	{Name: "time_trunc", BindFunc: bindTimeTrunc},
-	{Name: "format_time", BindFunc: bindFormatTime},
-	{Name: "parse_time", BindFunc: bindParseTime},
+	"current_time": {Name: "current_time", BindFunc: bindCurrentTime},
+	"time":         {Name: "time", BindFunc: bindTime},
+	"time_add":     {Name: "time_add", BindFunc: bindTimeAdd},
+	"time_sub":     {Name: "time_sub", BindFunc: bindTimeSub},
+	"time_diff":    {Name: "time_diff", BindFunc: bindTimeDiff},
+	"time_trunc":   {Name: "time_trunc", BindFunc: bindTimeTrunc},
+	"format_time":  {Name: "format_time", BindFunc: bindFormatTime},
+	"parse_time":   {Name: "parse_time", BindFunc: bindParseTime},
 
 	// timestamp functions
-	{Name: "current_timestamp", BindFunc: bindCurrentTimestamp},
-	{Name: "string", BindFunc: bindString},
-	{Name: "timestamp", BindFunc: bindTimestamp},
-	{Name: "timestamp_add", BindFunc: bindTimestampAdd},
-	{Name: "timestamp_sub", BindFunc: bindTimestampSub},
-	{Name: "timestamp_diff", BindFunc: bindTimestampDiff},
-	{Name: "timestamp_trunc", BindFunc: bindTimestampTrunc},
-	{Name: "format_timestamp", BindFunc: bindFormatTimestamp},
-	{Name: "parse_timestamp", BindFunc: bindParseTimestamp},
-	{Name: "timestamp_seconds", BindFunc: bindTimestampSeconds},
-	{Name: "timestamp_millis", BindFunc: bindTimestampMillis},
-	{Name: "timestamp_micros", BindFunc: bindTimestampMicros},
-	{Name: "unix_seconds", BindFunc: bindUnixSeconds},
-	{Name: "unix_millis", BindFunc: bindUnixMillis},
-	{Name: "unix_micros", BindFunc: bindUnixMicros},
-	{Name: "like", BindFunc: bindLike},
-	{Name: "between", BindFunc: bindBetween},
-	{Name: "in", BindFunc: bindIn},
-	{Name: "is_null", BindFunc: bindIsNull},
-	{Name: "is_true", BindFunc: bindIsTrue},
-	{Name: "is_false", BindFunc: bindIsFalse},
-	{Name: "not", BindFunc: bindNot},
-	{Name: "and", BindFunc: bindAnd},
-	{Name: "or", BindFunc: bindOr},
-	{Name: "coalesce", BindFunc: bindCoalesce},
-	{Name: "if", BindFunc: bindIf},
-	{Name: "ifnull", BindFunc: bindIfNull},
-	{Name: "nullif", BindFunc: bindNullIf},
-	{Name: "length", BindFunc: bindLength},
-	{Name: "cast", BindFunc: bindCast},
+	"current_timestamp": {Name: "current_timestamp", BindFunc: bindCurrentTimestamp},
+	"string":            {Name: "string", BindFunc: bindString},
+	"timestamp":         {Name: "timestamp", BindFunc: bindTimestamp},
+	"timestamp_add":     {Name: "timestamp_add", BindFunc: bindTimestampAdd},
+	"timestamp_sub":     {Name: "timestamp_sub", BindFunc: bindTimestampSub},
+	"timestamp_diff":    {Name: "timestamp_diff", BindFunc: bindTimestampDiff},
+	"timestamp_trunc":   {Name: "timestamp_trunc", BindFunc: bindTimestampTrunc},
+	"format_timestamp":  {Name: "format_timestamp", BindFunc: bindFormatTimestamp},
+	"parse_timestamp":   {Name: "parse_timestamp", BindFunc: bindParseTimestamp},
+	"timestamp_seconds": {Name: "timestamp_seconds", BindFunc: bindTimestampSeconds},
+	"timestamp_millis":  {Name: "timestamp_millis", BindFunc: bindTimestampMillis},
+	"timestamp_micros":  {Name: "timestamp_micros", BindFunc: bindTimestampMicros},
+	"unix_seconds":      {Name: "unix_seconds", BindFunc: bindUnixSeconds},
+	"unix_millis":       {Name: "unix_millis", BindFunc: bindUnixMillis},
+	"unix_micros":       {Name: "unix_micros", BindFunc: bindUnixMicros},
+	"like":              {Name: "like", BindFunc: bindLike},
+	"between":           {Name: "between", BindFunc: bindBetween},
+	"in":                {Name: "in", BindFunc: bindIn},
+	"is_null":           {Name: "is_null", BindFunc: bindIsNull},
+	"is_true":           {Name: "is_true", BindFunc: bindIsTrue},
+	"is_false":          {Name: "is_false", BindFunc: bindIsFalse},
+	"not":               {Name: "not", BindFunc: bindNot},
+	"and":               {Name: "and", BindFunc: bindAnd},
+	"or":                {Name: "or", BindFunc: bindOr},
+	"coalesce":          {Name: "coalesce", BindFunc: bindCoalesce},
+	"if":                {Name: "if", BindFunc: bindIf},
+	"ifnull":            {Name: "ifnull", BindFunc: bindIfNull},
+	"nullif":            {Name: "nullif", BindFunc: bindNullIf},
+	"length":            {Name: "length", BindFunc: bindLength},
+	"cast":              {Name: "cast", BindFunc: bindCast},
 
 	// interval functions
-	{Name: "interval", BindFunc: bindInterval},
-	{Name: "make_interval", BindFunc: bindMakeInterval},
-	{Name: "justify_days", BindFunc: bindJustifyDays},
-	{Name: "justify_hours", BindFunc: bindJustifyHours},
-	{Name: "justify_interval", BindFunc: bindJustifyInterval},
+	"interval":         {Name: "interval", BindFunc: bindInterval},
+	"make_interval":    {Name: "make_interval", BindFunc: bindMakeInterval},
+	"justify_days":     {Name: "justify_days", BindFunc: bindJustifyDays},
+	"justify_hours":    {Name: "justify_hours", BindFunc: bindJustifyHours},
+	"justify_interval": {Name: "justify_interval", BindFunc: bindJustifyInterval},
 
 	// numeric/bignumeric functions
-	{Name: "parse_numeric", BindFunc: bindParseNumeric},
-	{Name: "parse_bignumeric", BindFunc: bindParseBigNumeric},
+	"parse_numeric":    {Name: "parse_numeric", BindFunc: bindParseNumeric},
+	"parse_bignumeric": {Name: "parse_bignumeric", BindFunc: bindParseBigNumeric},
 
 	// hash functions
-	{Name: "farm_fingerprint", BindFunc: bindFarmFingerprint},
-	{Name: "md5", BindFunc: bindMD5},
-	{Name: "sha1", BindFunc: bindSha1},
-	{Name: "sha256", BindFunc: bindSha256},
-	{Name: "sha512", BindFunc: bindSha512},
+	"farm_fingerprint": {Name: "farm_fingerprint", BindFunc: bindFarmFingerprint},
+	"md5":              {Name: "md5", BindFunc: bindMD5},
+	"sha1":             {Name: "sha1", BindFunc: bindSha1},
+	"sha256":           {Name: "sha256", BindFunc: bindSha256},
+	"sha512":           {Name: "sha512", BindFunc: bindSha512},
 
 	// string functions
-	{Name: "ascii", BindFunc: bindAscii},
-	{Name: "byte_length", BindFunc: bindByteLength},
-	{Name: "char_length", BindFunc: bindCharLength},
-	{Name: "chr", BindFunc: bindChr},
-	{Name: "code_points_to_bytes", BindFunc: bindCodePointsToBytes},
-	{Name: "code_points_to_string", BindFunc: bindCodePointsToString},
-	{Name: "collate", BindFunc: bindCollate},
-	{Name: "concat", BindFunc: bindConcat},
-	{Name: "contains_substr", BindFunc: bindContainsSubstr},
-	{Name: "ends_with", BindFunc: bindEndsWith},
-	{Name: "format", BindFunc: bindFormat},
-	{Name: "from_base32", BindFunc: bindFromBase32},
-	{Name: "from_base64", BindFunc: bindFromBase64},
-	{Name: "from_hex", BindFunc: bindFromHex},
-	{Name: "initcap", BindFunc: bindInitcap},
-	{Name: "instr", BindFunc: bindInstr},
-	{Name: "left", BindFunc: bindLeft},
-	{Name: "length", BindFunc: bindLength},
-	{Name: "lpad", BindFunc: bindLpad},
-	{Name: "lower", BindFunc: bindLower},
-	{Name: "ltrim", BindFunc: bindLtrim},
-	{Name: "normalize", BindFunc: bindNormalize},
-	{Name: "normalize_and_casefold", BindFunc: bindNormalizeAndCasefold},
-	{Name: "regexp_contains", BindFunc: bindRegexpContains},
-	{Name: "regexp_extract", BindFunc: bindRegexpExtract},
-	{Name: "regexp_extract_all", BindFunc: bindRegexpExtractAll},
-	{Name: "regexp_instr", BindFunc: bindRegexpInstr},
-	{Name: "regexp_replace", BindFunc: bindRegexpReplace},
-	{Name: "replace", BindFunc: bindReplace},
-	{Name: "repeat", BindFunc: bindRepeat},
-	{Name: "reverse", BindFunc: bindReverse},
-	{Name: "right", BindFunc: bindRight},
-	{Name: "rpad", BindFunc: bindRpad},
-	{Name: "rtrim", BindFunc: bindRtrim},
-	{Name: "safe_convert_bytes_to_string", BindFunc: bindSafeConvertBytesToString},
-	{Name: "soundex", BindFunc: bindSoundex},
-	{Name: "split", BindFunc: bindSplit},
-	{Name: "starts_with", BindFunc: bindStartsWith},
-	{Name: "strpos", BindFunc: bindStrpos},
-	{Name: "substr", BindFunc: bindSubstr},
-	{Name: "to_base32", BindFunc: bindToBase32},
-	{Name: "to_base64", BindFunc: bindToBase64},
-	{Name: "to_code_points", BindFunc: bindToCodePoints},
-	{Name: "to_hex", BindFunc: bindToHex},
-	{Name: "translate", BindFunc: bindTranslate},
-	{Name: "trim", BindFunc: bindTrim},
-	{Name: "unicode", BindFunc: bindUnicode},
-	{Name: "upper", BindFunc: bindUpper},
+	"ascii":                        {Name: "ascii", BindFunc: bindAscii},
+	"byte_length":                  {Name: "byte_length", BindFunc: bindByteLength},
+	"char_length":                  {Name: "char_length", BindFunc: bindCharLength},
+	"chr":                          {Name: "chr", BindFunc: bindChr},
+	"code_points_to_bytes":         {Name: "code_points_to_bytes", BindFunc: bindCodePointsToBytes},
+	"code_points_to_string":        {Name: "code_points_to_string", BindFunc: bindCodePointsToString},
+	"collate":                      {Name: "collate", BindFunc: bindCollate},
+	"concat":                       {Name: "concat", BindFunc: bindConcat},
+	"contains_substr":              {Name: "contains_substr", BindFunc: bindContainsSubstr},
+	"ends_with":                    {Name: "ends_with", BindFunc: bindEndsWith},
+	"format":                       {Name: "format", BindFunc: bindFormat},
+	"from_base32":                  {Name: "from_base32", BindFunc: bindFromBase32},
+	"from_base64":                  {Name: "from_base64", BindFunc: bindFromBase64},
+	"from_hex":                     {Name: "from_hex", BindFunc: bindFromHex},
+	"initcap":                      {Name: "initcap", BindFunc: bindInitcap},
+	"instr":                        {Name: "instr", BindFunc: bindInstr},
+	"left":                         {Name: "left", BindFunc: bindLeft},
+	"lpad":                         {Name: "lpad", BindFunc: bindLpad},
+	"lower":                        {Name: "lower", BindFunc: bindLower},
+	"ltrim":                        {Name: "ltrim", BindFunc: bindLtrim},
+	"normalize":                    {Name: "normalize", BindFunc: bindNormalize},
+	"normalize_and_casefold":       {Name: "normalize_and_casefold", BindFunc: bindNormalizeAndCasefold},
+	"regexp_contains":              {Name: "regexp_contains", BindFunc: bindRegexpContains},
+	"regexp_extract":               {Name: "regexp_extract", BindFunc: bindRegexpExtract},
+	"regexp_extract_all":           {Name: "regexp_extract_all", BindFunc: bindRegexpExtractAll},
+	"regexp_instr":                 {Name: "regexp_instr", BindFunc: bindRegexpInstr},
+	"regexp_replace":               {Name: "regexp_replace", BindFunc: bindRegexpReplace},
+	"replace":                      {Name: "replace", BindFunc: bindReplace},
+	"repeat":                       {Name: "repeat", BindFunc: bindRepeat},
+	"reverse":                      {Name: "reverse", BindFunc: bindReverse},
+	"right":                        {Name: "right", BindFunc: bindRight},
+	"rpad":                         {Name: "rpad", BindFunc: bindRpad},
+	"rtrim":                        {Name: "rtrim", BindFunc: bindRtrim},
+	"safe_convert_bytes_to_string": {Name: "safe_convert_bytes_to_string", BindFunc: bindSafeConvertBytesToString},
+	"soundex":                      {Name: "soundex", BindFunc: bindSoundex},
+	"split":                        {Name: "split", BindFunc: bindSplit},
+	"starts_with":                  {Name: "starts_with", BindFunc: bindStartsWith},
+	"strpos":                       {Name: "strpos", BindFunc: bindStrpos},
+	"substr":                       {Name: "substr", BindFunc: bindSubstr},
+	"to_base32":                    {Name: "to_base32", BindFunc: bindToBase32},
+	"to_base64":                    {Name: "to_base64", BindFunc: bindToBase64},
+	"to_code_points":               {Name: "to_code_points", BindFunc: bindToCodePoints},
+	"to_hex":                       {Name: "to_hex", BindFunc: bindToHex},
+	"translate":                    {Name: "translate", BindFunc: bindTranslate},
+	"trim":                         {Name: "trim", BindFunc: bindTrim},
+	"unicode":                      {Name: "unicode", BindFunc: bindUnicode},
+	"upper":                        {Name: "upper", BindFunc: bindUpper},
 
 	// json functions
-	{Name: "json_extract", BindFunc: bindJsonExtract},
-	{Name: "json_extract_scalar", BindFunc: bindJsonExtractScalar},
-	{Name: "json_extract_array", BindFunc: bindJsonExtractArray},
-	{Name: "json_extract_string_array", BindFunc: bindJsonExtractStringArray},
-	{Name: "json_query", BindFunc: bindJsonQuery},
-	{Name: "json_value", BindFunc: bindJsonValue},
-	{Name: "json_query_array", BindFunc: bindJsonQueryArray},
-	{Name: "json_value_array", BindFunc: bindJsonValueArray},
-	{Name: "parse_json", BindFunc: bindParseJson},
-	{Name: "to_json", BindFunc: bindToJson},
-	{Name: "to_json_string", BindFunc: bindToJsonString},
-	{Name: "bool", BindFunc: bindBool},
-	{Name: "int64", BindFunc: bindInt64},
-	{Name: "double", BindFunc: bindDouble},
-	{Name: "json_type", BindFunc: bindJsonType},
+	"json_extract":              {Name: "json_extract", BindFunc: bindJsonExtract},
+	"json_extract_scalar":       {Name: "json_extract_scalar", BindFunc: bindJsonExtractScalar},
+	"json_extract_array":        {Name: "json_extract_array", BindFunc: bindJsonExtractArray},
+	"json_extract_string_array": {Name: "json_extract_string_array", BindFunc: bindJsonExtractStringArray},
+	"json_query":                {Name: "json_query", BindFunc: bindJsonQuery},
+	"json_value":                {Name: "json_value", BindFunc: bindJsonValue},
+	"json_query_array":          {Name: "json_query_array", BindFunc: bindJsonQueryArray},
+	"json_value_array":          {Name: "json_value_array", BindFunc: bindJsonValueArray},
+	"parse_json":                {Name: "parse_json", BindFunc: bindParseJson},
+	"to_json":                   {Name: "to_json", BindFunc: bindToJson},
+	"to_json_string":            {Name: "to_json_string", BindFunc: bindToJsonString},
+	"bool":                      {Name: "bool", BindFunc: bindBool},
+	"int64":                     {Name: "int64", BindFunc: bindInt64},
+	"double":                    {Name: "double", BindFunc: bindDouble},
+	"json_type":                 {Name: "json_type", BindFunc: bindJsonType},
 
 	// math functions
 
-	{Name: "abs", BindFunc: bindAbs},
-	{Name: "sign", BindFunc: bindSign},
-	{Name: "is_inf", BindFunc: bindIsInf},
-	{Name: "is_nan", BindFunc: bindIsNaN},
-	{Name: "ieee_divide", BindFunc: bindIEEEDivide},
-	{Name: "rand", BindFunc: bindRand},
-	{Name: "sqrt", BindFunc: bindSqrt},
-	{Name: "pow", BindFunc: bindPow},
-	{Name: "power", BindFunc: bindPow},
-	{Name: "exp", BindFunc: bindExp},
-	{Name: "ln", BindFunc: bindLn},
-	{Name: "log", BindFunc: bindLog},
-	{Name: "log10", BindFunc: bindLog10},
-	{Name: "greatest", BindFunc: bindGreatest},
-	{Name: "least", BindFunc: bindLeast},
-	{Name: "div", BindFunc: bindDiv},
-	{Name: "safe_divide", BindFunc: bindSafeDivide},
-	{Name: "safe_multiply", BindFunc: bindSafeMultiply},
-	{Name: "safe_negate", BindFunc: bindSafeNegate},
-	{Name: "safe_add", BindFunc: bindSafeAdd},
-	{Name: "safe_subtract", BindFunc: bindSafeSubtract},
-	{Name: "mod", BindFunc: bindMod},
-	{Name: "round", BindFunc: bindRound},
-	{Name: "trunc", BindFunc: bindTrunc},
-	{Name: "ceil", BindFunc: bindCeil},
-	{Name: "ceiling", BindFunc: bindCeil},
-	{Name: "floor", BindFunc: bindFloor},
-	{Name: "cos", BindFunc: bindCos},
-	{Name: "cosh", BindFunc: bindCosh},
-	{Name: "acos", BindFunc: bindAcos},
-	{Name: "acosh", BindFunc: bindAcosh},
-	{Name: "sin", BindFunc: bindSin},
-	{Name: "sinh", BindFunc: bindSinh},
-	{Name: "asin", BindFunc: bindAsin},
-	{Name: "asinh", BindFunc: bindAsinh},
-	{Name: "tan", BindFunc: bindTan},
-	{Name: "tanh", BindFunc: bindTanh},
-	{Name: "atan", BindFunc: bindAtan},
-	{Name: "atanh", BindFunc: bindAtanh},
-	{Name: "atan2", BindFunc: bindAtan2},
-	{Name: "range_bucket", BindFunc: bindRangeBucket},
+	"abs":           {Name: "abs", BindFunc: bindAbs},
+	"sign":          {Name: "sign", BindFunc: bindSign},
+	"is_inf":        {Name: "is_inf", BindFunc: bindIsInf},
+	"is_nan":        {Name: "is_nan", BindFunc: bindIsNaN},
+	"ieee_divide":   {Name: "ieee_divide", BindFunc: bindIEEEDivide},
+	"rand":          {Name: "rand", BindFunc: bindRand},
+	"sqrt":          {Name: "sqrt", BindFunc: bindSqrt},
+	"pow":           {Name: "pow", BindFunc: bindPow},
+	"power":         {Name: "power", BindFunc: bindPow},
+	"exp":           {Name: "exp", BindFunc: bindExp},
+	"ln":            {Name: "ln", BindFunc: bindLn},
+	"log":           {Name: "log", BindFunc: bindLog},
+	"log10":         {Name: "log10", BindFunc: bindLog10},
+	"greatest":      {Name: "greatest", BindFunc: bindGreatest},
+	"least":         {Name: "least", BindFunc: bindLeast},
+	"div":           {Name: "div", BindFunc: bindDiv},
+	"safe_divide":   {Name: "safe_divide", BindFunc: bindSafeDivide},
+	"safe_multiply": {Name: "safe_multiply", BindFunc: bindSafeMultiply},
+	"safe_negate":   {Name: "safe_negate", BindFunc: bindSafeNegate},
+	"safe_add":      {Name: "safe_add", BindFunc: bindSafeAdd},
+	"safe_subtract": {Name: "safe_subtract", BindFunc: bindSafeSubtract},
+	"mod":           {Name: "mod", BindFunc: bindMod},
+	"round":         {Name: "round", BindFunc: bindRound},
+	"trunc":         {Name: "trunc", BindFunc: bindTrunc},
+	"ceil":          {Name: "ceil", BindFunc: bindCeil},
+	"ceiling":       {Name: "ceiling", BindFunc: bindCeil},
+	"floor":         {Name: "floor", BindFunc: bindFloor},
+	"cos":           {Name: "cos", BindFunc: bindCos},
+	"cosh":          {Name: "cosh", BindFunc: bindCosh},
+	"acos":          {Name: "acos", BindFunc: bindAcos},
+	"acosh":         {Name: "acosh", BindFunc: bindAcosh},
+	"sin":           {Name: "sin", BindFunc: bindSin},
+	"sinh":          {Name: "sinh", BindFunc: bindSinh},
+	"asin":          {Name: "asin", BindFunc: bindAsin},
+	"asinh":         {Name: "asinh", BindFunc: bindAsinh},
+	"tan":           {Name: "tan", BindFunc: bindTan},
+	"tanh":          {Name: "tanh", BindFunc: bindTanh},
+	"atan":          {Name: "atan", BindFunc: bindAtan},
+	"atanh":         {Name: "atanh", BindFunc: bindAtanh},
+	"atan2":         {Name: "atan2", BindFunc: bindAtan2},
+	"range_bucket":  {Name: "range_bucket", BindFunc: bindRangeBucket},
 
 	// array functions
-	{Name: "array_concat", BindFunc: bindArrayConcat},
-	{Name: "array_length", BindFunc: bindArrayLength},
-	{Name: "array_to_string", BindFunc: bindArrayToString},
-	{Name: "generate_array", BindFunc: bindGenerateArray},
-	{Name: "generate_date_array", BindFunc: bindGenerateDateArray},
-	{Name: "generate_timestamp_array", BindFunc: bindGenerateTimestampArray},
-	{Name: "array_reverse", BindFunc: bindArrayReverse},
-	{Name: "make_array", BindFunc: bindMakeArray},
-	{Name: "make_struct", BindFunc: bindMakeStruct},
+	"array_concat":             {Name: "array_concat", BindFunc: bindArrayConcat},
+	"array_length":             {Name: "array_length", BindFunc: bindArrayLength},
+	"array_to_string":          {Name: "array_to_string", BindFunc: bindArrayToString},
+	"generate_array":           {Name: "generate_array", BindFunc: bindGenerateArray},
+	"generate_date_array":      {Name: "generate_date_array", BindFunc: bindGenerateDateArray},
+	"generate_timestamp_array": {Name: "generate_timestamp_array", BindFunc: bindGenerateTimestampArray},
+	"array_reverse":            {Name: "array_reverse", BindFunc: bindArrayReverse},
+	"make_array":               {Name: "make_array", BindFunc: bindMakeArray},
+	"make_struct":              {Name: "make_struct", BindFunc: bindMakeStruct},
 
 	// hyperloglog++ functions
-	{Name: "hll_count_extract", BindFunc: bindHllCountExtract},
+	"hll_count_extract": {Name: "hll_count_extract", BindFunc: bindHllCountExtract},
 
 	// bit functions
-	{Name: "bit_count", BindFunc: bindBitCount},
+	"bit_count": {Name: "bit_count", BindFunc: bindBitCount},
 
 	// aggregate option funcs
-	{Name: "distinct", BindFunc: bindDistinct},
-	{Name: "limit", BindFunc: bindLimit},
-	{Name: "order_by", BindFunc: bindOrderBy},
-	{Name: "ignore_nulls", BindFunc: bindIgnoreNulls},
+	"distinct":     {Name: "distinct", BindFunc: bindDistinct},
+	"limit":        {Name: "limit", BindFunc: bindLimit},
+	"order_by":     {Name: "order_by", BindFunc: bindOrderBy},
+	"ignore_nulls": {Name: "ignore_nulls", BindFunc: bindIgnoreNulls},
 
 	// javascript funcs
-	{Name: "eval_javascript", BindFunc: bindEvalJavaScript},
+	"eval_javascript": {Name: "eval_javascript", BindFunc: bindEvalJavaScript},
 
 	// net funcs
-	{Name: "net_host", BindFunc: bindNetHost},
-	{Name: "net_ip_from_string", BindFunc: bindNetIpFromString},
-	{Name: "net_ip_net_mask", BindFunc: bindNetIpNetMask},
-	{Name: "net_ip_to_string", BindFunc: bindNetIpToString},
-	{Name: "net_ip_trunc", BindFunc: bindNetIpTrunc},
-	{Name: "net_ipv4_from_int64", BindFunc: bindNetIpv4FromInt64},
-	{Name: "net_ipv4_to_int64", BindFunc: bindNetIpv4ToInt64},
-	{Name: "net_public_suffix", BindFunc: bindNetPublicSuffix},
-	{Name: "net_reg_domain", BindFunc: bindNetRegDomain},
-	{Name: "net_safe_ip_from_string", BindFunc: bindNetSafeIpFromString},
+	"net_host":                {Name: "net_host", BindFunc: bindNetHost},
+	"net_ip_from_string":      {Name: "net_ip_from_string", BindFunc: bindNetIpFromString},
+	"net_ip_net_mask":         {Name: "net_ip_net_mask", BindFunc: bindNetIpNetMask},
+	"net_ip_to_string":        {Name: "net_ip_to_string", BindFunc: bindNetIpToString},
+	"net_ip_trunc":            {Name: "net_ip_trunc", BindFunc: bindNetIpTrunc},
+	"net_ipv4_from_int64":     {Name: "net_ipv4_from_int64", BindFunc: bindNetIpv4FromInt64},
+	"net_ipv4_to_int64":       {Name: "net_ipv4_to_int64", BindFunc: bindNetIpv4ToInt64},
+	"net_public_suffix":       {Name: "net_public_suffix", BindFunc: bindNetPublicSuffix},
+	"net_reg_domain":          {Name: "net_reg_domain", BindFunc: bindNetRegDomain},
+	"net_safe_ip_from_string": {Name: "net_safe_ip_from_string", BindFunc: bindNetSafeIpFromString},
 }
 
 var aggregateFuncs = []*AggregateFuncInfo{
@@ -370,15 +370,20 @@ var windowFuncs = []*WindowFuncInfo{
 
 type NameAndFunc struct {
 	Name string
-	Func interface{}
+	Func func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error)
+}
+
+type AggregateNameAndFunc struct {
+	Name          string
+	MakeAggregate func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error)
 }
 
 var (
 	funcMapMu          sync.RWMutex
 	registerFuncOnce   sync.Once
 	normalFuncMap      = map[string][]*NameAndFunc{}
-	aggregateFuncMap   = map[string][]*NameAndFunc{}
-	windowFuncMap      = map[string][]*NameAndFunc{}
+	aggregateFuncMap   = map[string][]*AggregateNameAndFunc{}
+	windowFuncMap      = map[string][]*AggregateNameAndFunc{}
 	currentTimeFuncMap = map[string]struct{}{
 		"current_date":      struct{}{},
 		"current_datetime":  struct{}{},
@@ -387,7 +392,7 @@ var (
 	}
 )
 
-func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
+func RegisterFunctions() error {
 	funcMapMu.RLock()
 	defer funcMapMu.RUnlock()
 
@@ -416,49 +421,59 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 		return onceErr
 	}
 
-	if err := conn.RegisterFunc("zetasqlite_decode_array", func(v interface{}) (string, error) {
-		decoded, err := DecodeValue(v)
-		if err != nil {
-			return "", err
-		}
-		if decoded == nil {
-			return "[]", nil
-		}
-		array, err := decoded.ToArray()
-		if err != nil {
-			return "", err
-		}
-		encodedValues := make([]interface{}, 0, len(array.values))
-		for _, value := range array.values {
-			v, err := EncodeValue(value)
-			if err != nil {
-				return "", err
-			}
-			encodedValues = append(encodedValues, v)
-		}
-		b, err := json.Marshal(encodedValues)
-		if err != nil {
-			return "", err
-		}
-		return string(b), err
-	}, true); err != nil {
+	if err := sqlite.RegisterFunction("zetasqlite_decode_array",
+		&sqlite.FunctionImpl{
+			Deterministic: true,
+			NArgs:         -1,
+			Scalar: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+				decoded, err := DecodeValue(args[0])
+				if err != nil {
+					return "", err
+				}
+				if decoded == nil {
+					return "[]", nil
+				}
+				array, err := decoded.ToArray()
+				if err != nil {
+					return "", err
+				}
+				encodedValues := make([]interface{}, 0, len(array.values))
+				for _, value := range array.values {
+					v, err := EncodeValue(value)
+					if err != nil {
+						return "", err
+					}
+					encodedValues = append(encodedValues, v)
+				}
+				b, err := json.Marshal(encodedValues)
+				if err != nil {
+					return "", err
+				}
+				return string(b), err
+			},
+		},
+	); err != nil {
 		return fmt.Errorf("failed to register decode_array function: %w", err)
 	}
 
-	if err := conn.RegisterFunc("zetasqlite_group_by", func(v interface{}) (interface{}, error) {
-		decoded, err := DecodeValue(v)
-		if err != nil {
-			return "", err
-		}
-		if decoded == nil {
-			return nil, nil
-		}
-		return decoded.Interface(), nil
-	}, true); err != nil {
-		return fmt.Errorf("failed to register group_by function: %w", err)
+	if err := sqlite.RegisterFunction("zetasqlite_group_by", &sqlite.FunctionImpl{
+		Deterministic: true,
+		NArgs:         -1,
+		Scalar: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			decoded, err := DecodeValue(args[0])
+			if err != nil {
+				return "", err
+			}
+			if decoded == nil {
+				return nil, nil
+			}
+			return decoded.Interface(), nil
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to register function zetasqlite_group_by: %w", err)
 	}
 
-	if err := conn.RegisterCollation("zetasqlite_collate", func(a, b string) int {
+	sqlite.MustRegisterCollationUtf8("zetasqlite_collate", func(a, b string) int {
 		va, _ := DecodeValue(a)
 		vb, _ := DecodeValue(b)
 		eq, _ := va.EQ(vb)
@@ -470,27 +485,37 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 			return 1
 		}
 		return -1
-	}); err != nil {
-		return fmt.Errorf("failed to register collate function: %w", err)
-	}
+	})
 
 	for _, values := range normalFuncMap {
 		for _, v := range values {
-			if err := conn.RegisterFunc(v.Name, v.Func, true); err != nil {
+			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
+				Deterministic: true,
+				NArgs:         -1,
+				Scalar:        v.Func,
+			}); err != nil {
 				return fmt.Errorf("failed to register function %s: %w", v.Name, err)
 			}
 		}
 	}
 	for _, values := range aggregateFuncMap {
 		for _, v := range values {
-			if err := conn.RegisterAggregator(v.Name, v.Func, true); err != nil {
+			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
+				Deterministic: true,
+				NArgs:         -1,
+				MakeAggregate: v.MakeAggregate,
+			}); err != nil {
 				return fmt.Errorf("failed to register aggregate function %s: %w", v.Name, err)
 			}
 		}
 	}
 	for _, values := range windowFuncMap {
 		for _, v := range values {
-			if err := conn.RegisterAggregator(v.Name, v.Func, true); err != nil {
+			if err := sqlite.RegisterFunction(v.Name, &sqlite.FunctionImpl{
+				Deterministic: true,
+				NArgs:         -1,
+				MakeAggregate: v.MakeAggregate,
+			}); err != nil {
 				return fmt.Errorf("failed to register window function %s: %w", v.Name, err)
 			}
 		}
@@ -501,49 +526,58 @@ func RegisterFunctions(conn *sqlite3.SQLiteConn) error {
 func setupNormalFuncMap(info *FuncInfo) error {
 	normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
 		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
-		Func: func(args ...interface{}) (interface{}, error) {
-			values, err := convertArgs(args...)
+		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			values, err := convertArgs(args)
 			if err != nil {
 				return nil, err
 			}
 			ret, err := info.BindFunc(values...)
 			if err != nil {
 				return nil, err
-			}
-			return EncodeValue(ret)
-		},
-	}, &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
-		Func: func(args ...interface{}) (interface{}, error) {
-			values, err := convertArgs(args...)
-			if err != nil {
-				return nil, err
-			}
-			ret, err := info.BindFunc(values...)
-			if err != nil {
-				// Note, this should only suppress semantic errors based on the
-				// input data. See
-				// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
-				return nil, nil
 			}
 			return EncodeValue(ret)
 		},
 	})
+
+	registerSafe := true
+	if _, hasExplicitSafeFunction := normalFuncs[fmt.Sprintf("safe_%s", info.Name)]; hasExplicitSafeFunction {
+		registerSafe = false
+	}
+
+	if registerSafe {
+		normalFuncMap[info.Name] = append(normalFuncMap[info.Name], &NameAndFunc{
+			Name: fmt.Sprintf("zetasqlite_safe_%s", info.Name),
+			Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+				values, err := convertArgs(args)
+				if err != nil {
+					return nil, err
+				}
+				ret, err := info.BindFunc(values...)
+				if err != nil {
+					// Note, this should only suppress semantic errors based on the
+					// input data. See
+					// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
+					return nil, nil
+				}
+				return EncodeValue(ret)
+			},
+		})
+	}
 	return nil
 }
 
 func setupAggregateFuncMap(info *AggregateFuncInfo) error {
-	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
-		Func: info.BindFunc(),
+	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &AggregateNameAndFunc{
+		Name:          fmt.Sprintf("zetasqlite_%s", info.Name),
+		MakeAggregate: info.BindFunc(),
 	})
 	return nil
 }
 
 func setupWindowFuncMap(info *WindowFuncInfo) error {
-	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_window_%s", info.Name),
-		Func: info.BindFunc(),
+	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &AggregateNameAndFunc{
+		Name:          fmt.Sprintf("zetasqlite_window_%s", info.Name),
+		MakeAggregate: info.BindFunc(),
 	})
 	return nil
 }
