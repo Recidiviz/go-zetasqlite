@@ -1,6 +1,8 @@
 module github.com/goccy/go-zetasqlite/cmd/zetasqlite-cli
 
-go 1.24
+go 1.24.0
+
+toolchain go1.24.2
 
 require (
 	github.com/chzyer/readline v1.5.1
