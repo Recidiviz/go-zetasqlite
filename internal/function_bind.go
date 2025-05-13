@@ -16,6 +16,7 @@ type WindowBindFunction func() func(ctx sqlite.FunctionContext) (sqlite.Aggregat
 type FuncInfo struct {
 	Name     string
 	BindFunc BindFunction
+	SafeFunc BindFunction
 }
 
 type AggregateFuncInfo struct {
