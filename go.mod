@@ -1,19 +1,21 @@
 module github.com/goccy/go-zetasqlite
 
-go 1.24
+go 1.24.0
+
+toolchain go1.24.2
 
 require (
 	github.com/goccy/go-zetasql v0.5.5
 	github.com/mattn/go-sqlite3 v1.14.16
 )
 
-require github.com/google/go-cmp v0.5.9
+require github.com/google/go-cmp v0.6.0
 
 require github.com/goccy/go-json v0.10.0
 
 require github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13
 
-require github.com/google/uuid v1.3.0
+require github.com/google/uuid v1.6.0
 
 require gonum.org/v1/gonum v0.11.0
 
@@ -22,8 +24,8 @@ require (
 	github.com/DataDog/go-hll v1.0.2
 	github.com/dop251/goja v0.0.0-20221118162653-d4bf6fde1b86
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
-	golang.org/x/net v0.8.0
-	golang.org/x/text v0.8.0
+	golang.org/x/net v0.37.0
+	golang.org/x/text v0.23.0
 )
 
 require (
@@ -51,11 +53,12 @@ require (
 	github.com/pkg/errors v0.8.0 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
+	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/tools v0.31.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.114.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
