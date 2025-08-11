@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
+	zetasqlite "github.com/Recidiviz/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -302,6 +302,31 @@ CREATE TABLE IF NOT EXISTS Singers (
 		err = stmt.QueryRowContext(ctx, sql.Named("itemID", 123), sql.Named("bool", true)).Scan(&itemID)
 		if err != nil {
 			t.Fatal("expected one row; got error %w", err)
+		}
+	})
+
+	t.Run("delete with struct", func(t *testing.T) {
+		db, err := sql.Open("zetasqlite", ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS Items (ItemId   INT64 NOT NULL)`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec("INSERT `Items` (`ItemId`) VALUES (123)"); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := db.ExecContext(context.Background(), "DELETE FROM `Items` WHERE STRUCT(`ItemID`) = STRUCT(123)")
+		if err != nil {
+			t.Fatal("unexpected error when executing stmt; got %w", err)
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if rows != 1 {
+			t.Fatal("expected to delete 1 row but got %i", rows)
 		}
 	})
 }

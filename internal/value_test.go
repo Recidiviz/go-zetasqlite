@@ -19,7 +19,7 @@ func formatTimestamp(s string) (string, error) {
 
 func TestTimestampValue(t *testing.T) {
 	if !datetimeRe.MatchString("2022-01-01 00:00:00") {
-		t.Fatalf("mismatch timestamp value")
+		t.Fatalf("mismatch timestamp Value")
 	}
 	formatted, err := formatTimestamp("2022-01-01 00:00:00")
 	if err != nil {

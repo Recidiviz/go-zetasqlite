@@ -520,6 +520,7 @@ func setupNormalFuncMap(info *FuncInfo) error {
 		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
 		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 			values, err := convertArgs(args)
+			defer putArgs(values)
 			if err != nil {
 				return nil, err
 			}
@@ -536,6 +537,7 @@ func setupNormalFuncMap(info *FuncInfo) error {
 		Name: fmt.Sprintf("zetasqlite_%s", safeName),
 		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 			values, err := convertArgs(args)
+			defer putArgs(values)
 			if err != nil {
 				return nil, err
 			}

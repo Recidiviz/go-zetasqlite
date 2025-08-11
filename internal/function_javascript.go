@@ -43,7 +43,7 @@ zetasqlite_javascript_func();
 	}
 	value, err := castJavaScriptValue(typ, ret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert zetasqlite value from %v: %w", ret, err)
+		return nil, fmt.Errorf("failed to convert zetasqlite Value from %v: %w", ret, err)
 	}
 	return value, nil
 }
@@ -54,39 +54,39 @@ func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
 	}
 	switch t.Kind() {
 	case types.INT32, types.INT64, types.UINT32, types.UINT64:
-		return IntValue(v.ToInteger()), nil
+		return IntValue{v.ToInteger()}, nil
 	case types.BOOL:
-		return BoolValue(v.ToBoolean()), nil
+		return BoolValue{v.ToBoolean()}, nil
 	case types.FLOAT, types.DOUBLE:
-		return FloatValue(v.ToFloat()), nil
+		return FloatValue{v.ToFloat()}, nil
 	case types.STRING, types.ENUM:
-		return StringValue(v.ToString().String()), nil
+		return StringValue{v.ToString().String()}, nil
 	case types.BYTES:
-		return BytesValue(v.ToString().String()), nil
+		return BytesValue{[]byte(v.ToString().String())}, nil
 	case types.DATE:
 		t, err := parseDate(v.ToString().String())
 		if err != nil {
 			return nil, err
 		}
-		return DateValue(t), nil
+		return DateValue{t}, nil
 	case types.DATETIME:
 		t, err := parseDatetime(v.ToString().String())
 		if err != nil {
 			return nil, err
 		}
-		return DatetimeValue(t), nil
+		return DatetimeValue{t}, nil
 	case types.TIME:
 		t, err := parseTime(v.ToString().String())
 		if err != nil {
 			return nil, err
 		}
-		return TimeValue(t), nil
+		return TimeValue{t}, nil
 	case types.TIMESTAMP:
 		t, err := parseTimestamp(v.ToString().String(), time.UTC)
 		if err != nil {
 			return nil, err
 		}
-		return TimestampValue(t), nil
+		return TimestampValue{t}, nil
 	case types.INTERVAL:
 		return parseInterval(v.ToString().String())
 	case types.NUMERIC:
@@ -98,7 +98,7 @@ func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
 		r.SetString(v.ToNumber().String())
 		return &NumericValue{Rat: r}, nil
 	case types.JSON:
-		return JsonValue(v.ToString().String()), nil
+		return JsonValue{v.ToString().String()}, nil
 	case types.ARRAY:
 		elemType := t.AsArray().ElementType()
 		var ret ArrayValue
@@ -127,5 +127,5 @@ func castJavaScriptValue(t types.Type, v goja.Value) (Value, error) {
 		}
 		return CastValue(t, base)
 	}
-	return nil, fmt.Errorf("unsupported cast %s from JavaScript value", t.Kind())
+	return nil, fmt.Errorf("unsupported cast %s from JavaScript Value", t.Kind())
 }

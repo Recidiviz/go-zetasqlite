@@ -50,14 +50,14 @@ func TestTimeParser(t *testing.T) {
 			text:        []rune{'2', '2', '/'},
 			minValue:    1,
 			maxValue:    12,
-			expectedErr: "part [22] is greater than maximum value [12]",
+			expectedErr: "part [22] is greater than maximum Value [12]",
 		},
 		{
 			name:        "multiple digits but lower than start bound; non-digit character terminates",
 			text:        []rune{'0', '0', '/'},
 			minValue:    1,
 			maxValue:    12,
-			expectedErr: "part [0] is less than minimum value [1]",
+			expectedErr: "part [0] is less than minimum Value [1]",
 		},
 		{
 			name:             "multiple digits but lower than start bound; non-digit character terminates",

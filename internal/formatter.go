@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/goccy/go-json"
 	parsed_ast "github.com/goccy/go-zetasql/ast"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 	"github.com/goccy/go-zetasql/types"
@@ -279,7 +278,7 @@ func (n *FunctionCallNode) FormatSQL(ctx context.Context) (string, error) {
 		return stmt, nil
 	case "zetasqlite_case_with_value":
 		if len(args) < 2 {
-			return "", fmt.Errorf("not enough arguments for case with value")
+			return "", fmt.Errorf("not enough arguments for case with Value")
 		}
 		val := args[0]
 		args = args[1:]
@@ -506,31 +505,15 @@ func (n *CastNode) FormatSQL(ctx context.Context) (string, error) {
 	if n.node == nil {
 		return "", nil
 	}
-	fromType := newType(n.node.Expr().Type())
-	jsonEncodedFromType, err := json.Marshal(fromType)
-	if err != nil {
-		return "", err
-	}
-	toType := newType(n.node.Type())
-	jsonEncodedToType, err := json.Marshal(toType)
-	if err != nil {
-		return "", err
-	}
-	encodedFromType, err := EncodeGoValue(types.StringType(), string(jsonEncodedFromType))
-	if err != nil {
-		return "", err
-	}
-	encodedToType, err := EncodeGoValue(types.StringType(), string(jsonEncodedToType))
-	if err != nil {
-		return "", err
-	}
+	fromType := n.node.Expr().Type().Kind()
+	toType := n.node.Type().Kind()
 	expr, err := newNode(n.node.Expr()).FormatSQL(ctx)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(
-		"zetasqlite_cast(%s, '%s', '%s', %t)",
-		expr, encodedFromType, encodedToType, n.node.ReturnNullOnError(),
+		"zetasqlite_cast(%s, %d, %d, %t)",
+		expr, fromType, toType, n.node.ReturnNullOnError(),
 	), nil
 }
 
@@ -544,7 +527,7 @@ func (n *MakeStructNode) FormatSQL(ctx context.Context) (string, error) {
 	args := make([]string, 0, fieldNum*2)
 	for i := 0; i < fieldNum; i++ {
 		fieldName := typ.Field(i).Name()
-		key, err := LiteralFromValue(StringValue(fieldName))
+		key, err := LiteralFromValue(StringValue{fieldName})
 		if err != nil {
 			return "", err
 		}
@@ -741,7 +724,7 @@ func (n *ArrayScanNode) FormatSQL(ctx context.Context) (string, error) {
 		return "", err
 	}
 	colName := uniqueColumnName(ctx, n.node.ElementColumn())
-	columns := []string{fmt.Sprintf("json_each.value AS `%s`", colName)}
+	columns := []string{fmt.Sprintf("json_each.Value AS `%s`", colName)}
 
 	if offsetColumn := n.node.ArrayOffsetColumn(); offsetColumn != nil {
 		offsetColName := uniqueColumnName(ctx, offsetColumn.Column())

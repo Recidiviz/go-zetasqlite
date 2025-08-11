@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/goccy/go-json"
+	"github.com/goccy/go-zetasql/types"
 	"modernc.org/sqlite"
+	"sync"
 )
 
 type SQLiteFunction func(...interface{}) (interface{}, error)
@@ -38,8 +40,24 @@ func existsNull(args []Value) bool {
 	return false
 }
 
+// Example pattern (not specific to modernc.org/sqlite)
+var argPool = sync.Pool{
+	New: func() interface{} {
+		return make([]Value, 0, 16) // Pre-allocate capacity
+	},
+}
+
+func getArgs() []Value {
+	return argPool.Get().([]Value)
+}
+
+func putArgs(args []Value) {
+	args = args[:0] // Reset length but keep capacity
+	argPool.Put(args)
+}
+
 func convertArgs(args []driver.Value) ([]Value, error) {
-	values := make([]Value, 0, len(args))
+	values := getArgs()
 	for _, arg := range args {
 		value, err := DecodeValue(arg)
 		if err != nil {
@@ -59,6 +77,7 @@ type Aggregator struct {
 
 func (a *Aggregator) Step(ctx *sqlite.FunctionContext, stepArgs []driver.Value) error {
 	values, err := convertArgs(stepArgs)
+	defer putArgs(values)
 	if err != nil {
 		return err
 	}
@@ -142,6 +161,7 @@ type WindowAggregator struct {
 
 func (a *WindowAggregator) Step(ctx *sqlite.FunctionContext, stepArgs []driver.Value) error {
 	values, err := convertArgs(stepArgs)
+	defer putArgs(values)
 	if err != nil {
 		return err
 	}
@@ -150,6 +170,7 @@ func (a *WindowAggregator) Step(ctx *sqlite.FunctionContext, stepArgs []driver.V
 
 func (a *WindowAggregator) WindowInverse(ctx *sqlite.FunctionContext, stepArgs []driver.Value) error {
 	values, err := convertArgs(stepArgs)
+	defer putArgs(values)
 	if err != nil {
 		return err
 	}
@@ -263,14 +284,14 @@ func newWindowAggregatorWithoutArguments(impl interface{}) (*WindowAggregator, e
 			if ok {
 				return step.Step(args, agg)
 			}
-			return agg.Step(IntValue(1))
+			return agg.Step(IntValue{1})
 		},
 		inverse: func(args []Value, agg *WindowFuncAggregatedStatus) error {
 			inverse, ok := impl.(CustomInverseWindowAggregate)
 			if ok {
 				return inverse.Inverse(args, agg)
 			}
-			return agg.Inverse(IntValue(1))
+			return agg.Inverse(IntValue{1})
 		},
 		value: func(agg *WindowFuncAggregatedStatus) (Value, error) {
 			return impl.(WindowAggregatorMinimumImpl).Done(agg)
@@ -635,27 +656,21 @@ func bindCast(args ...Value) (Value, error) {
 	if len(args) != 4 {
 		return nil, fmt.Errorf("CAST: invalid argument num %d", len(args))
 	}
-	jsonEncodedFromType, err := args[1].ToString()
+	fromTypeInt, err := args[1].ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	jsonEncodedToType, err := args[2].ToString()
+	toTypeInt, err := args[2].ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	var fromType Type
-	if err := json.Unmarshal([]byte(jsonEncodedFromType), &fromType); err != nil {
-		return nil, err
-	}
-	var toType Type
-	if err := json.Unmarshal([]byte(jsonEncodedToType), &toType); err != nil {
-		return nil, err
-	}
+	fromType := newType(types.TypeFromKind(types.TypeKind(fromTypeInt)))
+	toType := newType(types.TypeFromKind(types.TypeKind(toTypeInt)))
 	isSafeCast, err := args[3].ToBool()
 	if err != nil {
 		return nil, err
 	}
-	return CAST(args[0], &fromType, &toType, isSafeCast)
+	return CAST(args[0], fromType, toType, isSafeCast)
 }
 
 func bindInterval(args ...Value) (Value, error) {
@@ -820,7 +835,7 @@ func bindAscii(args ...Value) (Value, error) {
 		return nil, err
 	}
 	if ascii == "" {
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
 	return ASCII(ascii)
 }
@@ -907,7 +922,7 @@ func bindCollate(args ...Value) (Value, error) {
 	}
 	value, err := args[0].ToString()
 	if err != nil {
-		return nil, fmt.Errorf("COLLATE: value must be string: %w", err)
+		return nil, fmt.Errorf("COLLATE: Value must be string: %w", err)
 	}
 	spec, err := args[1].ToString()
 	if err != nil {
@@ -951,12 +966,12 @@ func bindContainsSubstr(args ...Value) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			contained, err := result.EQ(BoolValue(true))
+			contained, err := result.EQ(BoolValue{true})
 			if err != nil {
 				return nil, err
 			}
 			if contained {
-				return BoolValue(true), nil
+				return BoolValue{true}, nil
 			}
 		}
 
@@ -964,7 +979,7 @@ func bindContainsSubstr(args ...Value) (Value, error) {
 			return nil, nil
 		}
 
-		return BoolValue(false), nil
+		return BoolValue{false}, nil
 	}
 
 	value, err := args[0].ToString()
@@ -1745,7 +1760,7 @@ func bindJsonType(args ...Value) (Value, error) {
 	}
 	value, ok := args[0].(JsonValue)
 	if !ok {
-		return nil, fmt.Errorf("JSON_TYPE: failed to convert %T to JSON value", args[0])
+		return nil, fmt.Errorf("JSON_TYPE: failed to convert %T to JSON Value", args[0])
 	}
 	return JSON_TYPE(value)
 }
@@ -2627,7 +2642,7 @@ func bindString(args ...Value) (Value, error) {
 	}
 	jsonValue, ok := args[0].(JsonValue)
 	if ok {
-		return StringValue(fmt.Sprint(jsonValue.Interface())), nil
+		return StringValue{fmt.Sprint(jsonValue.Interface())}, nil
 	}
 	t, err := args[0].ToTime()
 	if err != nil {
@@ -3287,7 +3302,7 @@ func bindCountStar() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction,
 
 func bindBitAndAgg() func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
 	return func(ctx sqlite.FunctionContext) (sqlite.AggregateFunction, error) {
-		fn := &BIT_AND_AGG{IntValue(-1)}
+		fn := &BIT_AND_AGG{IntValue{-1}}
 		return newAggregator(
 			func(args []Value, opt *AggregatorOption) error {
 				return fn.Step(args[0], opt)

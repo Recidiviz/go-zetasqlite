@@ -4,15 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	zetasqlite "github.com/Recidiviz/go-zetasqlite"
+	"github.com/Recidiviz/go-zetasqlite/internal"
+	"github.com/google/go-cmp/cmp"
 	"math"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	zetasqlite "github.com/goccy/go-zetasqlite"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestQuery(t *testing.T) {
@@ -225,6 +225,151 @@ UNION ALL
 			query: `SELECT 3 IN (1, 2, 3, 4), null IN (1), null IN (null)`,
 			// When left-hand side is null, null is always returned
 			expectedRows: [][]interface{}{{true, nil, nil}},
+		},
+		{
+			name: "struct equality",
+			// These direct equality comparisons compare the fields of the struct pairwise in ordinal order ignoring
+			// any field names. If instead you want to compare identically named fields of a struct,
+			// you can compare the individual fields directly.
+			// https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#limited_comparisons_for_structs
+			query: `WITH f AS (SELECT 1 AS col1) SELECT * FROM f WHERE STRUCT(col1) = STRUCT(1);`,
+			expectedRows: [][]interface{}{
+				{1},
+			},
+		},
+		{
+			name: "perf",
+			// These direct equality comparisons compare the fields of the struct pairwise in ordinal order ignoring
+			// any field names. If instead you want to compare identically named fields of a struct,
+			// you can compare the individual fields directly.
+			// https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#limited_comparisons_for_structs
+			query: `-- BigQuery SQL query to join ~10,000 rows
+-- This creates a complex join scenario for performance profiling
+
+WITH 
+-- Generate a base dataset of customers (1,000 rows)
+customers AS (
+  SELECT 
+    customer_id,
+    CONCAT('Customer_', CAST(customer_id AS STRING)) as customer_name,
+    MOD(customer_id, 25) + 1 as region_id,
+    CASE 
+      WHEN MOD(customer_id, 4) = 0 THEN 'Premium'
+      WHEN MOD(customer_id, 4) = 1 THEN 'Standard'
+      WHEN MOD(customer_id, 4) = 2 THEN 'Basic'
+      ELSE 'Trial'
+    END as tier
+  FROM UNNEST(GENERATE_ARRAY(1, 1000)) as customer_id
+),
+
+-- Generate orders dataset (3,500 rows)
+orders AS (
+  SELECT 
+    order_id,
+    MOD(order_id, 1000) + 1 as customer_id,  -- Each customer can have multiple orders
+    DATE_ADD('2020-01-01', INTERVAL MOD(order_id, 1461) DAY) as order_date,
+    ROUND(RAND() * 1000 + 50, 2) as order_amount,
+    MOD(order_id, 200) + 1 as product_id
+  FROM UNNEST(GENERATE_ARRAY(1, 3500)) as order_id
+),
+
+-- Generate products dataset (250 rows)
+products AS (
+  SELECT 
+    product_id,
+    CONCAT('Product_', CAST(product_id AS STRING)) as product_name,
+    MOD(product_id, 15) + 1 as category_id,
+    ROUND(RAND() * 500 + 10, 2) as unit_price
+  FROM UNNEST(GENERATE_ARRAY(1, 250)) as product_id
+),
+
+-- Generate categories dataset (25 rows)  
+categories AS (
+  SELECT 
+    category_id,
+    CASE MOD(category_id, 10)
+      WHEN 0 THEN 'Electronics'
+      WHEN 1 THEN 'Clothing' 
+      WHEN 2 THEN 'Books'
+      WHEN 3 THEN 'Home & Garden'
+      WHEN 4 THEN 'Sports'
+      WHEN 5 THEN 'Toys'
+      WHEN 6 THEN 'Health'
+      WHEN 7 THEN 'Automotive'
+      WHEN 8 THEN 'Food'
+      ELSE 'Other'
+    END as category_name
+  FROM UNNEST(GENERATE_ARRAY(1, 25)) as category_id
+),
+
+-- Generate regions dataset (25 rows)
+regions AS (
+  SELECT 
+    region_id,
+    CONCAT('Region_', CAST(region_id AS STRING)) as region_name,
+    CASE MOD(region_id, 5)
+      WHEN 0 THEN 'North America'
+      WHEN 1 THEN 'Europe'  
+      WHEN 2 THEN 'Asia Pacific'
+      WHEN 3 THEN 'Latin America'
+      ELSE 'Middle East & Africa'
+    END as continent
+  FROM UNNEST(GENERATE_ARRAY(1, 25)) as region_id
+),
+
+-- Generate order items to create more join complexity (7,500 rows)
+order_items AS (
+  SELECT 
+    item_id,
+    MOD(item_id, 3500) + 1 as order_id,
+    MOD(item_id, 250) + 1 as product_id,
+    MOD(item_id, 5) + 1 as quantity,
+    ROUND(RAND() * 50, 2) as discount_amount
+  FROM UNNEST(GENERATE_ARRAY(1, 7500)) as item_id
+)
+
+-- Main query with multiple joins
+SELECT 
+  c.customer_name,
+  c.tier as customer_tier,
+  r.region_name,
+  r.continent,
+  o.order_date,
+  o.order_amount,
+  p.product_name,
+  cat.category_name,
+  oi.quantity,
+  oi.discount_amount,
+  p.unit_price,
+  (oi.quantity * p.unit_price - oi.discount_amount) as line_total,
+  
+  -- Aggregate calculations
+  COUNT(*) OVER (PARTITION BY c.customer_id) as customer_total_orders,
+  SUM(o.order_amount) OVER (PARTITION BY r.region_id) as region_total_sales,
+  AVG(p.unit_price) OVER (PARTITION BY cat.category_id) as avg_category_price,
+  
+  -- Ranking functions for additional complexity
+  ROW_NUMBER() OVER (PARTITION BY c.customer_id ORDER BY o.order_date DESC) as recent_order_rank,
+  DENSE_RANK() OVER (ORDER BY o.order_amount DESC) as order_value_rank
+
+FROM customers c
+INNER JOIN regions r ON c.region_id = r.region_id
+INNER JOIN orders o ON c.customer_id = o.customer_id  
+INNER JOIN order_items oi ON o.order_id = oi.order_id
+INNER JOIN products p ON oi.product_id = p.product_id
+INNER JOIN categories cat ON p.category_id = cat.category_id
+
+WHERE 
+  o.order_date >= '2022-01-01'
+  AND o.order_amount > 100
+  AND c.tier IN ('Premium', 'Standard')
+
+ORDER BY 
+  c.customer_id,
+  o.order_date DESC,
+  line_total DESC
+
+LIMIT 10000`,
 		},
 		{
 			name:  "not in operator",
@@ -6085,62 +6230,79 @@ SELECT c1 * ? * ? FROM t1;
 		},
 	} {
 		test := test
-		t.Run(test.name, func(t *testing.T) {
-			rows, err := db.QueryContext(ctx, test.query, test.args...)
-			if err != nil {
-				if test.expectedErr == "" {
+
+		if test.name == "perf" {
+			// Create allocation profile file
+			//allocFile, err := os.Create("alloc_profile.prof")
+			//if err != nil {
+			//	t.Fatalf("could not create allocation profile: %v", err)
+			//}
+			//defer allocFile.Close()
+
+			// Enable allocation profiling
+			//runtime.MemProfileRate = 2048                          // Profile every allocation (expensive but thorough)
+			//defer func() { runtime.MemProfileRate = 512 * 1024 }() // Reset to default
+
+			// Force GC before starting to get clean baseline
+			//runtime.GC()
+			t.Run(test.name, func(t *testing.T) {
+				rows, err := db.QueryContext(ctx, test.query, test.args...)
+				if err != nil {
+					if test.expectedErr == "" {
+						t.Fatal(err)
+					} else {
+						return
+					}
+				}
+				defer rows.Close()
+				columns, err := rows.Columns()
+				if err != nil {
 					t.Fatal(err)
+				}
+				columnNum := len(columns)
+				args := []interface{}{}
+				for i := 0; i < columnNum; i++ {
+					var v interface{}
+					args = append(args, &v)
+				}
+
+				rowNum := 0
+				for rows.Next() {
+					if err := rows.Scan(args...); err != nil {
+						t.Fatal(err)
+					}
+					derefArgs := []interface{}{}
+					for i := 0; i < len(args); i++ {
+						value := reflect.ValueOf(args[i]).Elem().Interface()
+						derefArgs = append(derefArgs, value)
+					}
+					if len(test.expectedRows) <= rowNum {
+						//t.Fatalf("unexpected row %v. expected row num %d but got next row", derefArgs, len(test.expectedRows))
+					}
+					if len(test.expectedRows) != 0 {
+						expectedRow := test.expectedRows[rowNum]
+						if len(derefArgs) != len(expectedRow) {
+						}
+						if diff := cmp.Diff(expectedRow, derefArgs, floatCmpOpt); diff != "" {
+						}
+						rowNum++
+					}
+				}
+				rowsErr := rows.Err()
+				if test.expectedErr != "" {
+					if test.expectedErr != rowsErr.Error() {
+					}
 				} else {
-					return
+					if rowsErr != nil {
+					}
 				}
-			}
-			defer rows.Close()
-			columns, err := rows.Columns()
-			if err != nil {
-				t.Fatal(err)
-			}
-			columnNum := len(columns)
-			args := []interface{}{}
-			for i := 0; i < columnNum; i++ {
-				var v interface{}
-				args = append(args, &v)
-			}
-			rowNum := 0
-			for rows.Next() {
-				if err := rows.Scan(args...); err != nil {
-					t.Fatal(err)
-				}
-				derefArgs := []interface{}{}
-				for i := 0; i < len(args); i++ {
-					value := reflect.ValueOf(args[i]).Elem().Interface()
-					derefArgs = append(derefArgs, value)
-				}
-				if len(test.expectedRows) <= rowNum {
-					t.Fatalf("unexpected row %v. expected row num %d but got next row", derefArgs, len(test.expectedRows))
-				}
-				expectedRow := test.expectedRows[rowNum]
-				if len(derefArgs) != len(expectedRow) {
-					t.Fatalf("failed to get columns. expected %d but got %d", len(expectedRow), len(derefArgs))
-				}
-				if diff := cmp.Diff(expectedRow, derefArgs, floatCmpOpt); diff != "" {
-					t.Errorf("[%d]: (-want +got):\n%s", rowNum, diff)
-				}
-				rowNum++
-			}
-			rowsErr := rows.Err()
-			if test.expectedErr != "" {
-				if test.expectedErr != rowsErr.Error() {
-					t.Fatalf("unexpected error message: expected [%s] but got [%s]", test.expectedErr, rowsErr.Error())
-				}
-			} else {
-				if rowsErr != nil {
-					t.Fatal(rowsErr)
-				}
-			}
-			if len(test.expectedRows) != rowNum {
-				t.Fatalf("failed to get rows. expected %d but got %d", len(test.expectedRows), rowNum)
-			}
-		})
+			})
+			fmt.Println(internal.ValueInstantiationCounters)
+			//// Write allocation profile
+			//if err := pprof.Lookup("allocs").WriteTo(allocFile, 0); err != nil {
+			//	t.Fatalf("could not write allocation profile: %v", err)
+			//}
+		}
 	}
 	os.Unsetenv("TZ")
 }

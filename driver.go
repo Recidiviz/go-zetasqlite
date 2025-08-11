@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"fmt"
-	internal "github.com/goccy/go-zetasqlite/internal"
+	internal "github.com/Recidiviz/go-zetasqlite/internal"
 	_ "modernc.org/sqlite"
 	"sync"
 )

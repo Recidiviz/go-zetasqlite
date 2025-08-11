@@ -19,7 +19,7 @@ func ARRAY_CONCAT(args ...Value) (Value, error) {
 }
 
 func ARRAY_LENGTH(v *ArrayValue) (Value, error) {
-	return IntValue(len(v.values)), nil
+	return IntValue{int64(len(v.values))}, nil
 }
 
 func ARRAY_TO_STRING(arr *ArrayValue, delim string, nullText ...string) (Value, error) {
@@ -35,7 +35,7 @@ func ARRAY_TO_STRING(arr *ArrayValue, delim string, nullText ...string) (Value, 
 			elems = append(elems, v.Format('t'))
 		}
 	}
-	return StringValue(strings.Join(elems, delim)), nil
+	return StringValue{strings.Join(elems, delim)}, nil
 }
 
 func GENERATE_ARRAY(start, end Value, step ...Value) (Value, error) {
@@ -43,14 +43,14 @@ func GENERATE_ARRAY(start, end Value, step ...Value) (Value, error) {
 	if len(step) > 0 {
 		stepValue = step[0]
 	} else {
-		stepValue = IntValue(1)
+		stepValue = IntValue{1}
 	}
 	return generateArray(start, end, stepValue)
 }
 
 func GENERATE_DATE_ARRAY(start, end Value, step ...Value) (Value, error) {
 	if len(step) > 2 {
-		return nil, fmt.Errorf("invalid step value %v", step)
+		return nil, fmt.Errorf("invalid step Value %v", step)
 	}
 	var (
 		stepValue int64 = 1
@@ -88,10 +88,10 @@ func GENERATE_TIMESTAMP_ARRAY(start, end Value, step int64, part string) (Value,
 	arr := &ArrayValue{}
 	isPositiveStepValue := step > 0
 	if isLT && !isPositiveStepValue {
-		// start less than end and step is negative value
+		// start less than end and step is negative Value
 		return arr, nil
 	} else if !isLT && isPositiveStepValue {
-		// start greater than end and step is positive value
+		// start greater than end and step is positive Value
 		return arr, nil
 	}
 	cur := start
@@ -132,15 +132,15 @@ func generateArray(start, end, step Value) (Value, error) {
 		return nil, err
 	}
 	arr := &ArrayValue{}
-	isPositiveStepValue, err := step.GT(IntValue(0))
+	isPositiveStepValue, err := step.GT(IntValue{0})
 	if err != nil {
 		return nil, err
 	}
 	if isLT && !isPositiveStepValue {
-		// start less than end and step is negative value
+		// start less than end and step is negative Value
 		return arr, nil
 	} else if !isLT && isPositiveStepValue {
-		// start greater than end and step is positive value
+		// start greater than end and step is positive Value
 		return arr, nil
 	}
 	cur := start
@@ -183,10 +183,10 @@ func generateDateArray(start, end Value, step int, interval string) (Value, erro
 	arr := &ArrayValue{}
 	isPositiveStepValue := step > 0
 	if isLT && !isPositiveStepValue {
-		// start less than end and step is negative value
+		// start less than end and step is negative Value
 		return arr, nil
 	} else if !isLT && isPositiveStepValue {
-		// start greater than end and step is positive value
+		// start greater than end and step is positive Value
 		return arr, nil
 	}
 	cur := start

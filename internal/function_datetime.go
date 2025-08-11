@@ -14,7 +14,7 @@ func CURRENT_DATETIME(zone string) (Value, error) {
 }
 
 func CURRENT_DATETIME_WITH_TIME(v time.Time) (Value, error) {
-	return DatetimeValue(v), nil
+	return DatetimeValue{v}, nil
 }
 
 func DATETIME(args ...Value) (Value, error) {
@@ -47,16 +47,18 @@ func DATETIME(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return DatetimeValue(time.Date(
-			int(year),
-			time.Month(month),
-			int(day),
-			int(hour),
-			int(minute),
-			int(second),
-			0,
-			location,
-		)), nil
+		return DatetimeValue{
+			time.Date(
+				int(year),
+				time.Month(month),
+				int(day),
+				int(hour),
+				int(minute),
+				int(second),
+				0,
+				location,
+			),
+		}, nil
 	}
 	if len(args) != 1 && len(args) != 2 {
 		return nil, fmt.Errorf("DATETIME: invalid argument num %d", len(args))
@@ -72,7 +74,7 @@ func DATETIME(args ...Value) (Value, error) {
 			if err != nil {
 				return nil, fmt.Errorf("DATETIME: second argument must be time type: %w", err)
 			}
-			return DatetimeValue(time.Date(
+			return DatetimeValue{time.Date(
 				t.Year(),
 				t.Month(),
 				t.Day(),
@@ -81,9 +83,9 @@ func DATETIME(args ...Value) (Value, error) {
 				t2.Second(),
 				t2.Nanosecond(),
 				t2.Location(),
-			)), nil
+			)}, nil
 		}
-		return DatetimeValue(t), nil
+		return DatetimeValue{t}, nil
 	case TimestampValue:
 		t, err := v.ToTime()
 		if err != nil {
@@ -98,9 +100,9 @@ func DATETIME(args ...Value) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			return DatetimeValue(t.In(loc)), nil
+			return DatetimeValue{t.In(loc)}, nil
 		}
-		return DatetimeValue(t.UTC()), nil
+		return DatetimeValue{t.UTC()}, nil
 	}
 	return nil, fmt.Errorf("DATETIME: first argument must be DATE or TIMESTAMP type")
 }
@@ -108,15 +110,15 @@ func DATETIME(args ...Value) (Value, error) {
 func DATETIME_ADD(t time.Time, v int64, part string) (Value, error) {
 	switch part {
 	case "MICROSECOND":
-		return DatetimeValue(t.Add(time.Duration(v) * time.Microsecond)), nil
+		return DatetimeValue{t.Add(time.Duration(v) * time.Microsecond)}, nil
 	case "MILLISECOND":
-		return DatetimeValue(t.Add(time.Duration(v) * time.Millisecond)), nil
+		return DatetimeValue{t.Add(time.Duration(v) * time.Millisecond)}, nil
 	case "SECOND":
-		return DatetimeValue(t.Add(time.Duration(v) * time.Second)), nil
+		return DatetimeValue{t.Add(time.Duration(v) * time.Second)}, nil
 	case "MINUTE":
-		return DatetimeValue(t.Add(time.Duration(v) * time.Minute)), nil
+		return DatetimeValue{t.Add(time.Duration(v) * time.Minute)}, nil
 	case "HOUR":
-		return DatetimeValue(t.Add(time.Duration(v) * time.Hour)), nil
+		return DatetimeValue{t.Add(time.Duration(v) * time.Hour)}, nil
 	default:
 		date, err := DATE_ADD(t, v, part)
 		if err != nil {
@@ -126,7 +128,7 @@ func DATETIME_ADD(t time.Time, v int64, part string) (Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("DATETIME_ADD: %w", err)
 		}
-		return DatetimeValue(
+		return DatetimeValue{
 			time.Date(
 				datetime.Year(),
 				datetime.Month(),
@@ -137,22 +139,22 @@ func DATETIME_ADD(t time.Time, v int64, part string) (Value, error) {
 				t.Nanosecond(),
 				t.Location(),
 			),
-		), nil
+		}, nil
 	}
 }
 
 func DATETIME_SUB(t time.Time, v int64, part string) (Value, error) {
 	switch part {
 	case "MICROSECOND":
-		return DatetimeValue(t.Add(-time.Duration(v) * time.Microsecond)), nil
+		return DatetimeValue{t.Add(-time.Duration(v) * time.Microsecond)}, nil
 	case "MILLISECOND":
-		return DatetimeValue(t.Add(-time.Duration(v) * time.Millisecond)), nil
+		return DatetimeValue{t.Add(-time.Duration(v) * time.Millisecond)}, nil
 	case "SECOND":
-		return DatetimeValue(t.Add(-time.Duration(v) * time.Second)), nil
+		return DatetimeValue{t.Add(-time.Duration(v) * time.Second)}, nil
 	case "MINUTE":
-		return DatetimeValue(t.Add(-time.Duration(v) * time.Minute)), nil
+		return DatetimeValue{t.Add(-time.Duration(v) * time.Minute)}, nil
 	case "HOUR":
-		return DatetimeValue(t.Add(-time.Duration(v) * time.Hour)), nil
+		return DatetimeValue{t.Add(-time.Duration(v) * time.Hour)}, nil
 	default:
 		date, err := DATE_SUB(t, v, part)
 		if err != nil {
@@ -162,7 +164,7 @@ func DATETIME_SUB(t time.Time, v int64, part string) (Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("DATETIME_SUB: %w", err)
 		}
-		return DatetimeValue(
+		return DatetimeValue{
 			time.Date(
 				datetime.Year(),
 				datetime.Month(),
@@ -173,7 +175,7 @@ func DATETIME_SUB(t time.Time, v int64, part string) (Value, error) {
 				t.Nanosecond(),
 				t.Location(),
 			),
-		), nil
+		}, nil
 	}
 }
 
@@ -181,15 +183,15 @@ func DATETIME_DIFF(a, b time.Time, part string) (Value, error) {
 	diff := a.Sub(b)
 	switch part {
 	case "MICROSECOND":
-		return IntValue(diff / time.Microsecond), nil
+		return IntValue{int64(diff / time.Microsecond)}, nil
 	case "MILLISECOND":
-		return IntValue(diff / time.Millisecond), nil
+		return IntValue{int64(diff / time.Millisecond)}, nil
 	case "SECOND":
-		return IntValue(diff / time.Second), nil
+		return IntValue{int64(diff / time.Second)}, nil
 	case "MINUTE":
-		return IntValue(diff / time.Minute), nil
+		return IntValue{int64(diff / time.Minute)}, nil
 	case "HOUR":
-		return IntValue(diff / time.Hour), nil
+		return IntValue{int64(diff / time.Hour)}, nil
 	}
 
 	value, err := DATE_DIFF(a, b, part)
@@ -202,10 +204,10 @@ func DATETIME_DIFF(a, b time.Time, part string) (Value, error) {
 func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 	switch part {
 	case "MICROSECOND":
-		return DatetimeValue(t), nil
+		return DatetimeValue{t}, nil
 	case "MILLISECOND":
 		sec := time.Duration(t.Second()) - time.Duration(t.Second())/time.Microsecond
-		return DatetimeValue(time.Date(
+		return DatetimeValue{value: time.Date(
 			t.Year(),
 			t.Month(),
 			t.Day(),
@@ -214,10 +216,10 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 			int(sec),
 			0,
 			t.Location(),
-		)), nil
+		)}, nil
 	case "SECOND":
 		sec := time.Duration(t.Second()) / time.Second
-		return DatetimeValue(time.Date(
+		return DatetimeValue{value: time.Date(
 			t.Year(),
 			t.Month(),
 			t.Day(),
@@ -226,9 +228,9 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 			int(sec),
 			0,
 			t.Location(),
-		)), nil
+		)}, nil
 	case "MINUTE":
-		return DatetimeValue(time.Date(
+		return DatetimeValue{value: time.Date(
 			t.Year(),
 			t.Month(),
 			t.Day(),
@@ -237,18 +239,20 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 			0,
 			0,
 			t.Location(),
-		)), nil
+		)}, nil
 	case "HOUR":
-		return DatetimeValue(time.Date(
-			t.Year(),
-			t.Month(),
-			t.Day(),
-			t.Hour(),
-			0,
-			0,
-			0,
-			t.Location(),
-		)), nil
+		return DatetimeValue{
+			value: time.Date(
+				t.Year(),
+				t.Month(),
+				t.Day(),
+				t.Hour(),
+				0,
+				0,
+				0,
+				t.Location(),
+			),
+		}, nil
 	default:
 		date, err := DATE_TRUNC(t, part)
 		if err != nil {
@@ -258,8 +262,8 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 		if err != nil {
 			return nil, fmt.Errorf("DATETIME_TRUNC: %w", err)
 		}
-		return DatetimeValue(
-			time.Date(
+		return DatetimeValue{
+			value: time.Date(
 				datetime.Year(),
 				datetime.Month(),
 				datetime.Day(),
@@ -269,7 +273,7 @@ func DATETIME_TRUNC(t time.Time, part string) (Value, error) {
 				datetime.Nanosecond(),
 				datetime.Location(),
 			),
-		), nil
+		}, nil
 	}
 }
 
@@ -278,7 +282,7 @@ func FORMAT_DATETIME(format string, t time.Time) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(s), nil
+	return StringValue{s}, nil
 }
 
 func PARSE_DATETIME(format, date string) (Value, error) {
@@ -286,5 +290,5 @@ func PARSE_DATETIME(format, date string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return DatetimeValue(*t), nil
+	return DatetimeValue{*t}, nil
 }

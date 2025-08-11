@@ -18,22 +18,22 @@ import (
 )
 
 func ASCII(v string) (Value, error) {
-	return IntValue(v[0]), nil
+	return IntValue{int64(v[0])}, nil
 }
 
 func BYTE_LENGTH(v []byte) (Value, error) {
-	return IntValue(len(v)), nil
+	return IntValue{int64(len(v))}, nil
 }
 
 func CHAR_LENGTH(v []byte) (Value, error) {
-	return IntValue(len([]rune(string(v)))), nil
+	return IntValue{int64(len([]rune(string(v))))}, nil
 }
 
 func CHR(v int64) (Value, error) {
 	if v == 0 {
-		return StringValue(""), nil
+		return StringValue{""}, nil
 	}
-	return StringValue(string(rune(v))), nil
+	return StringValue{string(rune(v))}, nil
 }
 
 func CODE_POINTS_TO_BYTES(v *ArrayValue) (Value, error) {
@@ -45,7 +45,7 @@ func CODE_POINTS_TO_BYTES(v *ArrayValue) (Value, error) {
 		}
 		bytes = append(bytes, byte(i64))
 	}
-	return BytesValue(bytes), nil
+	return BytesValue{bytes}, nil
 }
 
 func CODE_POINTS_TO_STRING(v *ArrayValue) (Value, error) {
@@ -63,7 +63,7 @@ func CODE_POINTS_TO_STRING(v *ArrayValue) (Value, error) {
 		}
 		runes = append(runes, rune(i64))
 	}
-	return StringValue(string(runes)), nil
+	return StringValue{string(runes)}, nil
 }
 
 func COLLATE(v, spec string) (Value, error) {
@@ -83,7 +83,7 @@ func COLLATE(v, spec string) (Value, error) {
 	key := collate.New(tag, opt).KeyFromString(&buf, v)
 	// TODO: need to add key to string as collate information.
 	_ = key
-	return StringValue(v), nil
+	return StringValue{v}, nil
 }
 
 func CONCAT(args ...Value) (Value, error) {
@@ -99,10 +99,10 @@ func CONCAT(args ...Value) (Value, error) {
 		ret = append(ret, b...)
 	}
 	switch args[0].(type) {
-	case StringValue:
-		return StringValue(string(ret)), nil
-	case BytesValue:
-		return BytesValue(ret), nil
+	case *StringValue:
+		return StringValue{string(ret)}, nil
+	case *BytesValue:
+		return BytesValue{ret}, nil
 	}
 	return nil, fmt.Errorf("CONCAT: argument type must be STRING or BYTES")
 }
@@ -110,7 +110,7 @@ func CONCAT(args ...Value) (Value, error) {
 func CONTAINS_SUBSTR(value string, search string) (Value, error) {
 	normalizedExprValue, err := NORMALIZE_AND_CASEFOLD(value, "NFKC")
 	if err != nil {
-		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not normalize and casefold value: %w", err)
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not normalize and casefold Value: %w", err)
 	}
 
 	normalizedValue, err := normalizedExprValue.ToString()
@@ -120,14 +120,14 @@ func CONTAINS_SUBSTR(value string, search string) (Value, error) {
 
 	normalizedSearchValue, err := NORMALIZE_AND_CASEFOLD(search, "NFKC")
 	if err != nil {
-		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not normalize and casefold value: %w", err)
+		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not normalize and casefold Value: %w", err)
 	}
 
 	normalizedSearch, err := normalizedSearchValue.ToString()
 	if err != nil {
 		return nil, fmt.Errorf("CONTAINS_SUBSTR: could not convert expression to string: %w", err)
 	}
-	return BoolValue(strings.Contains(normalizedValue, normalizedSearch)), nil
+	return BoolValue{strings.Contains(normalizedValue, normalizedSearch)}, nil
 }
 
 func ENDS_WITH(value, ends Value) (Value, error) {
@@ -141,7 +141,7 @@ func ENDS_WITH(value, ends Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BoolValue(strings.HasSuffix(s, e)), nil
+		return BoolValue{strings.HasSuffix(s, e)}, nil
 	case BytesValue:
 		b, err := value.ToBytes()
 		if err != nil {
@@ -151,7 +151,7 @@ func ENDS_WITH(value, ends Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BoolValue(bytes.HasSuffix(b, e)), nil
+		return BoolValue{bytes.HasSuffix(b, e)}, nil
 	}
 	return nil, fmt.Errorf("ENDS_WITH: argument type must be STRING or BYTES")
 }
@@ -161,7 +161,7 @@ func FORMAT(format string, args ...Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(result), nil
+	return StringValue{result}, nil
 }
 
 func FROM_BASE32(v string) (Value, error) {
@@ -169,7 +169,7 @@ func FROM_BASE32(v string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BytesValue(b), nil
+	return BytesValue{b}, nil
 }
 
 func FROM_BASE64(v string) (Value, error) {
@@ -177,7 +177,7 @@ func FROM_BASE64(v string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BytesValue(b), nil
+	return BytesValue{b}, nil
 }
 
 func FROM_HEX(v string) (Value, error) {
@@ -188,7 +188,7 @@ func FROM_HEX(v string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BytesValue(b), nil
+	return BytesValue{b}, nil
 }
 
 var (
@@ -242,15 +242,15 @@ func INITCAP(value string, delimiters []rune) (Value, error) {
 			i++
 		}
 	}
-	return StringValue(string(dst)), nil
+	return StringValue{string(dst)}, nil
 }
 
 func INSTR(source, search Value, position, occurrence int64) (Value, error) {
 	if position == 0 {
-		return nil, fmt.Errorf("INSTR: invalid position number. position is must be large than zero value")
+		return nil, fmt.Errorf("INSTR: invalid position number. position is must be large than zero Value")
 	}
 	if occurrence <= 0 {
-		return nil, fmt.Errorf("INSTR: invalid occurrence number. occurrence is must be large than zero value. but specified %d", occurrence)
+		return nil, fmt.Errorf("INSTR: invalid occurrence number. occurrence is must be large than zero Value. but specified %d", occurrence)
 	}
 	pos := int(math.Abs(float64(position)))
 	if _, ok := source.(StringValue); ok {
@@ -266,7 +266,7 @@ func INSTR(source, search Value, position, occurrence int64) (Value, error) {
 			return nil, err
 		}
 		if pos >= len(src) {
-			return nil, fmt.Errorf("INSTR: invalid position number. position %d is larger than source value length %d", pos, len(src))
+			return nil, fmt.Errorf("INSTR: invalid position number. position %d is larger than source Value length %d", pos, len(src))
 		}
 		length := len(src)
 		if position < 0 {
@@ -283,12 +283,12 @@ func INSTR(source, search Value, position, occurrence int64) (Value, error) {
 			}
 			if found == occurrence {
 				if position < 0 {
-					return IntValue(length - i - 1), nil
+					return IntValue{int64(length - i - 1)}, nil
 				}
-				return IntValue(pos + i), nil
+				return IntValue{int64(pos + i)}, nil
 			}
 		}
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
 	if _, ok := source.(BytesValue); ok {
 		if _, ok := search.(BytesValue); !ok {
@@ -303,7 +303,7 @@ func INSTR(source, search Value, position, occurrence int64) (Value, error) {
 			return nil, err
 		}
 		if pos >= len(src) {
-			return nil, fmt.Errorf("INSTR: invalid position number. position %d is larger than source value length %d", pos, len(src))
+			return nil, fmt.Errorf("INSTR: invalid position number. position %d is larger than source Value length %d", pos, len(src))
 		}
 		length := len(src)
 		if position < 0 {
@@ -320,19 +320,19 @@ func INSTR(source, search Value, position, occurrence int64) (Value, error) {
 			}
 			if found == occurrence {
 				if position < 0 {
-					return IntValue(length - i - 1), nil
+					return IntValue{int64(length - i - 1)}, nil
 				}
-				return IntValue(pos + i), nil
+				return IntValue{int64(pos + i)}, nil
 			}
 		}
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
 	return nil, fmt.Errorf("INSTR: source and search type are must be STRING or BYTES type")
 }
 
 func LEFT(v Value, length int64) (Value, error) {
 	if length < 0 {
-		return nil, fmt.Errorf("LEFT: unexpected length value. length must be positive number")
+		return nil, fmt.Errorf("LEFT: unexpected length Value. length must be positive number")
 	}
 	switch v.(type) {
 	case StringValue:
@@ -344,7 +344,7 @@ func LEFT(v Value, length int64) (Value, error) {
 		if len(runes) <= int(length) {
 			return v, nil
 		}
-		return StringValue(string(runes[:length])), nil
+		return StringValue{string(runes[:length])}, nil
 	case BytesValue:
 		b, err := v.ToBytes()
 		if err != nil {
@@ -353,9 +353,9 @@ func LEFT(v Value, length int64) (Value, error) {
 		if len(b) <= int(length) {
 			return v, nil
 		}
-		return BytesValue(b[:length]), nil
+		return BytesValue{b[:length]}, nil
 	}
-	return nil, fmt.Errorf("LEFT: value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("LEFT: Value type is must be STRING or BYTES type")
 }
 
 func LENGTH(v Value) (Value, error) {
@@ -366,15 +366,15 @@ func LENGTH(v Value) (Value, error) {
 			return nil, err
 		}
 		runes := []rune(s)
-		return IntValue(len(runes)), nil
+		return IntValue{int64(len(runes))}, nil
 	case BytesValue:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return IntValue(len(b)), nil
+		return IntValue{int64(len(b))}, nil
 	}
-	return nil, fmt.Errorf("LENGTH: value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("LENGTH: Value type is must be STRING or BYTES type")
 }
 
 func LPAD(originalValue Value, returnLength int64, pattern Value) (Value, error) {
@@ -386,7 +386,7 @@ func LPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 		}
 		runes := []rune(s)
 		if len(runes) >= int(returnLength) {
-			return StringValue(string(runes[:returnLength])), nil
+			return StringValue{string(runes[:returnLength])}, nil
 		}
 		remainLen := int(returnLength) - len(runes)
 		var pat []rune
@@ -404,14 +404,14 @@ func LPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 				pat = []rune(strings.Repeat(string(pat), repeatNum))
 			}
 		}
-		return StringValue(string(pat[:remainLen]) + s), nil
+		return StringValue{string(pat[:remainLen]) + s}, nil
 	case BytesValue:
 		b, err := originalValue.ToBytes()
 		if err != nil {
 			return nil, err
 		}
 		if len(b) >= int(returnLength) {
-			return BytesValue(b[:returnLength]), nil
+			return BytesValue{b[:returnLength]}, nil
 		}
 		remainLen := int(returnLength) - len(b)
 		var pat []byte
@@ -428,9 +428,9 @@ func LPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 				pat = bytes.Repeat(p, repeatNum)
 			}
 		}
-		return BytesValue(append(pat[:remainLen], b...)), nil
+		return BytesValue{append(pat[:remainLen], b...)}, nil
 	}
-	return nil, fmt.Errorf("LPAD: original value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("LPAD: original Value type is must be STRING or BYTES type")
 }
 
 func LOWER(v Value) (Value, error) {
@@ -443,15 +443,15 @@ func LOWER(v Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.ToLower(s)), nil
+		return StringValue{strings.ToLower(s)}, nil
 	case BytesValue:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.ToLower(b)), nil
+		return BytesValue{bytes.ToLower(b)}, nil
 	}
-	return nil, fmt.Errorf("LOWER: value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("LOWER: Value type is must be STRING or BYTES type")
 }
 
 func LTRIM(v Value, cutsetV Value) (Value, error) {
@@ -470,9 +470,9 @@ func LTRIM(v Value, cutsetV Value) (Value, error) {
 			return nil, err
 		}
 		if cutsetV == nil {
-			return StringValue(strings.TrimLeftFunc(s, unicode.IsSpace)), nil
+			return StringValue{strings.TrimLeftFunc(s, unicode.IsSpace)}, nil
 		} else {
-			return StringValue(strings.TrimLeft(s, cutset)), nil
+			return StringValue{strings.TrimLeft(s, cutset)}, nil
 		}
 	case BytesValue:
 		b, err := v.ToBytes()
@@ -482,22 +482,22 @@ func LTRIM(v Value, cutsetV Value) (Value, error) {
 		if cutsetV == nil {
 			return nil, fmt.Errorf("LTRIM: must set_of_characters_to_remove when trimming bytes")
 		} else {
-			return BytesValue(bytes.TrimLeft(b, cutset)), nil
+			return BytesValue{bytes.TrimLeft(b, cutset)}, nil
 		}
 	}
-	return nil, fmt.Errorf("LTRIM: value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("LTRIM: Value type is must be STRING or BYTES type")
 }
 
 func NORMALIZE(v, mode string) (Value, error) {
 	switch mode {
 	case "NFC":
-		return StringValue(norm.NFC.String(v)), nil
+		return StringValue{norm.NFC.String(v)}, nil
 	case "NFD":
-		return StringValue(norm.NFD.String(v)), nil
+		return StringValue{norm.NFD.String(v)}, nil
 	case "NFKC":
-		return StringValue(norm.NFKC.String(v)), nil
+		return StringValue{norm.NFKC.String(v)}, nil
 	case "NFKD":
-		return StringValue(norm.NFKD.String(v)), nil
+		return StringValue{norm.NFKD.String(v)}, nil
 	}
 	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
 }
@@ -506,13 +506,13 @@ func NORMALIZE_AND_CASEFOLD(v, mode string) (Value, error) {
 	v = strings.ToLower(v)
 	switch mode {
 	case "NFC":
-		return StringValue(norm.NFC.String(v)), nil
+		return StringValue{norm.NFC.String(v)}, nil
 	case "NFD":
-		return StringValue(norm.NFD.String(v)), nil
+		return StringValue{norm.NFD.String(v)}, nil
 	case "NFKC":
-		return StringValue(norm.NFKC.String(v)), nil
+		return StringValue{norm.NFKC.String(v)}, nil
 	case "NFKD":
-		return StringValue(norm.NFKD.String(v)), nil
+		return StringValue{norm.NFKD.String(v)}, nil
 	}
 	return nil, fmt.Errorf("unexpected normalize mode %s", mode)
 }
@@ -522,7 +522,7 @@ func REGEXP_CONTAINS(value, expr string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(re.MatchString(value)), nil
+	return BoolValue{re.MatchString(value)}, nil
 }
 
 func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value, error) {
@@ -551,7 +551,7 @@ func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value
 			return nil, nil
 		}
 		match := matches[occurrence-1]
-		return StringValue(match[len(match)-1]), nil
+		return StringValue{match[len(match)-1]}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -565,9 +565,9 @@ func REGEXP_EXTRACT(value Value, expr string, position, occurrence int64) (Value
 			return nil, nil
 		}
 		match := matches[occurrence-1]
-		return BytesValue(match[len(match)-1]), nil
+		return BytesValue{match[len(match)-1]}, nil
 	}
-	return nil, fmt.Errorf("REGEXP_EXTRACT: value argument must be STRING or BYTES")
+	return nil, fmt.Errorf("REGEXP_EXTRACT: Value argument must be STRING or BYTES")
 }
 
 func REGEXP_EXTRACT_ALL(value Value, expr string) (Value, error) {
@@ -584,7 +584,7 @@ func REGEXP_EXTRACT_ALL(value Value, expr string) (Value, error) {
 		matches := re.FindAllStringSubmatch(v, -1)
 		ret := &ArrayValue{}
 		for _, match := range matches {
-			ret.values = append(ret.values, StringValue(match[len(match)-1]))
+			ret.values = append(ret.values, StringValue{match[len(match)-1]})
 		}
 		return ret, nil
 	case BytesValue:
@@ -595,11 +595,11 @@ func REGEXP_EXTRACT_ALL(value Value, expr string) (Value, error) {
 		matches := re.FindAllSubmatch(v, -1)
 		ret := &ArrayValue{}
 		for _, match := range matches {
-			ret.values = append(ret.values, BytesValue(match[len(match)-1]))
+			ret.values = append(ret.values, BytesValue{match[len(match)-1]})
 		}
 		return ret, nil
 	}
-	return nil, fmt.Errorf("REGEXP_EXTRACT_ALL: value argument must be STRING or BYTES")
+	return nil, fmt.Errorf("REGEXP_EXTRACT_ALL: Value argument must be STRING or BYTES")
 }
 
 func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrencePos int64) (Value, error) {
@@ -625,17 +625,17 @@ func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrence
 			return nil, err
 		}
 		if pos >= len([]rune(source)) {
-			return IntValue(0), nil
+			return IntValue{0}, nil
 		}
 		matches := re.FindAllStringSubmatchIndex(source[pos:], int(occurrence))
 		if len(matches) < int(occurrence) {
-			return IntValue(0), nil
+			return IntValue{0}, nil
 		}
 		match := matches[occurrence-1]
 		if len(match) <= int(occurrencePos) {
-			return IntValue(0), nil
+			return IntValue{0}, nil
 		}
-		return IntValue(pos + match[occurrencePos] + 1), nil
+		return IntValue{int64(pos + match[occurrencePos] + 1)}, nil
 	case BytesValue:
 		source, err := sourceValue.ToBytes()
 		if err != nil {
@@ -650,19 +650,19 @@ func REGEXP_INSTR(sourceValue, exprValue Value, position, occurrence, occurrence
 			return nil, err
 		}
 		if pos >= len(source) {
-			return IntValue(0), nil
+			return IntValue{0}, nil
 		}
 		matches := re.FindAllSubmatchIndex(source[pos:], int(occurrence))
 		if len(matches) < int(occurrence) {
-			return IntValue(0), nil
+			return IntValue{0}, nil
 		}
 		match := matches[occurrence-1]
 		if len(match) <= int(occurrencePos) {
-			return IntValue(0), nil
+			return IntValue{0}, nil
 		}
-		return IntValue(pos + match[occurrencePos] + 1), nil
+		return IntValue{int64(pos + match[occurrencePos] + 1)}, nil
 	}
-	return nil, fmt.Errorf("REGEXP_INSTR: source value must be STRING or BYTES")
+	return nil, fmt.Errorf("REGEXP_INSTR: source Value must be STRING or BYTES")
 }
 
 func normalizeReplacement(repl string) string {
@@ -715,7 +715,7 @@ func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(re.ReplaceAllString(v, normalizeReplacement(replacement))), nil
+		return StringValue{re.ReplaceAllString(v, normalizeReplacement(replacement))}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -733,9 +733,9 @@ func REGEXP_REPLACE(value, exprValue, replacementValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(re.ReplaceAll(v, []byte(normalizeReplacement(string(replacement))))), nil
+		return BytesValue{re.ReplaceAll(v, []byte(normalizeReplacement(string(replacement))))}, nil
 	}
-	return nil, fmt.Errorf("REGEXP_REPLACE: value must be STRING or BYTES, %s", value)
+	return nil, fmt.Errorf("REGEXP_REPLACE: Value must be STRING or BYTES, %s", value)
 }
 
 func REPLACE(originalValue, fromValue, toValue Value) (Value, error) {
@@ -753,7 +753,7 @@ func REPLACE(originalValue, fromValue, toValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.ReplaceAll(v, from, to)), nil
+		return StringValue{strings.ReplaceAll(v, from, to)}, nil
 	case BytesValue:
 		v, err := originalValue.ToBytes()
 		if err != nil {
@@ -767,7 +767,7 @@ func REPLACE(originalValue, fromValue, toValue Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.ReplaceAll(v, from, to)), nil
+		return BytesValue{bytes.ReplaceAll(v, from, to)}, nil
 	}
 	return nil, fmt.Errorf("REPLACE: originalValue must be STRING or BYTES")
 }
@@ -779,13 +779,13 @@ func REPEAT(originalValue Value, repetitions int64) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.Repeat(v, int(repetitions))), nil
+		return StringValue{strings.Repeat(v, int(repetitions))}, nil
 	case BytesValue:
 		v, err := originalValue.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.Repeat(v, int(repetitions))), nil
+		return BytesValue{bytes.Repeat(v, int(repetitions))}, nil
 	}
 	return nil, fmt.Errorf("REPEAT: originalValue must be STRING or BYTES")
 }
@@ -801,7 +801,7 @@ func REVERSE(value Value) (Value, error) {
 		for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
 			runes[i], runes[j] = runes[j], runes[i]
 		}
-		return StringValue(string(runes)), nil
+		return StringValue{string(runes)}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -811,14 +811,14 @@ func REVERSE(value Value) (Value, error) {
 		for i := len(v) - 1; i >= 0; i-- {
 			ret = append(ret, v[i])
 		}
-		return BytesValue(ret), nil
+		return BytesValue{ret}, nil
 	}
-	return nil, fmt.Errorf("REVERSE: value must be STRING or BYTES")
+	return nil, fmt.Errorf("REVERSE: Value must be STRING or BYTES")
 }
 
 func RIGHT(value Value, length int64) (Value, error) {
 	if length < 0 {
-		return nil, fmt.Errorf("RIGHT: unexpected length value. length must be positive number")
+		return nil, fmt.Errorf("RIGHT: unexpected length Value. length must be positive number")
 	}
 	switch value.(type) {
 	case StringValue:
@@ -830,7 +830,7 @@ func RIGHT(value Value, length int64) (Value, error) {
 		if len(runes) <= int(length) {
 			return value, nil
 		}
-		return StringValue(string(runes[len(runes)-int(length):])), nil
+		return StringValue{string(runes[len(runes)-int(length):])}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -839,14 +839,14 @@ func RIGHT(value Value, length int64) (Value, error) {
 		if len(v) <= int(length) {
 			return value, nil
 		}
-		return BytesValue(v[len(v)-int(length):]), nil
+		return BytesValue{v[len(v)-int(length):]}, nil
 	}
-	return nil, fmt.Errorf("RIGHT: value must be STRING or BYTES")
+	return nil, fmt.Errorf("RIGHT: Value must be STRING or BYTES")
 }
 
 func RPAD(originalValue Value, returnLength int64, pattern Value) (Value, error) {
 	if returnLength < 0 {
-		return nil, fmt.Errorf("RPAD: unexpected returnLength value. returnLength must be positive number")
+		return nil, fmt.Errorf("RPAD: unexpected returnLength Value. returnLength must be positive number")
 	}
 	switch originalValue.(type) {
 	case StringValue:
@@ -856,7 +856,7 @@ func RPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 		}
 		runes := []rune(v)
 		if len(runes) >= int(returnLength) {
-			return StringValue(string(runes[:returnLength])), nil
+			return StringValue{string(runes[:returnLength])}, nil
 		}
 		remainLen := int(returnLength) - len(runes)
 		var pat []rune
@@ -874,14 +874,14 @@ func RPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 				pat = []rune(strings.Repeat(string(pat), repeatNum))
 			}
 		}
-		return StringValue(v + string(pat[:remainLen])), nil
+		return StringValue{v + string(pat[:remainLen])}, nil
 	case BytesValue:
 		v, err := originalValue.ToBytes()
 		if err != nil {
 			return nil, err
 		}
 		if len(v) >= int(returnLength) {
-			return BytesValue(v[:returnLength]), nil
+			return BytesValue{v[:returnLength]}, nil
 		}
 		remainLen := int(returnLength) - len(v)
 		var pat []byte
@@ -898,7 +898,7 @@ func RPAD(originalValue Value, returnLength int64, pattern Value) (Value, error)
 				pat = bytes.Repeat(p, repeatNum)
 			}
 		}
-		return BytesValue(append(v, pat[:remainLen]...)), nil
+		return BytesValue{append(v, pat[:remainLen]...)}, nil
 	}
 	return nil, fmt.Errorf("RPAD: originalValue must be STRING or BYTES")
 }
@@ -919,9 +919,9 @@ func RTRIM(v Value, cutsetV Value) (Value, error) {
 			return nil, err
 		}
 		if cutsetV == nil {
-			return StringValue(strings.TrimRightFunc(s, unicode.IsSpace)), nil
+			return StringValue{strings.TrimRightFunc(s, unicode.IsSpace)}, nil
 		} else {
-			return StringValue(strings.TrimRight(s, cutset)), nil
+			return StringValue{strings.TrimRight(s, cutset)}, nil
 		}
 	case BytesValue:
 		b, err := v.ToBytes()
@@ -931,7 +931,7 @@ func RTRIM(v Value, cutsetV Value) (Value, error) {
 		if cutsetV == nil {
 			return nil, fmt.Errorf("RTRIM: must set_of_characters_to_remove when trimming bytes")
 		} else {
-			return BytesValue(bytes.TrimRight(b, cutset)), nil
+			return BytesValue{bytes.TrimRight(b, cutset)}, nil
 		}
 	}
 	return nil, fmt.Errorf("RTRIM: value1 must be STRING or BYTES")
@@ -944,7 +944,7 @@ func SAFE_CONVERT_BYTES_TO_STRING(value []byte) (Value, error) {
 		ret = append(ret, r)
 		value = value[size:]
 	}
-	return StringValue(string(ret)), nil
+	return StringValue{string(ret)}, nil
 }
 
 var soundexMap = map[byte]byte{
@@ -992,9 +992,9 @@ func SOUNDEX(value string) (Value, error) {
 		}
 	}
 	if soundexPoint == 0 {
-		return StringValue(""), nil
+		return StringValue{""}, nil
 	}
-	return StringValue(string(soundex[:])), nil
+	return StringValue{string(soundex[:])}, nil
 }
 
 func SPLIT(value, delimValue Value) (Value, error) {
@@ -1014,7 +1014,7 @@ func SPLIT(value, delimValue Value) (Value, error) {
 		}
 		ret := &ArrayValue{}
 		for _, splitted := range strings.Split(v, delim) {
-			ret.values = append(ret.values, StringValue(splitted))
+			ret.values = append(ret.values, StringValue{splitted})
 		}
 		return ret, nil
 	case BytesValue:
@@ -1023,7 +1023,7 @@ func SPLIT(value, delimValue Value) (Value, error) {
 			return nil, err
 		}
 		if delimValue == nil {
-			return nil, fmt.Errorf("SPLIT: delimiter must be specified for bytes value")
+			return nil, fmt.Errorf("SPLIT: delimiter must be specified for bytes Value")
 		}
 		delim, err := delimValue.ToBytes()
 		if err != nil {
@@ -1031,11 +1031,11 @@ func SPLIT(value, delimValue Value) (Value, error) {
 		}
 		ret := &ArrayValue{}
 		for _, splitted := range bytes.Split(v, delim) {
-			ret.values = append(ret.values, BytesValue(splitted))
+			ret.values = append(ret.values, BytesValue{splitted})
 		}
 		return ret, nil
 	}
-	return nil, fmt.Errorf("SPLIT: value must be STRING or BYTES")
+	return nil, fmt.Errorf("SPLIT: Value must be STRING or BYTES")
 }
 
 func STARTS_WITH(value, starts Value) (Value, error) {
@@ -1049,7 +1049,7 @@ func STARTS_WITH(value, starts Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BoolValue(strings.HasPrefix(v, s)), nil
+		return BoolValue{strings.HasPrefix(v, s)}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -1059,7 +1059,7 @@ func STARTS_WITH(value, starts Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return BoolValue(bytes.HasPrefix(v, s)), nil
+		return BoolValue{bytes.HasPrefix(v, s)}, nil
 	}
 	return nil, fmt.Errorf("ENDS_WITH: argument type must be STRING or BYTES")
 }
@@ -1075,7 +1075,7 @@ func STRPOS(value, search Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return IntValue(strings.Index(v, s) + 1), nil
+		return IntValue{int64(strings.Index(v, s) + 1)}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -1085,7 +1085,7 @@ func STRPOS(value, search Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return IntValue(bytes.Index(v, s) + 1), nil
+		return IntValue{int64(bytes.Index(v, s) + 1)}, nil
 	}
 	return nil, fmt.Errorf("STRPOS: argument type must be STRING or BYTES")
 }
@@ -1136,7 +1136,7 @@ func SUBSTR(value Value, pos int64, length *int64) (Value, error) {
 		if endIdx > runesLen {
 			endIdx = runesLen
 		}
-		return StringValue(v[startIdx:endIdx]), nil
+		return StringValue{v[startIdx:endIdx]}, nil
 	case BytesValue:
 		v, err := value.ToBytes()
 		if err != nil {
@@ -1153,17 +1153,17 @@ func SUBSTR(value Value, pos int64, length *int64) (Value, error) {
 		if endIdx > vLen {
 			endIdx = vLen
 		}
-		return BytesValue(v[startIdx:endIdx]), nil
+		return BytesValue{v[startIdx:endIdx]}, nil
 	}
 	return nil, fmt.Errorf("STRPOS: argument type must be STRING or BYTES")
 }
 
 func TO_BASE32(v []byte) (Value, error) {
-	return StringValue(base32.StdEncoding.EncodeToString(v)), nil
+	return StringValue{base32.StdEncoding.EncodeToString(v)}, nil
 }
 
 func TO_BASE64(v []byte) (Value, error) {
-	return StringValue(base64.StdEncoding.EncodeToString(v)), nil
+	return StringValue{base64.StdEncoding.EncodeToString(v)}, nil
 }
 
 func TO_CODE_POINTS(v Value) (Value, error) {
@@ -1175,7 +1175,7 @@ func TO_CODE_POINTS(v Value) (Value, error) {
 		}
 		ret := &ArrayValue{}
 		for _, r := range s {
-			ret.values = append(ret.values, IntValue(r))
+			ret.values = append(ret.values, IntValue{int64(r)})
 		}
 		return ret, nil
 	case BytesValue:
@@ -1185,15 +1185,15 @@ func TO_CODE_POINTS(v Value) (Value, error) {
 		}
 		ret := &ArrayValue{}
 		for _, bb := range b {
-			ret.values = append(ret.values, IntValue(bb))
+			ret.values = append(ret.values, IntValue{int64(bb)})
 		}
 		return ret, nil
 	}
-	return nil, fmt.Errorf("TO_CODE_POINTS: value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("TO_CODE_POINTS: Value type is must be STRING or BYTES type")
 }
 
 func TO_HEX(v []byte) (Value, error) {
-	return StringValue(hex.EncodeToString(v)), nil
+	return StringValue{hex.EncodeToString(v)}, nil
 }
 
 func TRANSLATE(expr, source, target Value) (Value, error) {
@@ -1229,7 +1229,7 @@ func TRANSLATE(expr, source, target Value) (Value, error) {
 			}
 			evaluatedByte[s[i]] = struct{}{}
 		}
-		return StringValue(e), nil
+		return StringValue{e}, nil
 	case BytesValue:
 		if _, ok := source.(BytesValue); !ok {
 			return nil, fmt.Errorf("TRANSLATE: source characters must be BYTES type")
@@ -1261,7 +1261,7 @@ func TRANSLATE(expr, source, target Value) (Value, error) {
 			}
 			evaluatedByte[s[i]] = struct{}{}
 		}
-		return BytesValue(e), nil
+		return BytesValue{e}, nil
 	}
 	return nil, fmt.Errorf("TRANSLATE: expression type is must be STRING or BYTES type")
 }
@@ -1282,9 +1282,9 @@ func TRIM(v Value, cutsetV Value) (Value, error) {
 			return nil, err
 		}
 		if cutsetV == nil {
-			return StringValue(strings.TrimSpace((s))), nil
+			return StringValue{strings.TrimSpace((s))}, nil
 		} else {
-			return StringValue(strings.Trim(s, cutset)), nil
+			return StringValue{strings.Trim(s, cutset)}, nil
 		}
 	case BytesValue:
 		b, err := v.ToBytes()
@@ -1294,7 +1294,7 @@ func TRIM(v Value, cutsetV Value) (Value, error) {
 		if cutsetV == nil {
 			return nil, fmt.Errorf("TRIM: must set_of_characters_to_remove when trimming bytes")
 		} else {
-			return BytesValue(bytes.Trim(b, cutset)), nil
+			return BytesValue{bytes.Trim(b, cutset)}, nil
 		}
 	}
 	return nil, fmt.Errorf("TRIM: expression type is must be STRING or BYTES type")
@@ -1303,9 +1303,9 @@ func TRIM(v Value, cutsetV Value) (Value, error) {
 func UNICODE(v string) (Value, error) {
 	runes := []rune(v)
 	if len(runes) == 0 {
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
-	return IntValue(runes[0]), nil
+	return IntValue{int64(runes[0])}, nil
 }
 
 func UPPER(v Value) (Value, error) {
@@ -1315,13 +1315,13 @@ func UPPER(v Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(strings.ToUpper(s)), nil
+		return StringValue{strings.ToUpper(s)}, nil
 	case BytesValue:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(bytes.ToUpper(b)), nil
+		return BytesValue{bytes.ToUpper(b)}, nil
 	}
-	return nil, fmt.Errorf("UPPER: value type is must be STRING or BYTES type")
+	return nil, fmt.Errorf("UPPER: Value type is must be STRING or BYTES type")
 }

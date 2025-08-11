@@ -14,7 +14,7 @@ func ABS(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Abs(f64)), nil
+	return FloatValue{math.Abs(f64)}, nil
 }
 
 func SIGN(a Value) (Value, error) {
@@ -23,11 +23,11 @@ func SIGN(a Value) (Value, error) {
 		return nil, err
 	}
 	if math.Signbit(f64) {
-		return IntValue(-1), nil
+		return IntValue{-1}, nil
 	} else if f64 == 0 {
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
-	return IntValue(1), nil
+	return IntValue{1}, nil
 }
 
 func IS_INF(a Value) (Value, error) {
@@ -35,7 +35,7 @@ func IS_INF(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(math.IsInf(f64, 0) || math.IsInf(f64, -1)), nil
+	return BoolValue{math.IsInf(f64, 0) || math.IsInf(f64, -1)}, nil
 }
 
 func IS_NAN(a Value) (Value, error) {
@@ -43,7 +43,7 @@ func IS_NAN(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(math.IsNaN(f64)), nil
+	return BoolValue{math.IsNaN(f64)}, nil
 }
 
 func IEEE_DIVIDE(x, y Value) (Value, error) {
@@ -57,34 +57,34 @@ func IEEE_DIVIDE(x, y Value) (Value, error) {
 	}
 	if x64 == 0 {
 		if y64 == 0 {
-			return FloatValue(math.NaN()), nil
+			return FloatValue{math.NaN()}, nil
 		}
 		if math.IsNaN(y64) {
-			return FloatValue(math.NaN()), nil
+			return FloatValue{math.NaN()}, nil
 		}
-		return FloatValue(0), nil
+		return FloatValue{0}, nil
 	}
 	if math.IsNaN(x64) {
 		if y64 == 0 {
-			return FloatValue(math.NaN()), nil
+			return FloatValue{math.NaN()}, nil
 		}
 	} else if math.IsInf(x64, 0) || math.IsInf(x64, -1) {
 		if math.IsInf(y64, 0) || math.IsInf(y64, -1) {
-			return FloatValue(math.NaN()), nil
+			return FloatValue{math.NaN()}, nil
 		}
 	} else if y64 == 0 {
 		if x64 > 0 {
-			return FloatValue(math.Inf(1)), nil
+			return FloatValue{math.Inf(1)}, nil
 		} else if x64 < 0 {
-			return FloatValue(math.Inf(-1)), nil
+			return FloatValue{math.Inf(-1)}, nil
 		}
 	}
-	return FloatValue(x64 / y64), nil
+	return FloatValue{x64 / y64}, nil
 }
 
 func RAND() (Value, error) {
 	rand.Seed(time.Now().UnixNano())
-	return FloatValue(rand.Float64()), nil
+	return FloatValue{rand.Float64()}, nil
 }
 
 func SQRT(x Value) (Value, error) {
@@ -92,7 +92,7 @@ func SQRT(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Sqrt(f)), nil
+	return FloatValue{math.Sqrt(f)}, nil
 }
 
 func POW(x, y Value) (Value, error) {
@@ -104,7 +104,7 @@ func POW(x, y Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Pow(xf, yf)), nil
+	return FloatValue{math.Pow(xf, yf)}, nil
 }
 
 func EXP(x Value) (Value, error) {
@@ -112,7 +112,7 @@ func EXP(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Exp(f)), nil
+	return FloatValue{math.Exp(f)}, nil
 }
 
 func LN(x Value) (Value, error) {
@@ -120,7 +120,7 @@ func LN(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Log(f)), nil
+	return FloatValue{math.Log(f)}, nil
 }
 
 func LOG(x, y Value) (Value, error) {
@@ -132,7 +132,7 @@ func LOG(x, y Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Ldexp(xf, int(yi))), nil
+	return FloatValue{math.Ldexp(xf, int(yi))}, nil
 }
 
 func LOG10(x Value) (Value, error) {
@@ -140,7 +140,7 @@ func LOG10(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Log10(f)), nil
+	return FloatValue{math.Log10(f)}, nil
 }
 
 func GREATEST(args ...Value) (Value, error) {
@@ -197,7 +197,7 @@ func DIV(x, y Value) (Value, error) {
 	if yv == 0 {
 		return nil, fmt.Errorf("DIV: zero divided")
 	}
-	return IntValue(xv / yv), nil
+	return IntValue{xv / yv}, nil
 }
 
 func SAFE_DIVIDE(x, y Value) (Value, error) {
@@ -212,7 +212,7 @@ func SAFE_DIVIDE(x, y Value) (Value, error) {
 	if yv == 0 {
 		return nil, nil
 	}
-	return FloatValue(xv / yv), nil
+	return FloatValue{xv / yv}, nil
 }
 
 func SAFE_MULTIPLY(x, y Value) (Value, error) {
@@ -224,7 +224,7 @@ func SAFE_MULTIPLY(x, y Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(xv * yv), nil
+	return FloatValue{xv * yv}, nil
 }
 
 func SAFE_NEGATE(x Value) (Value, error) {
@@ -232,7 +232,7 @@ func SAFE_NEGATE(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(-xv), nil
+	return FloatValue{-xv}, nil
 }
 
 func SAFE_ADD(x, y Value) (Value, error) {
@@ -244,7 +244,7 @@ func SAFE_ADD(x, y Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(xv + yv), nil
+	return FloatValue{xv + yv}, nil
 }
 
 func SAFE_SUBTRACT(x, y Value) (Value, error) {
@@ -256,7 +256,7 @@ func SAFE_SUBTRACT(x, y Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(xv - yv), nil
+	return FloatValue{xv - yv}, nil
 }
 
 func MOD(x, y Value) (Value, error) {
@@ -271,7 +271,7 @@ func MOD(x, y Value) (Value, error) {
 	if yv == 0 {
 		return nil, fmt.Errorf("MOD: zero divided")
 	}
-	return FloatValue(math.Mod(xv, yv)), nil
+	return FloatValue{math.Mod(xv, yv)}, nil
 }
 
 func ROUND(x Value, precision int) (Value, error) {
@@ -279,7 +279,7 @@ func ROUND(x Value, precision int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(scalar.Round(xv, precision)), nil
+	return FloatValue{scalar.Round(xv, precision)}, nil
 }
 
 func TRUNC(x Value) (Value, error) {
@@ -287,14 +287,14 @@ func TRUNC(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Trunc(xv)), nil
+	return FloatValue{math.Trunc(xv)}, nil
 }
 func CEIL(x Value) (Value, error) {
 	xv, err := x.ToFloat64()
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Ceil(xv)), nil
+	return FloatValue{math.Ceil(xv)}, nil
 }
 
 func FLOOR(x Value) (Value, error) {
@@ -302,7 +302,7 @@ func FLOOR(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Floor(xv)), nil
+	return FloatValue{math.Floor(xv)}, nil
 }
 
 func COS(x Value) (Value, error) {
@@ -310,7 +310,7 @@ func COS(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Cos(xv)), nil
+	return FloatValue{math.Cos(xv)}, nil
 }
 
 func COSH(x Value) (Value, error) {
@@ -318,7 +318,7 @@ func COSH(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Cosh(xv)), nil
+	return FloatValue{math.Cosh(xv)}, nil
 }
 
 func ACOS(x Value) (Value, error) {
@@ -326,7 +326,7 @@ func ACOS(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Acos(xv)), nil
+	return FloatValue{math.Acos(xv)}, nil
 }
 
 func ACOSH(x Value) (Value, error) {
@@ -334,7 +334,7 @@ func ACOSH(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Acosh(xv)), nil
+	return FloatValue{math.Acosh(xv)}, nil
 }
 
 func SIN(x Value) (Value, error) {
@@ -342,7 +342,7 @@ func SIN(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Sin(xv)), nil
+	return FloatValue{math.Sin(xv)}, nil
 }
 
 func SINH(x Value) (Value, error) {
@@ -350,7 +350,7 @@ func SINH(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Sinh(xv)), nil
+	return FloatValue{math.Sinh(xv)}, nil
 }
 
 func ASIN(x Value) (Value, error) {
@@ -358,7 +358,7 @@ func ASIN(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Asin(xv)), nil
+	return FloatValue{math.Asin(xv)}, nil
 }
 
 func ASINH(x Value) (Value, error) {
@@ -366,7 +366,7 @@ func ASINH(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Asinh(xv)), nil
+	return FloatValue{math.Asinh(xv)}, nil
 }
 
 func TAN(x Value) (Value, error) {
@@ -374,7 +374,7 @@ func TAN(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Tan(xv)), nil
+	return FloatValue{math.Tan(xv)}, nil
 }
 
 func TANH(x Value) (Value, error) {
@@ -382,7 +382,7 @@ func TANH(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Tanh(xv)), nil
+	return FloatValue{math.Tanh(xv)}, nil
 }
 
 func ATAN(x Value) (Value, error) {
@@ -390,7 +390,7 @@ func ATAN(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Atan(xv)), nil
+	return FloatValue{math.Atan(xv)}, nil
 }
 
 func ATANH(x Value) (Value, error) {
@@ -398,7 +398,7 @@ func ATANH(x Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Atanh(xv)), nil
+	return FloatValue{math.Atanh(xv)}, nil
 }
 
 func ATAN2(x, y Value) (Value, error) {
@@ -410,7 +410,7 @@ func ATAN2(x, y Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(math.Atan2(xv, yv)), nil
+	return FloatValue{math.Atan2(xv, yv)}, nil
 }
 
 func RANGE_BUCKET(point Value, array *ArrayValue) (Value, error) {
@@ -420,7 +420,7 @@ func RANGE_BUCKET(point Value, array *ArrayValue) (Value, error) {
 	var idx int
 	for _, v := range array.values {
 		if v == nil {
-			return nil, fmt.Errorf("RANGE_BUCKET: NULL value found in array")
+			return nil, fmt.Errorf("RANGE_BUCKET: NULL Value found in array")
 		}
 		cond, err := point.GTE(v)
 		if err != nil {
@@ -431,5 +431,5 @@ func RANGE_BUCKET(point Value, array *ArrayValue) (Value, error) {
 		}
 		idx++
 	}
-	return IntValue(idx), nil
+	return IntValue{int64(idx)}, nil
 }

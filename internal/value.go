@@ -26,6 +26,7 @@ type Value interface {
 	GTE(Value) (bool, error)
 	LT(Value) (bool, error)
 	LTE(Value) (bool, error)
+	Reset()
 	ToInt64() (int64, error)
 	ToString() (string, error)
 	ToBytes() ([]byte, error)
@@ -40,14 +41,27 @@ type Value interface {
 	Interface() interface{}
 }
 
-type IntValue int64
+// Map to store counters for all Value implementers
+var valueInstantiationCounters = struct {
+	IntValue       uint64
+	StringValue    uint64
+	TimestampValue uint64
+}{}
+
+type IntValue struct {
+	Value int64
+}
+
+func (iv IntValue) Reset() {
+	iv.Value = 0
+}
 
 func (iv IntValue) Add(v Value) (Value, error) {
 	v2, err := v.ToInt64()
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(int64(iv) + v2), nil
+	return &IntValue{Value: iv.Value + v2}, nil
 }
 
 func (iv IntValue) Sub(v Value) (Value, error) {
@@ -55,7 +69,7 @@ func (iv IntValue) Sub(v Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(int64(iv) - v2), nil
+	return &IntValue{Value: iv.Value - v2}, nil
 }
 
 func (iv IntValue) Mul(v Value) (Value, error) {
@@ -63,7 +77,7 @@ func (iv IntValue) Mul(v Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(int64(iv) * v2), nil
+	return &IntValue{Value: iv.Value * v2}, nil
 }
 
 func (iv IntValue) Div(v Value) (Value, error) {
@@ -74,7 +88,7 @@ func (iv IntValue) Div(v Value) (Value, error) {
 	if v2 == 0 {
 		return nil, fmt.Errorf("zero divided error ( %d / 0 )", iv)
 	}
-	return IntValue(int64(iv) / v2), nil
+	return &IntValue{Value: iv.Value / v2}, nil
 }
 
 func (iv IntValue) EQ(v Value) (bool, error) {
@@ -82,7 +96,7 @@ func (iv IntValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to int64", v)
 	}
-	return int64(iv) == v2, nil
+	return iv.Value == v2, nil
 }
 
 func (iv IntValue) GT(v Value) (bool, error) {
@@ -90,7 +104,7 @@ func (iv IntValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to int64", v)
 	}
-	return int64(iv) > v2, nil
+	return iv.Value > v2, nil
 }
 
 func (iv IntValue) GTE(v Value) (bool, error) {
@@ -98,7 +112,7 @@ func (iv IntValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to int64", v)
 	}
-	return int64(iv) >= v2, nil
+	return iv.Value >= v2, nil
 }
 
 func (iv IntValue) LT(v Value) (bool, error) {
@@ -106,7 +120,7 @@ func (iv IntValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to int64", v)
 	}
-	return int64(iv) < v2, nil
+	return iv.Value < v2, nil
 }
 
 func (iv IntValue) LTE(v Value) (bool, error) {
@@ -114,11 +128,11 @@ func (iv IntValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to int64", v)
 	}
-	return int64(iv) <= v2, nil
+	return iv.Value <= v2, nil
 }
 
 func (iv IntValue) ToInt64() (int64, error) {
-	return int64(iv), nil
+	return iv.Value, nil
 }
 
 func (iv IntValue) ToString() (string, error) {
@@ -130,11 +144,11 @@ func (iv IntValue) ToBytes() ([]byte, error) {
 }
 
 func (iv IntValue) ToFloat64() (float64, error) {
-	return float64(iv), nil
+	return float64(iv.Value), nil
 }
 
 func (iv IntValue) ToBool() (bool, error) {
-	switch iv {
+	switch iv.Value {
 	case 0:
 		return false, nil
 	case 1:
@@ -157,7 +171,7 @@ func (iv IntValue) ToJSON() (string, error) {
 }
 
 func (iv IntValue) ToTime() (time.Time, error) {
-	v := int64(iv)
+	v := iv.Value
 	if v > time.Unix(0, 0).Unix()*int64(time.Millisecond) {
 		return TimestampFromInt64Value(v)
 	}
@@ -166,7 +180,7 @@ func (iv IntValue) ToTime() (time.Time, error) {
 
 func (iv IntValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
-	r.SetInt64(int64(iv))
+	r.SetInt64(iv.Value)
 	return r, nil
 }
 
@@ -175,17 +189,23 @@ func (iv IntValue) Format(verb rune) string {
 }
 
 func (iv IntValue) Interface() interface{} {
-	return int64(iv)
+	return iv.Value
 }
 
-type StringValue string
+type StringValue struct {
+	value string
+}
+
+func (sv StringValue) Reset() {
+	sv.value = ""
+}
 
 func (sv StringValue) Add(v Value) (Value, error) {
 	v2, err := v.ToString()
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(string(sv) + v2), nil
+	return &StringValue{value: sv.value + v2}, nil
 }
 
 func (sv StringValue) Sub(v Value) (Value, error) {
@@ -205,7 +225,7 @@ func (sv StringValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to string", v)
 	}
-	return string(sv) == v2, nil
+	return sv.value == v2, nil
 }
 
 func (sv StringValue) GT(v Value) (bool, error) {
@@ -213,7 +233,7 @@ func (sv StringValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to string", v)
 	}
-	return string(sv) > v2, nil
+	return sv.value > v2, nil
 }
 
 func (sv StringValue) GTE(v Value) (bool, error) {
@@ -221,7 +241,7 @@ func (sv StringValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to string", v)
 	}
-	return string(sv) >= v2, nil
+	return sv.value >= v2, nil
 }
 
 func (sv StringValue) LT(v Value) (bool, error) {
@@ -229,7 +249,7 @@ func (sv StringValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to string", v)
 	}
-	return string(sv) < v2, nil
+	return sv.value < v2, nil
 }
 
 func (sv StringValue) LTE(v Value) (bool, error) {
@@ -237,14 +257,14 @@ func (sv StringValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to string", v)
 	}
-	return string(sv) <= v2, nil
+	return sv.value <= v2, nil
 }
 
 func (sv StringValue) ToInt64() (int64, error) {
-	if sv == "" {
+	if sv.value == "" {
 		return 0, nil
 	}
-	toParse := string(sv)
+	toParse := sv.value
 	base := 10
 	if strings.Contains(strings.ToLower(toParse), "0x") {
 		base = 0
@@ -253,47 +273,47 @@ func (sv StringValue) ToInt64() (int64, error) {
 }
 
 func (sv StringValue) ToString() (string, error) {
-	return string(sv), nil
+	return sv.value, nil
 }
 
 func (sv StringValue) ToBytes() ([]byte, error) {
-	return []byte(string(sv)), nil
+	return []byte(sv.value), nil
 }
 
 func (sv StringValue) ToFloat64() (float64, error) {
-	if sv == "" {
+	if sv.value == "" {
 		return 0, nil
 	}
-	return strconv.ParseFloat(string(sv), 64)
+	return strconv.ParseFloat(sv.value, 64)
 }
 
 func (sv StringValue) ToBool() (bool, error) {
-	if sv == "" {
+	if sv.value == "" {
 		return false, nil
 	}
-	return strconv.ParseBool(string(sv))
+	return strconv.ParseBool(sv.value)
 }
 
 func (sv StringValue) ToArray() (*ArrayValue, error) {
-	if sv == "" {
+	if sv.value == "" {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("failed to convert array from string: %v", sv)
 }
 
 func (sv StringValue) ToStruct() (*StructValue, error) {
-	if sv == "" {
+	if sv.value == "" {
 		return nil, nil
 	}
 	return nil, fmt.Errorf("failed to convert struct from string: %v", sv)
 }
 
 func (sv StringValue) ToJSON() (string, error) {
-	return strconv.Quote(string(sv)), nil
+	return strconv.Quote(sv.value), nil
 }
 
 func (sv StringValue) ToTime() (time.Time, error) {
-	raw := string(sv)
+	raw := sv.value
 	switch {
 	case isDate(raw):
 		return parseDate(raw)
@@ -309,32 +329,38 @@ func (sv StringValue) ToTime() (time.Time, error) {
 
 func (sv StringValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
-	r.SetString(string(sv))
+	r.SetString(sv.value)
 	return r, nil
 }
 
 func (sv StringValue) Format(verb rune) string {
 	switch verb {
 	case 't':
-		return string(sv)
+		return sv.value
 	case 'T':
-		return strconv.Quote(string(sv))
+		return strconv.Quote(sv.value)
 	}
-	return string(sv)
+	return sv.value
 }
 
 func (sv StringValue) Interface() interface{} {
-	return string(sv)
+	return sv.value
 }
 
-type BytesValue []byte
+type BytesValue struct {
+	value []byte
+}
+
+func (bv BytesValue) Reset() {
+	bv.value = bv.value[:0]
+}
 
 func (bv BytesValue) Add(v Value) (Value, error) {
 	v2, err := v.ToBytes()
 	if err != nil {
 		return nil, err
 	}
-	return BytesValue(append([]byte(bv), v2...)), nil
+	return &BytesValue{value: append(bv.value, v2...)}, nil
 }
 
 func (bv BytesValue) Sub(v Value) (Value, error) {
@@ -354,7 +380,7 @@ func (bv BytesValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to bytes", v)
 	}
-	return bytes.Equal([]byte(bv), v2), nil
+	return bytes.Equal(bv.value, v2), nil
 }
 
 func (bv BytesValue) GT(v Value) (bool, error) {
@@ -362,7 +388,7 @@ func (bv BytesValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to bytes", v)
 	}
-	return string(bv) > string(v2), nil
+	return string(bv.value) > string(v2), nil
 }
 
 func (bv BytesValue) GTE(v Value) (bool, error) {
@@ -370,7 +396,7 @@ func (bv BytesValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to bytes", v)
 	}
-	return string(bv) >= string(v2), nil
+	return string(bv.value) >= string(v2), nil
 }
 
 func (bv BytesValue) LT(v Value) (bool, error) {
@@ -378,7 +404,7 @@ func (bv BytesValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to bytes", v)
 	}
-	return string(bv) < string(v2), nil
+	return string(bv.value) < string(v2), nil
 }
 
 func (bv BytesValue) LTE(v Value) (bool, error) {
@@ -386,36 +412,36 @@ func (bv BytesValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to bytes", v)
 	}
-	return string(bv) <= string(v2), nil
+	return string(bv.value) <= string(v2), nil
 }
 
 func (bv BytesValue) ToInt64() (int64, error) {
-	if len(bv) == 0 {
+	if len(bv.value) == 0 {
 		return 0, nil
 	}
-	return strconv.ParseInt(string(bv), 10, 64)
+	return strconv.ParseInt(string(bv.value), 10, 64)
 }
 
 func (bv BytesValue) ToString() (string, error) {
-	return base64.StdEncoding.EncodeToString([]byte(bv)), nil
+	return base64.StdEncoding.EncodeToString(bv.value), nil
 }
 
 func (bv BytesValue) ToBytes() ([]byte, error) {
-	return []byte(bv), nil
+	return bv.value, nil
 }
 
 func (bv BytesValue) ToFloat64() (float64, error) {
-	if len(bv) == 0 {
+	if len(bv.value) == 0 {
 		return 0, nil
 	}
-	return strconv.ParseFloat(string(bv), 64)
+	return strconv.ParseFloat(string(bv.value), 64)
 }
 
 func (bv BytesValue) ToBool() (bool, error) {
-	if len(bv) == 0 {
+	if len(bv.value) == 0 {
 		return false, nil
 	}
-	return strconv.ParseBool(string(bv))
+	return strconv.ParseBool(string(bv.value))
 }
 
 func (bv BytesValue) ToArray() (*ArrayValue, error) {
@@ -435,7 +461,7 @@ func (bv BytesValue) ToJSON() (string, error) {
 }
 
 func (bv BytesValue) ToTime() (time.Time, error) {
-	raw := string(bv)
+	raw := string(bv.value)
 	switch {
 	case isDate(raw):
 		return parseDate(raw)
@@ -451,7 +477,7 @@ func (bv BytesValue) ToTime() (time.Time, error) {
 
 func (bv BytesValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
-	r.SetString(string(bv))
+	r.SetString(string(bv.value))
 	return r, nil
 }
 
@@ -466,7 +492,7 @@ func (bv BytesValue) Format(verb rune) string {
 	switch verb {
 	case 't':
 		var ret string
-		for _, b := range bv {
+		for _, b := range bv.value {
 			if printableChar(b) {
 				ret += fmt.Sprintf("%c", b)
 			} else {
@@ -476,7 +502,7 @@ func (bv BytesValue) Format(verb rune) string {
 		return ret
 	case 'T':
 		ret := `b"`
-		for _, b := range bv {
+		for _, b := range bv.value {
 			if printableChar(b) {
 				ret += fmt.Sprintf("%c", b)
 			} else {
@@ -491,17 +517,23 @@ func (bv BytesValue) Format(verb rune) string {
 }
 
 func (bv BytesValue) Interface() interface{} {
-	return []byte(bv)
+	return bv.value
 }
 
-type FloatValue float64
+type FloatValue struct {
+	value float64
+}
+
+func (fv FloatValue) Reset() {
+	fv.value = 0
+}
 
 func (fv FloatValue) Add(v Value) (Value, error) {
 	v2, err := v.ToFloat64()
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(float64(fv) + v2), nil
+	return &FloatValue{value: fv.value + v2}, nil
 }
 
 func (fv FloatValue) Sub(v Value) (Value, error) {
@@ -509,7 +541,7 @@ func (fv FloatValue) Sub(v Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(float64(fv) - v2), nil
+	return &FloatValue{value: fv.value - v2}, nil
 }
 
 func (fv FloatValue) Mul(v Value) (Value, error) {
@@ -517,7 +549,7 @@ func (fv FloatValue) Mul(v Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(float64(fv) * v2), nil
+	return &FloatValue{value: fv.value * v2}, nil
 }
 
 func (fv FloatValue) Div(v Value) (Value, error) {
@@ -528,7 +560,7 @@ func (fv FloatValue) Div(v Value) (Value, error) {
 	if v2 == 0 {
 		return nil, fmt.Errorf("zero divided error ( %f / 0 )", fv)
 	}
-	return FloatValue(float64(fv) / v2), nil
+	return &FloatValue{value: fv.value / v2}, nil
 }
 
 func (fv FloatValue) EQ(v Value) (bool, error) {
@@ -536,7 +568,7 @@ func (fv FloatValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to float64", v)
 	}
-	return float64(fv) == v2, nil
+	return fv.value == v2, nil
 }
 
 func (fv FloatValue) GT(v Value) (bool, error) {
@@ -544,7 +576,7 @@ func (fv FloatValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to float64", v)
 	}
-	return float64(fv) > v2, nil
+	return fv.value > v2, nil
 }
 
 func (fv FloatValue) GTE(v Value) (bool, error) {
@@ -552,7 +584,7 @@ func (fv FloatValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to float64", v)
 	}
-	return float64(fv) >= v2, nil
+	return fv.value >= v2, nil
 }
 
 func (fv FloatValue) LT(v Value) (bool, error) {
@@ -560,7 +592,7 @@ func (fv FloatValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to float64", v)
 	}
-	return float64(fv) < v2, nil
+	return fv.value < v2, nil
 }
 
 func (fv FloatValue) LTE(v Value) (bool, error) {
@@ -568,11 +600,11 @@ func (fv FloatValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to float64", v)
 	}
-	return float64(fv) <= v2, nil
+	return fv.value <= v2, nil
 }
 
 func (fv FloatValue) ToInt64() (int64, error) {
-	return int64(fv), nil
+	return int64(fv.value), nil
 }
 
 func (fv FloatValue) ToString() (string, error) {
@@ -584,7 +616,7 @@ func (fv FloatValue) ToBytes() ([]byte, error) {
 }
 
 func (fv FloatValue) ToFloat64() (float64, error) {
-	return float64(fv), nil
+	return fv.value, nil
 }
 
 func (fv FloatValue) ToBool() (bool, error) {
@@ -610,12 +642,12 @@ func (fv FloatValue) ToJSON() (string, error) {
 }
 
 func (fv FloatValue) ToTime() (time.Time, error) {
-	return TimestampFromFloatValue(float64(fv))
+	return TimestampFromFloatValue(fv.value)
 }
 
 func (fv FloatValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
-	r.SetFloat64(float64(fv))
+	r.SetFloat64(fv.value)
 	return r, nil
 }
 
@@ -624,12 +656,16 @@ func (fv FloatValue) Format(verb rune) string {
 }
 
 func (fv FloatValue) Interface() interface{} {
-	return float64(fv)
+	return fv.value
 }
 
 type NumericValue struct {
 	*big.Rat
 	isBigNumeric bool
+}
+
+func (nv *NumericValue) Reset() {
+	nv.Rat = nil
 }
 
 func (nv *NumericValue) Add(v Value) (Value, error) {
@@ -764,15 +800,15 @@ func (nv *NumericValue) ToBool() (bool, error) {
 	} else if v == 0 {
 		return false, nil
 	}
-	return false, fmt.Errorf("failed to convert numeric value to bool type")
+	return false, fmt.Errorf("failed to convert numeric Value to bool type")
 }
 
 func (nv *NumericValue) ToArray() (*ArrayValue, error) {
-	return nil, fmt.Errorf("failed to convert array from numeric value")
+	return nil, fmt.Errorf("failed to convert array from numeric Value")
 }
 
 func (nv *NumericValue) ToStruct() (*StructValue, error) {
-	return nil, fmt.Errorf("failed to convert struct from numeric value")
+	return nil, fmt.Errorf("failed to convert struct from numeric Value")
 }
 
 func (nv *NumericValue) ToJSON() (string, error) {
@@ -780,7 +816,7 @@ func (nv *NumericValue) ToJSON() (string, error) {
 }
 
 func (nv *NumericValue) ToTime() (time.Time, error) {
-	return time.Time{}, fmt.Errorf("failed to convert time.Time from numeric value")
+	return time.Time{}, fmt.Errorf("failed to convert time.Time from numeric Value")
 }
 
 func (nv *NumericValue) ToRat() (*big.Rat, error) {
@@ -795,7 +831,13 @@ func (nv *NumericValue) Interface() interface{} {
 	return nv.Rat.String()
 }
 
-type BoolValue bool
+type BoolValue struct {
+	value bool
+}
+
+func (bv BoolValue) Reset() {
+	bv.value = false
+}
 
 func (bv BoolValue) Add(v Value) (Value, error) {
 	return nil, fmt.Errorf("add operation is unsupported for bool %v", bv)
@@ -818,7 +860,7 @@ func (bv BoolValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to bool", v)
 	}
-	return bool(bv) == v2, nil
+	return bv.value == v2, nil
 }
 
 func (bv BoolValue) GT(v Value) (bool, error) {
@@ -838,7 +880,7 @@ func (bv BoolValue) LTE(v Value) (bool, error) {
 }
 
 func (bv BoolValue) ToInt64() (int64, error) {
-	if bv {
+	if bv.value {
 		return 1, nil
 	}
 	return 0, nil
@@ -853,14 +895,14 @@ func (bv BoolValue) ToBytes() ([]byte, error) {
 }
 
 func (bv BoolValue) ToFloat64() (float64, error) {
-	if bv {
+	if bv.value {
 		return 1, nil
 	}
 	return 0, nil
 }
 
 func (bv BoolValue) ToBool() (bool, error) {
-	return bool(bv), nil
+	return bv.value, nil
 }
 
 func (bv BoolValue) ToArray() (*ArrayValue, error) {
@@ -881,7 +923,7 @@ func (bv BoolValue) ToTime() (time.Time, error) {
 
 func (bv BoolValue) ToRat() (*big.Rat, error) {
 	r := new(big.Rat)
-	if bv {
+	if bv.value {
 		r.SetInt64(1)
 		return r, nil
 	}
@@ -894,10 +936,16 @@ func (bv BoolValue) Format(verb rune) string {
 }
 
 func (bv BoolValue) Interface() interface{} {
-	return bool(bv)
+	return bv.value
 }
 
-type JsonValue string
+type JsonValue struct {
+	value string
+}
+
+func (jv JsonValue) Reset() {
+	jv.value = ""
+}
 
 func (jv JsonValue) Add(v Value) (Value, error) {
 	return nil, fmt.Errorf("add operation is unsupported for json %v", jv)
@@ -936,23 +984,23 @@ func (jv JsonValue) LTE(v Value) (bool, error) {
 }
 
 func (jv JsonValue) ToInt64() (int64, error) {
-	return strconv.ParseInt(string(jv), 0, 64)
+	return strconv.ParseInt(jv.value, 0, 64)
 }
 
 func (jv JsonValue) ToString() (string, error) {
-	return string(jv), nil
+	return jv.value, nil
 }
 
 func (jv JsonValue) ToBytes() ([]byte, error) {
-	return []byte(string(jv)), nil
+	return []byte(jv.value), nil
 }
 
 func (jv JsonValue) ToFloat64() (float64, error) {
-	return strconv.ParseFloat(string(jv), 64)
+	return strconv.ParseFloat(jv.value, 64)
 }
 
 func (jv JsonValue) ToBool() (bool, error) {
-	return strconv.ParseBool(string(jv))
+	return strconv.ParseBool(jv.value)
 }
 
 func (jv JsonValue) ToArray() (*ArrayValue, error) {
@@ -964,7 +1012,7 @@ func (jv JsonValue) ToStruct() (*StructValue, error) {
 }
 
 func (jv JsonValue) ToJSON() (string, error) {
-	return string(jv), nil
+	return jv.value, nil
 }
 
 func (jv JsonValue) ToTime() (time.Time, error) {
@@ -972,7 +1020,7 @@ func (jv JsonValue) ToTime() (time.Time, error) {
 }
 
 func (jv JsonValue) ToRat() (*big.Rat, error) {
-	i64, err := strconv.ParseInt(string(jv), 0, 64)
+	i64, err := strconv.ParseInt(jv.value, 0, 64)
 	if err != nil {
 		return nil, err
 	}
@@ -982,12 +1030,12 @@ func (jv JsonValue) ToRat() (*big.Rat, error) {
 }
 
 func (jv JsonValue) Format(verb rune) string {
-	return string(jv)
+	return jv.value
 }
 
 func (jv JsonValue) Interface() interface{} {
 	var v interface{}
-	if err := json.Unmarshal([]byte(jv), &v); err != nil {
+	if err := json.Unmarshal([]byte(jv.value), &v); err != nil {
 		return nil
 	}
 	return v
@@ -1014,7 +1062,7 @@ func (jv JsonValue) reflectTypeToJsonType(t reflect.Type) string {
 }
 
 func (jv JsonValue) Type() string {
-	if string(jv) == "null" {
+	if string(jv.value) == "null" {
 		return "null"
 	}
 	rv := reflect.ValueOf(jv.Interface())
@@ -1023,6 +1071,10 @@ func (jv JsonValue) Type() string {
 
 type ArrayValue struct {
 	values []Value
+}
+
+func (av *ArrayValue) Reset() {
+	av.values = av.values[:0]
 }
 
 func (av *ArrayValue) Has(v Value) (bool, error) {
@@ -1240,6 +1292,12 @@ type StructValue struct {
 	m      map[string]Value
 }
 
+func (sv *StructValue) Reset() {
+	sv.keys = sv.keys[:0]
+	sv.values = sv.values[:0]
+	sv.m = map[string]Value{}
+}
+
 func (sv *StructValue) Add(v Value) (Value, error) {
 	return nil, fmt.Errorf("add operation is unsupported for struct %v", sv)
 }
@@ -1450,66 +1508,72 @@ func (sv *StructValue) Interface() interface{} {
 	return fields
 }
 
-type DateValue time.Time
+type DateValue struct {
+	value time.Time
+}
+
+func (d DateValue) Reset() {
+	d.value = time.Time{}
+}
 
 func (d DateValue) AddDateWithInterval(v int, interval string) (Value, error) {
 	switch interval {
 	case "WEEK":
-		return DateValue(time.Time(d).AddDate(0, 0, v*7)), nil
+		return &DateValue{value: d.value.AddDate(0, 0, v*7)}, nil
 	case "MONTH":
-		return DateValue(time.Time(d).AddDate(0, v, 0)), nil
+		return &DateValue{value: d.value.AddDate(0, v, 0)}, nil
 	case "YEAR":
-		return DateValue(time.Time(d).AddDate(v, 0, 0)), nil
+		return &DateValue{value: d.value.AddDate(v, 0, 0)}, nil
 	default:
-		return DateValue(time.Time(d).AddDate(0, 0, v)), nil
+		return &DateValue{value: d.value.AddDate(0, 0, v)}, nil
 	}
 }
 
 func (d DateValue) Add(v Value) (Value, error) {
-	src := time.Time(d)
+	src := d.value
 	switch vv := v.(type) {
 	case *IntervalValue:
-		return DatetimeValue(time.Date(
-			src.Year()+int(vv.Years),
-			time.Month(int(src.Month())+int(vv.Months)),
-			src.Day()+int(vv.Days),
-			src.Hour()+int(vv.Hours),
-			src.Minute()+int(vv.Minutes),
-			src.Second()+int(vv.Seconds),
-			src.Nanosecond()+int(vv.SubSecondNanos),
+		return &DatetimeValue{value: time.Date(
+			src.Year()+int(vv.value.Years),
+			time.Month(int(src.Month())+int(vv.value.Months)),
+			src.Day()+int(vv.value.Days),
+			src.Hour()+int(vv.value.Hours),
+			src.Minute()+int(vv.value.Minutes),
+			src.Second()+int(vv.value.Seconds),
+			src.Nanosecond()+int(vv.value.SubSecondNanos),
 			src.Location(),
-		)), nil
+		)}, nil
 	case IntValue:
-		return DateValue(time.Time(d).AddDate(0, 0, int(vv))), nil
+		return &DateValue{value: d.value.AddDate(0, 0, int(vv.Value))}, nil
 	}
 	return nil, fmt.Errorf("failed to use add operator for date and %T type", v)
 }
 
 func (d DateValue) Sub(v Value) (Value, error) {
-	src := time.Time(d)
+	src := d.value
 	switch vv := v.(type) {
 	case *IntervalValue:
-		return DatetimeValue(time.Date(
-			src.Year()-int(vv.Years),
-			time.Month(int(src.Month())-int(vv.Months)),
-			src.Day()-int(vv.Days),
-			src.Hour()-int(vv.Hours),
-			src.Minute()-int(vv.Minutes),
-			src.Second()-int(vv.Seconds),
-			src.Nanosecond()-int(vv.SubSecondNanos),
+		return &DatetimeValue{time.Date(
+			src.Year()-int(vv.value.Years),
+			time.Month(int(src.Month())-int(vv.value.Months)),
+			src.Day()-int(vv.value.Days),
+			src.Hour()-int(vv.value.Hours),
+			src.Minute()-int(vv.value.Minutes),
+			src.Second()-int(vv.value.Seconds),
+			src.Nanosecond()-int(vv.value.SubSecondNanos),
 			src.Location(),
-		)), nil
+		)}, nil
 	case IntValue:
-		return DateValue(time.Time(d).AddDate(0, 0, -int(vv))), nil
+		return &DateValue{value: d.value.AddDate(0, 0, -int(vv.Value))}, nil
 	}
 	dst, err := v.ToTime()
 	if err != nil {
 		return nil, err
 	}
-	duration := time.Time(d).Sub(dst)
+	duration := d.value.Sub(dst)
 	days := duration / (24 * time.Hour)
 	return &IntervalValue{
-		IntervalValue: &bigquery.IntervalValue{
+		value: &bigquery.IntervalValue{
 			Days: int32(days),
 		},
 	}, nil
@@ -1528,7 +1592,7 @@ func (d DateValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Equal(v2), nil
+	return d.value.Equal(v2), nil
 }
 
 func (d DateValue) GT(v Value) (bool, error) {
@@ -1536,7 +1600,7 @@ func (d DateValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).After(v2), nil
+	return d.value.After(v2), nil
 }
 
 func (d DateValue) GTE(v Value) (bool, error) {
@@ -1544,7 +1608,7 @@ func (d DateValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Equal(v2) || time.Time(d).After(v2), nil
+	return d.value.Equal(v2) || d.value.After(v2), nil
 }
 
 func (d DateValue) LT(v Value) (bool, error) {
@@ -1552,7 +1616,7 @@ func (d DateValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Before(v2), nil
+	return d.value.Before(v2), nil
 }
 
 func (d DateValue) LTE(v Value) (bool, error) {
@@ -1560,15 +1624,15 @@ func (d DateValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Equal(v2) || time.Time(d).Before(v2), nil
+	return d.value.Equal(v2) || d.value.Before(v2), nil
 }
 
 func (d DateValue) ToInt64() (int64, error) {
-	return time.Time(d).Unix(), nil
+	return d.value.Unix(), nil
 }
 
 func (d DateValue) ToString() (string, error) {
-	return time.Time(d).Format("2006-01-02"), nil
+	return d.value.Format("2006-01-02"), nil
 }
 
 func (d DateValue) ToBytes() ([]byte, error) {
@@ -1580,7 +1644,7 @@ func (d DateValue) ToBytes() ([]byte, error) {
 }
 
 func (d DateValue) ToFloat64() (float64, error) {
-	return float64(time.Time(d).Unix()), nil
+	return float64(d.value.Unix()), nil
 }
 
 func (d DateValue) ToBool() (bool, error) {
@@ -1600,7 +1664,7 @@ func (d DateValue) ToJSON() (string, error) {
 }
 
 func (d DateValue) ToTime() (time.Time, error) {
-	return time.Time(d), nil
+	return d.value, nil
 }
 
 func (d DateValue) ToRat() (*big.Rat, error) {
@@ -1608,7 +1672,7 @@ func (d DateValue) ToRat() (*big.Rat, error) {
 }
 
 func (d DateValue) Format(verb rune) string {
-	formatted := time.Time(d).Format("2006-01-02")
+	formatted := d.value.Format("2006-01-02")
 	switch verb {
 	case 't':
 		return formatted
@@ -1619,52 +1683,58 @@ func (d DateValue) Format(verb rune) string {
 }
 
 func (d DateValue) Interface() interface{} {
-	return time.Time(d).Format("2006-01-02")
+	return d.value.Format("2006-01-02")
 }
 
 const (
 	datetimeFormat = "2006-01-02T15:04:05.999999"
 )
 
-type DatetimeValue time.Time
+type DatetimeValue struct {
+	value time.Time
+}
+
+func (d DatetimeValue) Reset() {
+	d.value = time.Time{}
+}
 
 func (d DatetimeValue) Add(v Value) (Value, error) {
-	src := time.Time(d)
+	src := d.value
 	if vv, ok := v.(*IntervalValue); ok {
-		return DatetimeValue(time.Date(
-			src.Year()+int(vv.Years),
-			time.Month(int(src.Month())+int(vv.Months)),
-			src.Day()+int(vv.Days),
-			src.Hour()+int(vv.Hours),
-			src.Minute()+int(vv.Minutes),
-			src.Second()+int(vv.Seconds),
-			src.Nanosecond()+int(vv.SubSecondNanos),
+		return &DatetimeValue{value: time.Date(
+			src.Year()+int(vv.value.Years),
+			time.Month(int(src.Month())+int(vv.value.Months)),
+			src.Day()+int(vv.value.Days),
+			src.Hour()+int(vv.value.Hours),
+			src.Minute()+int(vv.value.Minutes),
+			src.Second()+int(vv.value.Seconds),
+			src.Nanosecond()+int(vv.value.SubSecondNanos),
 			src.Location(),
-		)), nil
+		)}, nil
 	}
 	return nil, fmt.Errorf("failed to use add operator for datetime and %T type", v)
 }
 
 func (d DatetimeValue) Sub(v Value) (Value, error) {
-	src := time.Time(d)
+	src := d.value
 	if vv, ok := v.(*IntervalValue); ok {
-		return DatetimeValue(time.Date(
-			src.Year()-int(vv.Years),
-			time.Month(int(src.Month())-int(vv.Months)),
-			src.Day()-int(vv.Days),
-			src.Hour()-int(vv.Hours),
-			src.Minute()-int(vv.Minutes),
-			src.Second()-int(vv.Seconds),
-			src.Nanosecond()-int(vv.SubSecondNanos),
+		return &DatetimeValue{time.Date(
+			src.Year()-int(vv.value.Years),
+			time.Month(int(src.Month())-int(vv.value.Months)),
+			src.Day()-int(vv.value.Days),
+			src.Hour()-int(vv.value.Hours),
+			src.Minute()-int(vv.value.Minutes),
+			src.Second()-int(vv.value.Seconds),
+			src.Nanosecond()-int(vv.value.SubSecondNanos),
 			src.Location(),
-		)), nil
+		)}, nil
 	}
 	dst, err := v.ToTime()
 	if err != nil {
 		return nil, err
 	}
 	duration := src.Sub(dst)
-	return &IntervalValue{IntervalValue: bigquery.IntervalValueFromDuration(duration)}, nil
+	return &IntervalValue{value: bigquery.IntervalValueFromDuration(duration)}, nil
 }
 
 func (d DatetimeValue) Mul(v Value) (Value, error) {
@@ -1680,7 +1750,7 @@ func (d DatetimeValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Equal(v2), nil
+	return d.value.Equal(v2), nil
 }
 
 func (d DatetimeValue) GT(v Value) (bool, error) {
@@ -1688,7 +1758,7 @@ func (d DatetimeValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).After(v2), nil
+	return d.value.After(v2), nil
 }
 
 func (d DatetimeValue) GTE(v Value) (bool, error) {
@@ -1696,7 +1766,7 @@ func (d DatetimeValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Equal(v2) || time.Time(d).After(v2), nil
+	return d.value.Equal(v2) || d.value.After(v2), nil
 }
 
 func (d DatetimeValue) LT(v Value) (bool, error) {
@@ -1704,7 +1774,7 @@ func (d DatetimeValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Before(v2), nil
+	return d.value.Before(v2), nil
 }
 
 func (d DatetimeValue) LTE(v Value) (bool, error) {
@@ -1712,15 +1782,15 @@ func (d DatetimeValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(d).Equal(v2) || time.Time(d).Before(v2), nil
+	return d.value.Equal(v2) || d.value.Before(v2), nil
 }
 
 func (d DatetimeValue) ToInt64() (int64, error) {
-	return time.Time(d).Unix(), nil
+	return d.value.Unix(), nil
 }
 
 func (d DatetimeValue) ToString() (string, error) {
-	return time.Time(d).Format(datetimeFormat), nil
+	return d.value.Format(datetimeFormat), nil
 }
 
 func (d DatetimeValue) ToBytes() ([]byte, error) {
@@ -1732,7 +1802,7 @@ func (d DatetimeValue) ToBytes() ([]byte, error) {
 }
 
 func (d DatetimeValue) ToFloat64() (float64, error) {
-	return float64(time.Time(d).Unix()), nil
+	return float64(d.value.Unix()), nil
 }
 
 func (d DatetimeValue) ToBool() (bool, error) {
@@ -1752,7 +1822,7 @@ func (d DatetimeValue) ToJSON() (string, error) {
 }
 
 func (d DatetimeValue) ToTime() (time.Time, error) {
-	return time.Time(d), nil
+	return d.value, nil
 }
 
 func (d DatetimeValue) ToRat() (*big.Rat, error) {
@@ -1760,7 +1830,7 @@ func (d DatetimeValue) ToRat() (*big.Rat, error) {
 }
 
 func (d DatetimeValue) Format(verb rune) string {
-	formatted := time.Time(d).Format(datetimeFormat)
+	formatted := d.value.Format(datetimeFormat)
 	switch verb {
 	case 't':
 		return formatted
@@ -1771,10 +1841,16 @@ func (d DatetimeValue) Format(verb rune) string {
 }
 
 func (d DatetimeValue) Interface() interface{} {
-	return time.Time(d).Format(datetimeFormat)
+	return d.value.Format(datetimeFormat)
 }
 
-type TimeValue time.Time
+type TimeValue struct {
+	value time.Time
+}
+
+func (t TimeValue) Reset() {
+	t.value = time.Time{}
+}
 
 func (t TimeValue) Add(v Value) (Value, error) {
 	return nil, fmt.Errorf("add operation is unsupported for time %v", t)
@@ -1797,7 +1873,7 @@ func (t TimeValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Equal(v2), nil
+	return t.value.Equal(v2), nil
 }
 
 func (t TimeValue) GT(v Value) (bool, error) {
@@ -1805,7 +1881,7 @@ func (t TimeValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).After(v2), nil
+	return t.value.After(v2), nil
 }
 
 func (t TimeValue) GTE(v Value) (bool, error) {
@@ -1813,7 +1889,7 @@ func (t TimeValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Equal(v2) || time.Time(t).After(v2), nil
+	return t.value.Equal(v2) || t.value.After(v2), nil
 }
 
 func (t TimeValue) LT(v Value) (bool, error) {
@@ -1821,7 +1897,7 @@ func (t TimeValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Before(v2), nil
+	return t.value.Before(v2), nil
 }
 
 func (t TimeValue) LTE(v Value) (bool, error) {
@@ -1829,15 +1905,15 @@ func (t TimeValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Equal(v2) || time.Time(t).Before(v2), nil
+	return t.value.Equal(v2) || t.value.Before(v2), nil
 }
 
 func (t TimeValue) ToInt64() (int64, error) {
-	return time.Time(t).Unix(), nil
+	return t.value.Unix(), nil
 }
 
 func (t TimeValue) ToString() (string, error) {
-	return time.Time(t).Format("15:04:05.999999"), nil
+	return t.value.Format("15:04:05.999999"), nil
 }
 
 func (t TimeValue) ToBytes() ([]byte, error) {
@@ -1849,7 +1925,7 @@ func (t TimeValue) ToBytes() ([]byte, error) {
 }
 
 func (t TimeValue) ToFloat64() (float64, error) {
-	return float64(time.Time(t).Unix()), nil
+	return float64(t.value.Unix()), nil
 }
 
 func (t TimeValue) ToBool() (bool, error) {
@@ -1869,7 +1945,7 @@ func (t TimeValue) ToJSON() (string, error) {
 }
 
 func (t TimeValue) ToTime() (time.Time, error) {
-	return time.Time(t), nil
+	return t.value, nil
 }
 
 func (t TimeValue) ToRat() (*big.Rat, error) {
@@ -1877,7 +1953,7 @@ func (t TimeValue) ToRat() (*big.Rat, error) {
 }
 
 func (t TimeValue) Format(verb rune) string {
-	formatted := time.Time(t).Format("15:04:05.999999")
+	formatted := t.value.Format("15:04:05.999999")
 	switch verb {
 	case 't':
 		return formatted
@@ -1888,67 +1964,75 @@ func (t TimeValue) Format(verb rune) string {
 }
 
 func (t TimeValue) Interface() interface{} {
-	return time.Time(t).Format("15:04:05.999999")
+	return t.value.Format("15:04:05.999999")
 }
 
-type TimestampValue time.Time
+// TimestampValue represents a wrapper around a time.Time Value.
+type TimestampValue struct {
+	value time.Time
+}
+
+// Reset clears the Value of TimestampValue, resetting it to the zero time.
+func (t TimestampValue) Reset() {
+	t.value = time.Time{} // Clears the internal Value.
+}
 
 func (t TimestampValue) AddValueWithPart(v time.Duration, part string) (Value, error) {
 	switch part {
 	case "MICROSECOND":
-		return TimestampValue(time.Time(t).Add(v * time.Microsecond)), nil
+		return &TimestampValue{value: t.value.Add(v * time.Microsecond)}, nil
 	case "MILLISECOND":
-		return TimestampValue(time.Time(t).Add(v * time.Millisecond)), nil
+		return &TimestampValue{value: t.value.Add(v * time.Millisecond)}, nil
 	case "SECOND":
-		return TimestampValue(time.Time(t).Add(v * time.Second)), nil
+		return &TimestampValue{value: t.value.Add(v * time.Second)}, nil
 	case "MINUTE":
-		return TimestampValue(time.Time(t).Add(v * time.Minute)), nil
+		return &TimestampValue{value: t.value.Add(v * time.Minute)}, nil
 	case "HOUR":
-		return TimestampValue(time.Time(t).Add(v * time.Hour)), nil
+		return &TimestampValue{value: t.value.Add(v * time.Hour)}, nil
 	case "DAY":
-		return TimestampValue(time.Time(t).Add(v * time.Hour * 24)), nil
+		return &TimestampValue{value: t.value.Add(v * time.Hour * 24)}, nil
 	default:
-		return nil, fmt.Errorf("unknown part value for timestamp: %s", part)
+		return nil, fmt.Errorf("unknown part Value for timestamp: %s", part)
 	}
 }
 
 func (t TimestampValue) Add(v Value) (Value, error) {
-	src := time.Time(t)
+	src := t.value
 	if vv, ok := v.(*IntervalValue); ok {
-		return TimestampValue(time.Date(
-			src.Year()+int(vv.Years),
-			time.Month(int(src.Month())+int(vv.Months)),
-			src.Day()+int(vv.Days),
-			src.Hour()+int(vv.Hours),
-			src.Minute()+int(vv.Minutes),
-			src.Second()+int(vv.Seconds),
-			src.Nanosecond()+int(vv.SubSecondNanos),
+		return &TimestampValue{value: time.Date(
+			src.Year()+int(vv.value.Years),
+			time.Month(int(src.Month())+int(vv.value.Months)),
+			src.Day()+int(vv.value.Days),
+			src.Hour()+int(vv.value.Hours),
+			src.Minute()+int(vv.value.Minutes),
+			src.Second()+int(vv.value.Seconds),
+			src.Nanosecond()+int(vv.value.SubSecondNanos),
 			src.Location(),
-		)), nil
+		)}, nil
 	}
 	return nil, fmt.Errorf("failed to use add operator for timestamp and %T type", v)
 }
 
 func (t TimestampValue) Sub(v Value) (Value, error) {
-	src := time.Time(t)
+	src := t.value
 	if vv, ok := v.(*IntervalValue); ok {
-		return TimestampValue(time.Date(
-			src.Year()-int(vv.Years),
-			time.Month(int(src.Month())-int(vv.Months)),
-			src.Day()-int(vv.Days),
-			src.Hour()-int(vv.Hours),
-			src.Minute()-int(vv.Minutes),
-			src.Second()-int(vv.Seconds),
-			src.Nanosecond()-int(vv.SubSecondNanos),
+		return &TimestampValue{value: time.Date(
+			src.Year()-int(vv.value.Years),
+			time.Month(int(src.Month())-int(vv.value.Months)),
+			src.Day()-int(vv.value.Days),
+			src.Hour()-int(vv.value.Hours),
+			src.Minute()-int(vv.value.Minutes),
+			src.Second()-int(vv.value.Seconds),
+			src.Nanosecond()-int(vv.value.SubSecondNanos),
 			src.Location(),
-		)), nil
+		)}, nil
 	}
 	dst, err := v.ToTime()
 	if err != nil {
 		return nil, err
 	}
 	duration := src.Sub(dst)
-	return &IntervalValue{IntervalValue: bigquery.IntervalValueFromDuration(duration)}, nil
+	return &IntervalValue{value: bigquery.IntervalValueFromDuration(duration)}, nil
 }
 
 func (t TimestampValue) Mul(v Value) (Value, error) {
@@ -1964,7 +2048,7 @@ func (t TimestampValue) EQ(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Equal(v2), nil
+	return t.value.Equal(v2), nil
 }
 
 func (t TimestampValue) GT(v Value) (bool, error) {
@@ -1972,7 +2056,7 @@ func (t TimestampValue) GT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).After(v2), nil
+	return t.value.After(v2), nil
 }
 
 func (t TimestampValue) GTE(v Value) (bool, error) {
@@ -1980,7 +2064,7 @@ func (t TimestampValue) GTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Equal(v2) || time.Time(t).After(v2), nil
+	return t.value.Equal(v2) || t.value.After(v2), nil
 }
 
 func (t TimestampValue) LT(v Value) (bool, error) {
@@ -1988,7 +2072,7 @@ func (t TimestampValue) LT(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Before(v2), nil
+	return t.value.Before(v2), nil
 }
 
 func (t TimestampValue) LTE(v Value) (bool, error) {
@@ -1996,15 +2080,15 @@ func (t TimestampValue) LTE(v Value) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to convert %v to time.Time", v)
 	}
-	return time.Time(t).Equal(v2) || time.Time(t).Before(v2), nil
+	return t.value.Equal(v2) || t.value.Before(v2), nil
 }
 
 func (t TimestampValue) ToInt64() (int64, error) {
-	return time.Time(t).Unix(), nil
+	return t.value.Unix(), nil
 }
 
 func (t TimestampValue) ToString() (string, error) {
-	return time.Time(t).Format(time.RFC3339Nano), nil
+	return t.value.Format(time.RFC3339Nano), nil
 }
 
 func (t TimestampValue) ToBytes() ([]byte, error) {
@@ -2016,7 +2100,7 @@ func (t TimestampValue) ToBytes() ([]byte, error) {
 }
 
 func (t TimestampValue) ToFloat64() (float64, error) {
-	return float64(time.Time(t).Unix()), nil
+	return float64(t.value.Unix()), nil
 }
 
 func (t TimestampValue) ToBool() (bool, error) {
@@ -2036,16 +2120,16 @@ func (t TimestampValue) ToJSON() (string, error) {
 }
 
 func (t TimestampValue) ToTime() (time.Time, error) {
-	return time.Time(t), nil
+	return t.value, nil
 }
 
 func (t TimestampValue) ToRat() (*big.Rat, error) {
 	return nil, fmt.Errorf("failed to convert *big.Rat from timestamp %v", t)
 }
 
-func (d TimestampValue) Format(verb rune) string {
+func (t TimestampValue) Format(verb rune) string {
 	const timestampPrintableFormat = "2006-01-02 15:04:05"
-	formatted := time.Time(d).UTC().Format(timestampPrintableFormat) + "+00"
+	formatted := t.value.UTC().Format(timestampPrintableFormat) + "+00"
 	switch verb {
 	case 't':
 		return formatted
@@ -2055,59 +2139,63 @@ func (d TimestampValue) Format(verb rune) string {
 	return formatted
 }
 
-func (d TimestampValue) Interface() interface{} {
-	return time.Time(d).Format(time.RFC3339)
+func (t TimestampValue) Interface() interface{} {
+	return t.value.Format(time.RFC3339)
 }
 
 type IntervalValue struct {
-	*bigquery.IntervalValue
+	value *bigquery.IntervalValue
+}
+
+func (iv *IntervalValue) Reset() {
+	iv.value = &bigquery.IntervalValue{}
 }
 
 func (iv *IntervalValue) Add(v Value) (Value, error) {
-	return nil, fmt.Errorf("unsupported add operator for interval value")
+	return nil, fmt.Errorf("unsupported add operator for interval Value")
 }
 
 func (iv *IntervalValue) Sub(v Value) (Value, error) {
-	return nil, fmt.Errorf("unsupported sub operator for interval value")
+	return nil, fmt.Errorf("unsupported sub operator for interval Value")
 }
 
 func (iv *IntervalValue) Mul(v Value) (Value, error) {
-	return nil, fmt.Errorf("unsupported mul operator for interval value")
+	return nil, fmt.Errorf("unsupported mul operator for interval Value")
 }
 
 func (iv *IntervalValue) Div(v Value) (Value, error) {
-	return nil, fmt.Errorf("unsupported div operator for interval value")
+	return nil, fmt.Errorf("unsupported div operator for interval Value")
 }
 
 func (iv *IntervalValue) EQ(v Value) (bool, error) {
-	return false, fmt.Errorf("unsupported eq operator for interval value")
+	return false, fmt.Errorf("unsupported eq operator for interval Value")
 }
 
 func (iv *IntervalValue) GT(v Value) (bool, error) {
-	return false, fmt.Errorf("unsupported gt operator for interval value")
+	return false, fmt.Errorf("unsupported gt operator for interval Value")
 }
 
 func (iv *IntervalValue) GTE(v Value) (bool, error) {
-	return false, fmt.Errorf("unsupporte gte operator for interval value")
+	return false, fmt.Errorf("unsupporte gte operator for interval Value")
 }
 
 func (iv *IntervalValue) LT(v Value) (bool, error) {
-	return false, fmt.Errorf("unsupported lt operator for interval value")
+	return false, fmt.Errorf("unsupported lt operator for interval Value")
 }
 
 func (iv *IntervalValue) LTE(v Value) (bool, error) {
-	return false, fmt.Errorf("unsupported lte operator for interval value")
+	return false, fmt.Errorf("unsupported lte operator for interval Value")
 }
 
 func (iv *IntervalValue) ToInt64() (int64, error) {
-	return 0, fmt.Errorf("unsupported int64 cast for interval value")
+	return 0, fmt.Errorf("unsupported int64 cast for interval Value")
 }
 
 func (iv *IntervalValue) ToString() (string, error) {
-	if iv.Years == 0 && iv.Months < 0 {
-		return "-" + iv.String(), nil
+	if iv.value.Years == 0 && iv.value.Months < 0 {
+		return "-" + iv.value.String(), nil
 	}
-	return iv.String(), nil
+	return iv.value.String(), nil
 }
 
 func (iv *IntervalValue) ToBytes() ([]byte, error) {
@@ -2119,19 +2207,19 @@ func (iv *IntervalValue) ToBytes() ([]byte, error) {
 }
 
 func (iv *IntervalValue) ToFloat64() (float64, error) {
-	return 0, fmt.Errorf("unsupported float64 cast for interval value")
+	return 0, fmt.Errorf("unsupported float64 cast for interval Value")
 }
 
 func (iv *IntervalValue) ToBool() (bool, error) {
-	return false, fmt.Errorf("unsupported bool cast for interval value")
+	return false, fmt.Errorf("unsupported bool cast for interval Value")
 }
 
 func (iv *IntervalValue) ToArray() (*ArrayValue, error) {
-	return nil, fmt.Errorf("unsupported array cast for interval value")
+	return nil, fmt.Errorf("unsupported array cast for interval Value")
 }
 
 func (iv *IntervalValue) ToStruct() (*StructValue, error) {
-	return nil, fmt.Errorf("unsupported struct cast for interval value")
+	return nil, fmt.Errorf("unsupported struct cast for interval Value")
 }
 
 func (iv *IntervalValue) ToJSON() (string, error) {
@@ -2143,11 +2231,11 @@ func (iv *IntervalValue) ToJSON() (string, error) {
 }
 
 func (iv *IntervalValue) ToTime() (time.Time, error) {
-	return time.Time{}, fmt.Errorf("unsupported time cast for interval value")
+	return time.Time{}, fmt.Errorf("unsupported time cast for interval Value")
 }
 
 func (iv *IntervalValue) ToRat() (*big.Rat, error) {
-	return nil, fmt.Errorf("unsupported numeric cast for interval value")
+	return nil, fmt.Errorf("unsupported numeric cast for interval Value")
 }
 
 func (iv *IntervalValue) Format(verb rune) string {
@@ -2168,6 +2256,10 @@ func (iv *IntervalValue) Interface() interface{} {
 
 type SafeValue struct {
 	value Value
+}
+
+func (v *SafeValue) Reset() {
+	v.value = nil
 }
 
 func (v *SafeValue) Add(arg Value) (Value, error) {
@@ -2429,7 +2521,7 @@ func TimestampFromInt64Value(v int64) (time.Time, error) {
 
 func parseInterval(v string) (*IntervalValue, error) {
 	if len(v) == 0 {
-		return nil, fmt.Errorf("interval value is empty")
+		return nil, fmt.Errorf("interval Value is empty")
 	}
 	isNegative := v[0] == '-'
 	interval, err := bigquery.ParseInterval(v)
@@ -2439,7 +2531,7 @@ func parseInterval(v string) (*IntervalValue, error) {
 	if isNegative && interval.Months > 0 {
 		interval.Months *= -1
 	}
-	return &IntervalValue{IntervalValue: interval}, nil
+	return &IntervalValue{value: interval}, nil
 }
 
 func isNullValue(v interface{}) bool {

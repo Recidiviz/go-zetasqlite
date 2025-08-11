@@ -44,13 +44,13 @@ func (s *WindowFuncAggregatedStatus) RelevantValues() ([]Value, error) {
 	return filteredValues, nil
 }
 
-// Step adds a value to the window
+// Step adds a Value to the window
 func (s *WindowFuncAggregatedStatus) Step(value Value) error {
 	s.Values = append(s.Values, value)
 	return nil
 }
 
-// Inverse removes the oldest entry of a value from the window
+// Inverse removes the oldest entry of a Value from the window
 func (s *WindowFuncAggregatedStatus) Inverse(value Value) error {
 	for i, v := range s.Values {
 		if v == value {

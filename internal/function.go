@@ -30,7 +30,7 @@ func EQ(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func NOT_EQ(a, b Value) (Value, error) {
@@ -38,7 +38,7 @@ func NOT_EQ(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(!cond), nil
+	return BoolValue{!cond}, nil
 }
 
 func GT(a, b Value) (Value, error) {
@@ -46,7 +46,7 @@ func GT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func GTE(a, b Value) (Value, error) {
@@ -54,7 +54,7 @@ func GTE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func LT(a, b Value) (Value, error) {
@@ -62,7 +62,7 @@ func LT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func LTE(a, b Value) (Value, error) {
@@ -70,7 +70,7 @@ func LTE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func BIT_NOT(a Value) (Value, error) {
@@ -78,7 +78,7 @@ func BIT_NOT(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(^v), nil
+	return IntValue{^v}, nil
 }
 
 func BIT_LEFT_SHIFT(a, b Value) (Value, error) {
@@ -90,7 +90,7 @@ func BIT_LEFT_SHIFT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(va << vb), nil
+	return IntValue{va << vb}, nil
 }
 
 func BIT_RIGHT_SHIFT(a, b Value) (Value, error) {
@@ -102,7 +102,7 @@ func BIT_RIGHT_SHIFT(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(va >> vb), nil
+	return IntValue{va >> vb}, nil
 }
 
 func BIT_AND(a, b Value) (Value, error) {
@@ -114,7 +114,7 @@ func BIT_AND(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(va & vb), nil
+	return IntValue{va & vb}, nil
 }
 
 func BIT_OR(a, b Value) (Value, error) {
@@ -126,7 +126,7 @@ func BIT_OR(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(va | vb), nil
+	return IntValue{va | vb}, nil
 }
 
 func BIT_XOR(a, b Value) (Value, error) {
@@ -138,7 +138,7 @@ func BIT_XOR(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(va ^ vb), nil
+	return IntValue{va ^ vb}, nil
 }
 
 func ARRAY_IN(a, b Value) (Value, error) {
@@ -150,7 +150,7 @@ func ARRAY_IN(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func STRUCT_FIELD(v Value, idx int) (Value, error) {
@@ -220,7 +220,7 @@ func LIKE(a, b Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(re.MatchString(va)), nil
+	return BoolValue{re.MatchString(va)}, nil
 }
 
 func BETWEEN(target, start, end Value) (Value, error) {
@@ -233,7 +233,7 @@ func BETWEEN(target, start, end Value) (Value, error) {
 		return nil, err
 	}
 
-	return BoolValue(greaterThanStart && lessThanEnd), nil
+	return BoolValue{greaterThanStart && lessThanEnd}, nil
 }
 
 func IN(a Value, values ...Value) (Value, error) {
@@ -246,14 +246,14 @@ func IN(a Value, values ...Value) (Value, error) {
 			return nil, err
 		}
 		if cond {
-			return BoolValue(true), nil
+			return BoolValue{true}, nil
 		}
 	}
-	return BoolValue(false), nil
+	return BoolValue{false}, nil
 }
 
 func IS_NULL(a Value) (Value, error) {
-	return BoolValue(a == nil), nil
+	return BoolValue{a == nil}, nil
 }
 
 func IS_TRUE(a Value) (Value, error) {
@@ -261,7 +261,7 @@ func IS_TRUE(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(b), nil
+	return BoolValue{b}, nil
 }
 
 func IS_FALSE(a Value) (Value, error) {
@@ -269,7 +269,7 @@ func IS_FALSE(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(!b), nil
+	return BoolValue{!b}, nil
 }
 
 func NOT(a Value) (Value, error) {
@@ -277,7 +277,7 @@ func NOT(a Value) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(v == 0), nil
+	return BoolValue{v == 0}, nil
 }
 
 func AND(args ...Value) (Value, error) {
@@ -290,14 +290,14 @@ func AND(args ...Value) (Value, error) {
 			return nil, err
 		}
 		if !cond {
-			return BoolValue(false), nil
+			return BoolValue{false}, nil
 		}
 	}
-	// if exists null value and not exists false value, returns null.
+	// if exists null Value and not exists false Value, returns null.
 	if existsNull(args) {
 		return nil, nil
 	}
-	return BoolValue(true), nil
+	return BoolValue{true}, nil
 }
 
 func OR(args ...Value) (Value, error) {
@@ -310,37 +310,37 @@ func OR(args ...Value) (Value, error) {
 			return nil, err
 		}
 		if cond {
-			return BoolValue(true), nil
+			return BoolValue{true}, nil
 		}
 	}
-	// if exists null value and not exists true value, returns null.
+	// if exists null Value and not exists true Value, returns null.
 	if existsNull(args) {
 		return nil, nil
 	}
-	return BoolValue(false), nil
+	return BoolValue{false}, nil
 }
 
 func IS_DISTINCT_FROM(a, b Value) (Value, error) {
 	if a == nil || b == nil {
 		eq := a == nil && b == nil
-		return BoolValue(!eq), nil
+		return BoolValue{!eq}, nil
 	}
 	cond, err := a.EQ(b)
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(!cond), nil
+	return BoolValue{!cond}, nil
 }
 
 func IS_NOT_DISTINCT_FROM(a, b Value) (Value, error) {
 	if a == nil || b == nil {
-		return BoolValue(a == nil && b == nil), nil
+		return BoolValue{a == nil && b == nil}, nil
 	}
 	cond, err := a.EQ(b)
 	if err != nil {
 		return nil, err
 	}
-	return BoolValue(cond), nil
+	return BoolValue{cond}, nil
 }
 
 func COALESCE(args ...Value) (Value, error) {
@@ -419,21 +419,21 @@ func EXTRACT(v Value, part, zone string) (Value, error) {
 	case *IntervalValue:
 		switch part {
 		case "YEAR":
-			return IntValue(vv.Years), nil
+			return IntValue{int64(vv.value.Years)}, nil
 		case "MONTH":
-			return IntValue(vv.Months), nil
+			return IntValue{int64(vv.value.Months)}, nil
 		case "DAY":
-			return IntValue(vv.Days), nil
+			return IntValue{int64(vv.value.Days)}, nil
 		case "HOUR":
-			return IntValue(vv.Hours), nil
+			return IntValue{int64(vv.value.Hours)}, nil
 		case "MINUTE":
-			return IntValue(vv.Minutes), nil
+			return IntValue{int64(vv.value.Minutes)}, nil
 		case "SECOND":
-			return IntValue(vv.Seconds), nil
+			return IntValue{int64(vv.value.Seconds)}, nil
 		case "MILLISECOND":
-			return IntValue(vv.SubSecondNanos / int32(time.Millisecond)), nil
+			return IntValue{int64(vv.value.SubSecondNanos / int32(time.Millisecond))}, nil
 		case "MICROSECOND":
-			return IntValue(vv.SubSecondNanos / int32(time.Microsecond)), nil
+			return IntValue{int64(vv.value.SubSecondNanos / int32(time.Microsecond))}, nil
 		}
 		return nil, fmt.Errorf("EXTRACT: unexpected part %s for interval", part)
 	case DateValue, DatetimeValue, TimeValue, TimestampValue:
@@ -451,60 +451,60 @@ func EXTRACT(v Value, part, zone string) (Value, error) {
 		switch part {
 		case "ISOYEAR":
 			year, _ := t.ISOWeek()
-			return IntValue(year), nil
+			return IntValue{int64(year)}, nil
 		case "YEAR":
-			return IntValue(t.Year()), nil
+			return IntValue{int64(t.Year())}, nil
 		case "MONTH":
-			return IntValue(t.Month()), nil
+			return IntValue{int64(t.Month())}, nil
 		case "ISOWEEK":
 			_, week := t.ISOWeek()
-			return IntValue(week), nil
+			return IntValue{int64(week)}, nil
 		case "WEEK":
 			_, week := t.AddDate(0, 0, -int(t.Weekday())).ISOWeek()
-			return IntValue(week), nil
+			return IntValue{int64(week)}, nil
 		case "DAY":
-			return IntValue(t.Day()), nil
+			return IntValue{int64(t.Day())}, nil
 		case "DAYOFYEAR":
-			return IntValue(t.YearDay()), nil
+			return IntValue{int64(t.YearDay())}, nil
 		case "DAYOFWEEK":
-			return IntValue(int(t.Weekday()) + 1), nil
+			return IntValue{int64(int(t.Weekday()) + 1)}, nil
 		case "QUARTER":
 			day := t.YearDay()
 			const quarterDays = 91
 			switch {
 			case day <= quarterDays:
-				return IntValue(1), nil
+				return IntValue{1}, nil
 			case day <= quarterDays*2:
-				return IntValue(2), nil
+				return IntValue{2}, nil
 			case day <= quarterDays*3:
-				return IntValue(3), nil
+				return IntValue{3}, nil
 			}
-			return IntValue(4), nil
+			return IntValue{4}, nil
 		case "HOUR":
-			return IntValue(t.Hour()), nil
+			return IntValue{int64(t.Hour())}, nil
 		case "MINUTE":
-			return IntValue(t.Minute()), nil
+			return IntValue{int64(t.Minute())}, nil
 		case "SECOND":
-			return IntValue(t.Second()), nil
+			return IntValue{int64(t.Second())}, nil
 		case "MILLISECOND":
-			return IntValue(t.Nanosecond() / int(time.Millisecond)), nil
+			return IntValue{int64(t.Nanosecond() / int(time.Millisecond))}, nil
 		case "MICROSECOND":
-			return IntValue(t.Nanosecond() / int(time.Microsecond)), nil
+			return IntValue{int64(t.Nanosecond() / int(time.Microsecond))}, nil
 		case "DATE":
-			return DateValue(t), nil
+			return DateValue{t}, nil
 		case "DATETIME":
-			return DatetimeValue(t), nil
+			return DatetimeValue{t}, nil
 		case "TIME":
-			return TimeValue(t), nil
+			return TimeValue{t}, nil
 		}
 		return nil, fmt.Errorf("EXTRACT: unexpected part %s for data/datetime/time/timestamp", part)
 	}
-	return nil, fmt.Errorf("EXTRACT: value type must be INTERVAL or DATE or DATETIME or TIME or TIMESTAMP")
+	return nil, fmt.Errorf("EXTRACT: Value type must be INTERVAL or DATE or DATETIME or TIME or TIMESTAMP")
 }
 
 func GENERATE_UUID() (Value, error) {
 	id := uuid.NewString()
-	return StringValue(string(id)), nil
+	return StringValue{id}, nil
 }
 
 func CAST(expr Value, fromType, toType *Type, isSafeCast bool) (Value, error) {

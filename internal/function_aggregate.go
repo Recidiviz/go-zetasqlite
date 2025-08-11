@@ -69,7 +69,7 @@ type ARRAY_AGG struct {
 
 func (f *ARRAY_AGG) Step(v Value, opt *AggregatorOption) error {
 	if v == nil {
-		return fmt.Errorf("ARRAY_AGG: input value must be not null")
+		return fmt.Errorf("ARRAY_AGG: input Value must be not null")
 	}
 	f.once.Do(func() { f.opt = opt })
 	f.values = append(f.values, &OrderedValue{
@@ -105,7 +105,7 @@ type ARRAY_CONCAT_AGG struct {
 
 func (f *ARRAY_CONCAT_AGG) Step(v *ArrayValue, opt *AggregatorOption) error {
 	if v == nil {
-		return fmt.Errorf("ARRAY_CONCAT_AGG: NULL value unsupported")
+		return fmt.Errorf("ARRAY_CONCAT_AGG: NULL Value unsupported")
 	}
 	f.once.Do(func() { f.opt = opt })
 	for _, vv := range v.values {
@@ -165,7 +165,7 @@ func (f *AVG) Done() (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FloatValue(base / float64(f.num)), nil
+	return FloatValue{base / float64(f.num)}, nil
 }
 
 type BIT_AND_AGG struct {
@@ -181,13 +181,13 @@ func (f *BIT_AND_AGG) Step(v Value, opt *AggregatorOption) error {
 		return err
 	}
 	if f.value == nil {
-		f.value = IntValue(i64)
+		f.value = IntValue{i64}
 	} else {
 		curI64, err := f.value.ToInt64()
 		if err != nil {
 			return err
 		}
-		f.value = IntValue(curI64 & i64)
+		f.value = IntValue{curI64 & i64}
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (f *BIT_OR_AGG) Step(v Value, opt *AggregatorOption) error {
 }
 
 func (f *BIT_OR_AGG) Done() (Value, error) {
-	return IntValue(f.value), nil
+	return IntValue{f.value}, nil
 }
 
 type BIT_XOR_AGG struct {
@@ -241,7 +241,7 @@ func (f *BIT_XOR_AGG) Step(v Value, opt *AggregatorOption) error {
 }
 
 func (f *BIT_XOR_AGG) Done() (Value, error) {
-	return IntValue(f.value), nil
+	return IntValue{f.value}, nil
 }
 
 type COUNT struct {
@@ -253,9 +253,9 @@ func (f *COUNT) Step(v Value, opt *AggregatorOption) error {
 		return nil
 	}
 	if f.count == nil {
-		f.count = IntValue(1)
+		f.count = IntValue{1}
 	} else {
-		added, err := f.count.Add(IntValue(1))
+		added, err := f.count.Add(IntValue{1})
 		if err != nil {
 			return err
 		}
@@ -266,7 +266,7 @@ func (f *COUNT) Step(v Value, opt *AggregatorOption) error {
 
 func (f *COUNT) Done() (Value, error) {
 	if f.count == nil {
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
 	return f.count, nil
 }
@@ -281,7 +281,7 @@ func (f *COUNT_STAR) Step(opt *AggregatorOption) error {
 }
 
 func (f *COUNT_STAR) Done() (Value, error) {
-	return IntValue(f.count), nil
+	return IntValue{f.count}, nil
 }
 
 type COUNTIF struct {
@@ -298,9 +298,9 @@ func (f *COUNTIF) Step(cond Value, opt *AggregatorOption) error {
 	}
 	if b {
 		if f.count == nil {
-			f.count = IntValue(1)
+			f.count = IntValue{1}
 		} else {
-			added, err := f.count.Add(IntValue(1))
+			added, err := f.count.Add(IntValue{1})
 			if err != nil {
 				return err
 			}
@@ -312,7 +312,7 @@ func (f *COUNTIF) Step(cond Value, opt *AggregatorOption) error {
 
 func (f *COUNTIF) Done() (Value, error) {
 	if f.count == nil {
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
 	return f.count, nil
 }
@@ -336,7 +336,7 @@ func (f *LOGICAL_AND) Step(cond Value, opt *AggregatorOption) error {
 }
 
 func (f *LOGICAL_AND) Done() (Value, error) {
-	return BoolValue(f.v), nil
+	return BoolValue{f.v}, nil
 }
 
 type LOGICAL_OR struct {
@@ -358,7 +358,7 @@ func (f *LOGICAL_OR) Step(cond Value, opt *AggregatorOption) error {
 }
 
 func (f *LOGICAL_OR) Done() (Value, error) {
-	return BoolValue(f.v), nil
+	return BoolValue{f.v}, nil
 }
 
 type MAX struct {
@@ -500,7 +500,7 @@ func (f *STRING_AGG) Done() (Value, error) {
 	if !foundNotNilValue {
 		return nil, nil
 	}
-	return StringValue(strings.Join(values, f.delim)), nil
+	return StringValue{strings.Join(values, f.delim)}, nil
 }
 
 type SUM struct {
@@ -553,7 +553,7 @@ func (f *CORR) Done() (Value, error) {
 	if len(f.x) == 0 || len(f.y) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Correlation(f.x, f.y, nil)), nil
+	return FloatValue{stat.Correlation(f.x, f.y, nil)}, nil
 }
 
 type COVAR_POP struct {
@@ -582,7 +582,7 @@ func (f *COVAR_POP) Done() (Value, error) {
 	if len(f.x) == 0 || len(f.y) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Covariance(f.x, f.y, nil)), nil
+	return FloatValue{stat.Covariance(f.x, f.y, nil)}, nil
 }
 
 type COVAR_SAMP struct {
@@ -611,7 +611,7 @@ func (f *COVAR_SAMP) Done() (Value, error) {
 	if len(f.x) == 0 || len(f.y) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Covariance(f.x, f.y, nil)), nil
+	return FloatValue{stat.Covariance(f.x, f.y, nil)}, nil
 }
 
 type STDDEV_POP struct {
@@ -635,7 +635,7 @@ func (f *STDDEV_POP) Done() (Value, error) {
 		return nil, nil
 	}
 	_, std := stat.PopMeanStdDev(f.v, nil)
-	return FloatValue(std), nil
+	return FloatValue{std}, nil
 }
 
 type STDDEV_SAMP struct {
@@ -658,7 +658,7 @@ func (f *STDDEV_SAMP) Done() (Value, error) {
 	if len(f.v) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.StdDev(f.v, nil)), nil
+	return FloatValue{stat.StdDev(f.v, nil)}, nil
 }
 
 type STDDEV = STDDEV_SAMP
@@ -684,7 +684,7 @@ func (f *VAR_POP) Done() (Value, error) {
 		return nil, nil
 	}
 	_, variance := stat.PopMeanVariance(f.v, nil)
-	return FloatValue(variance), nil
+	return FloatValue{variance}, nil
 }
 
 type VAR_SAMP struct {
@@ -707,7 +707,7 @@ func (f *VAR_SAMP) Done() (Value, error) {
 	if len(f.v) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Variance(f.v, nil)), nil
+	return FloatValue{stat.Variance(f.v, nil)}, nil
 }
 
 type VARIANCE = VAR_SAMP
@@ -731,7 +731,7 @@ func (f *APPROX_COUNT_DISTINCT) Step(v Value, opt *AggregatorOption) error {
 }
 
 func (f *APPROX_COUNT_DISTINCT) Done() (Value, error) {
-	return IntValue(len(f.valueMap)), nil
+	return IntValue{int64(len(f.valueMap))}, nil
 }
 
 type APPROX_QUANTILES struct {
@@ -791,15 +791,15 @@ func (f *APPROX_TOP_COUNT) Step(v Value, num int64, opt *AggregatorOption) error
 	value, exists := f.valueMap[v]
 	if exists {
 		cur, _ := value.values[1].ToInt64()
-		value.values[1] = IntValue(cur + 1)
-		value.m["count"] = IntValue(cur + 1)
+		value.values[1] = IntValue{cur + 1}
+		value.m["count"] = IntValue{cur + 1}
 	} else {
 		f.valueMap[v] = &StructValue{
-			keys:   []string{"value", "count"},
-			values: []Value{v, IntValue(1)},
+			keys:   []string{"Value", "count"},
+			values: []Value{v, IntValue{1}},
 			m: map[string]Value{
-				"value": v,
-				"count": IntValue(1),
+				"Value": v,
+				"count": IntValue{1},
 			},
 		}
 	}
@@ -857,10 +857,10 @@ func (f *APPROX_TOP_SUM) Step(v, weight Value, num int64, opt *AggregatorOption)
 		}
 	} else {
 		f.valueMap[v] = &StructValue{
-			keys:   []string{"value", "sum"},
+			keys:   []string{"Value", "sum"},
 			values: []Value{v, weight},
 			m: map[string]Value{
-				"value": v,
+				"Value": v,
 				"sum":   weight,
 			},
 		}
@@ -953,7 +953,7 @@ func (f *HLL_COUNT_INIT) Done() (Value, error) {
 	if f.hll == nil {
 		return nil, nil
 	}
-	return BytesValue(f.hll.ToBytes()), nil
+	return BytesValue{f.hll.ToBytes()}, nil
 }
 
 type HLL_COUNT_MERGE struct {
@@ -975,9 +975,9 @@ func (f *HLL_COUNT_MERGE) Step(sketch []byte, opt *AggregatorOption) error {
 
 func (f *HLL_COUNT_MERGE) Done() (Value, error) {
 	if f.hll == nil {
-		return IntValue(0), nil
+		return IntValue{0}, nil
 	}
-	return IntValue(f.hll.Cardinality()), nil
+	return IntValue{int64(f.hll.Cardinality())}, nil
 }
 
 type HLL_COUNT_MERGE_PARTIAL struct {
@@ -1001,7 +1001,7 @@ func (f *HLL_COUNT_MERGE_PARTIAL) Done() (Value, error) {
 	if f.hll == nil {
 		return nil, nil
 	}
-	return BytesValue(f.hll.ToBytes()), nil
+	return BytesValue{f.hll.ToBytes()}, nil
 }
 
 func HLL_COUNT_EXTRACT(sketch []byte) (Value, error) {
@@ -1009,5 +1009,5 @@ func HLL_COUNT_EXTRACT(sketch []byte) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(h.Cardinality()), nil
+	return IntValue{int64(h.Cardinality())}, nil
 }

@@ -15,7 +15,7 @@ func CURRENT_DATE(zone string) (Value, error) {
 }
 
 func CURRENT_DATE_WITH_TIME(v time.Time) (Value, error) {
-	return DateValue(v), nil
+	return DateValue{v}, nil
 }
 
 func DATE(args ...Value) (Value, error) {
@@ -32,7 +32,7 @@ func DATE(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return DateValue(time.Time{}.AddDate(int(year)-1, int(month)-1, int(day)-1)), nil
+		return DateValue{time.Time{}.AddDate(int(year)-1, int(month)-1, int(day)-1)}, nil
 	} else if len(args) == 2 {
 		t, err := args[0].ToTime()
 		if err != nil {
@@ -46,45 +46,45 @@ func DATE(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return DateValue(t.In(loc)), nil
+		return DateValue{t.In(loc)}, nil
 	} else {
 		t, err := args[0].ToTime()
 		if err != nil {
 			return nil, err
 		}
-		return DateValue(t), nil
+		return DateValue{t}, nil
 	}
 }
 
 func DATE_ADD(t time.Time, v int64, part string) (Value, error) {
 	switch part {
 	case "DAY":
-		return DateValue(t.AddDate(0, 0, int(v))), nil
+		return DateValue{t.AddDate(0, 0, int(v))}, nil
 	case "WEEK":
-		return DateValue(t.AddDate(0, 0, int(v*7))), nil
+		return DateValue{t.AddDate(0, 0, int(v*7))}, nil
 	case "MONTH":
-		return DateValue(addMonth(t, int(v))), nil
+		return DateValue{addMonth(t, int(v))}, nil
 	case "YEAR":
-		return DateValue(addYear(t, int(v))), nil
+		return DateValue{addYear(t, int(v))}, nil
 	case "QUARTER":
-		return DateValue(addMonth(t, 3)), nil
+		return DateValue{addMonth(t, 3)}, nil
 
 	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
+	return nil, fmt.Errorf("unexpected part Value %s", part)
 }
 
 func DATE_SUB(t time.Time, v int64, part string) (Value, error) {
 	switch part {
 	case "DAY":
-		return DateValue(t.AddDate(0, 0, int(-v))), nil
+		return DateValue{t.AddDate(0, 0, int(-v))}, nil
 	case "WEEK":
-		return DateValue(t.AddDate(0, 0, int(-v*7))), nil
+		return DateValue{t.AddDate(0, 0, int(-v*7))}, nil
 	case "MONTH":
-		return DateValue(addMonth(t, int(-v))), nil
+		return DateValue{addMonth(t, int(-v))}, nil
 	case "YEAR":
-		return DateValue(addYear(t, int(-v))), nil
+		return DateValue{addYear(t, int(-v))}, nil
 	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
+	return nil, fmt.Errorf("unexpected part Value %s", part)
 }
 
 var WeekPartToOffset = map[string]int{
@@ -142,7 +142,7 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 			result = -result
 		}
 
-		return IntValue(result), nil
+		return IntValue{result}, nil
 	}
 
 	diff := a.Sub(b)
@@ -156,17 +156,17 @@ func DATE_DIFF(a, b time.Time, part string) (Value, error) {
 		} else if mod < 0 {
 			diffDay--
 		}
-		return IntValue(diffDay), nil
+		return IntValue{int64(diffDay)}, nil
 	case "ISOWEEK":
-		return IntValue((a.Year()-b.Year())*48 + weekA - weekB), nil
+		return IntValue{int64((a.Year()-b.Year())*48 + weekA - weekB)}, nil
 	case "MONTH":
-		return IntValue((a.Year()*12 + int(a.Month())) - (b.Year()*12 + int(b.Month()))), nil
+		return IntValue{int64((a.Year()*12 + int(a.Month())) - (b.Year()*12 + int(b.Month())))}, nil
 	case "YEAR":
-		return IntValue(a.Year() - b.Year()), nil
+		return IntValue{int64(a.Year() - b.Year())}, nil
 	case "ISOYEAR":
-		return IntValue(yearISOA - yearISOB), nil
+		return IntValue{int64(yearISOA - yearISOB)}, nil
 	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
+	return nil, fmt.Errorf("unexpected part Value %s", part)
 }
 
 var quarterStartMonths = []time.Month{time.January, time.April, time.July, time.October}
@@ -184,14 +184,14 @@ func DATE_TRUNC(t time.Time, part string) (Value, error) {
 			t = t.AddDate(0, 0, -1)
 		}
 
-		return DateValue(t), nil
+		return DateValue{t}, nil
 	}
 
 	switch part {
 	case "DAY":
-		return DateValue(time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())), nil
+		return DateValue{time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())}, nil
 	case "ISOWEEK":
-		return DateValue(time.Date(
+		return DateValue{time.Date(
 			yearISO,
 			0,
 			7*weekISO,
@@ -200,11 +200,11 @@ func DATE_TRUNC(t time.Time, part string) (Value, error) {
 			0,
 			0,
 			t.Location(),
-		)), nil
+		)}, nil
 	case "MONTH":
-		return DateValue(time.Time{}.AddDate(t.Year()-1, int(t.Month())-1, 0)), nil
+		return DateValue{time.Time{}.AddDate(t.Year()-1, int(t.Month())-1, 0)}, nil
 	case "QUARTER":
-		return DateValue( // 1, 4, 7, 10
+		return DateValue{ // 1, 4, 7, 10
 			time.Date(
 				t.Year(),
 				quarterStartMonths[int64((t.Month()-1)/3)],
@@ -215,9 +215,9 @@ func DATE_TRUNC(t time.Time, part string) (Value, error) {
 				0,
 				t.Location(),
 			),
-		), nil
+		}, nil
 	case "YEAR":
-		return DateValue(time.Time{}.AddDate(t.Year()-1, 0, 0)), nil
+		return DateValue{time.Time{}.AddDate(t.Year()-1, 0, 0)}, nil
 	case "ISOYEAR":
 		firstDay := time.Date(
 			yearISO,
@@ -229,14 +229,14 @@ func DATE_TRUNC(t time.Time, part string) (Value, error) {
 			0,
 			t.Location(),
 		)
-		return DateValue(firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))), nil
+		return DateValue{firstDay.AddDate(0, 0, 1-int(firstDay.Weekday()))}, nil
 	}
-	return nil, fmt.Errorf("unexpected part value %s", part)
+	return nil, fmt.Errorf("unexpected part Value %s", part)
 }
 
 func DATE_FROM_UNIX_DATE(unixdate int64) (Value, error) {
 	t := time.Unix(int64(time.Duration(unixdate)*24*time.Hour/time.Second), 0)
-	return DateValue(t), nil
+	return DateValue{t}, nil
 }
 
 func FORMAT_DATE(format string, t time.Time) (Value, error) {
@@ -244,35 +244,35 @@ func FORMAT_DATE(format string, t time.Time) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(s), nil
+	return StringValue{s}, nil
 }
 
 func LAST_DAY(t time.Time, part string) (Value, error) {
 	switch part {
 	case "YEAR":
-		return DateValue(time.Date(t.Year()+1, time.Month(1), 0, 0, 0, 0, 0, t.Location())), nil
+		return DateValue{time.Date(t.Year()+1, time.Month(1), 0, 0, 0, 0, 0, t.Location())}, nil
 	case "QUARTER":
 		return nil, fmt.Errorf("LAST_DAY: unimplemented QUARTER part")
 	case "MONTH":
-		return DateValue(t.AddDate(0, 1, -t.Day())), nil
+		return DateValue{t.AddDate(0, 1, -t.Day())}, nil
 	case "WEEK":
-		return DateValue(t.AddDate(0, 0, 6-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 6-int(t.Weekday()))}, nil
 	case "WEEK_MONDAY":
-		return DateValue(t.AddDate(0, 0, 7-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 7-int(t.Weekday()))}, nil
 	case "WEEK_TUESDAY":
-		return DateValue(t.AddDate(0, 0, 8-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 8-int(t.Weekday()))}, nil
 	case "WEEK_WEDNESDAY":
-		return DateValue(t.AddDate(0, 0, 9-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 9-int(t.Weekday()))}, nil
 	case "WEEK_THURSDAY":
-		return DateValue(t.AddDate(0, 0, 10-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 10-int(t.Weekday()))}, nil
 	case "WEEK_FRIDAY":
-		return DateValue(t.AddDate(0, 0, 11-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 11-int(t.Weekday()))}, nil
 	case "WEEK_SATURDAY":
-		return DateValue(t.AddDate(0, 0, 12-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 12-int(t.Weekday()))}, nil
 	case "ISOWEEK":
-		return DateValue(t.AddDate(0, 0, 6-int(t.Weekday()))), nil
+		return DateValue{t.AddDate(0, 0, 6-int(t.Weekday()))}, nil
 	case "ISOYEAR":
-		return DateValue(time.Date(t.Year()+1, time.Month(1), 0, 0, 0, 0, 0, t.Location())), nil
+		return DateValue{time.Date(t.Year()+1, time.Month(1), 0, 0, 0, 0, 0, t.Location())}, nil
 	}
 	return nil, fmt.Errorf("LAST_DAY: unexpected part %s", part)
 }
@@ -282,11 +282,11 @@ func PARSE_DATE(format, date string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return DateValue(*t), nil
+	return DateValue{*t}, nil
 }
 
 func UNIX_DATE(t time.Time) (Value, error) {
-	return IntValue(t.Unix() / int64(24*time.Hour/time.Second)), nil
+	return IntValue{t.Unix() / int64(24*time.Hour/time.Second)}, nil
 }
 
 func addMonth(t time.Time, m int) time.Time {

@@ -20,7 +20,7 @@ func JSON_FIELD(v, fieldName string) (Value, error) {
 	if len(extracted) == 0 {
 		return nil, nil
 	}
-	return JsonValue(string(extracted[0])), nil
+	return JsonValue{string(extracted[0])}, nil
 }
 
 func JSON_SUBSCRIPT(v string, field Value) (Value, error) {
@@ -54,7 +54,7 @@ func JSON_SUBSCRIPT(v string, field Value) (Value, error) {
 	if len(extracted) == 0 {
 		return nil, nil
 	}
-	return JsonValue(string(extracted[0])), nil
+	return JsonValue{string(extracted[0])}, nil
 }
 
 func JSON_EXTRACT(v, path string) (Value, error) {
@@ -80,7 +80,7 @@ func JSON_EXTRACT(v, path string) (Value, error) {
 	if jsonValue == "null" {
 		return nil, nil
 	}
-	return JsonValue(jsonValue), nil
+	return JsonValue{jsonValue}, nil
 }
 
 func JSON_EXTRACT_SCALAR(v, path string) (Value, error) {
@@ -103,7 +103,7 @@ func JSON_EXTRACT_SCALAR(v, path string) (Value, error) {
 	case reflect.Map, reflect.Slice:
 		return nil, nil
 	}
-	return StringValue(fmt.Sprint(value)), nil
+	return StringValue{fmt.Sprint(value)}, nil
 }
 
 func JSON_EXTRACT_ARRAY(v, path string) (Value, error) {
@@ -136,7 +136,7 @@ func JSON_EXTRACT_ARRAY(v, path string) (Value, error) {
 		if jsonValue == "null" {
 			ret.values = append(ret.values, nil)
 		} else {
-			ret.values = append(ret.values, JsonValue(jsonValue))
+			ret.values = append(ret.values, JsonValue{jsonValue})
 		}
 	}
 	return ret, nil
@@ -175,7 +175,7 @@ func JSON_EXTRACT_STRING_ARRAY(v, path string) (Value, error) {
 		if jsonValue == "null" {
 			ret.values = append(ret.values, nil)
 		} else {
-			ret.values = append(ret.values, StringValue(jsonValue))
+			ret.values = append(ret.values, StringValue{jsonValue})
 		}
 	}
 	return ret, nil
@@ -204,7 +204,7 @@ func JSON_QUERY(v, path string) (Value, error) {
 	if jsonValue == "null" {
 		return nil, nil
 	}
-	return JsonValue(jsonValue), nil
+	return JsonValue{jsonValue}, nil
 }
 
 func JSON_VALUE(v, path string) (Value, error) {
@@ -230,7 +230,7 @@ func JSON_VALUE(v, path string) (Value, error) {
 	case reflect.Map, reflect.Slice:
 		return nil, nil
 	}
-	return StringValue(fmt.Sprint(value)), nil
+	return StringValue{fmt.Sprint(value)}, nil
 }
 
 func JSON_QUERY_ARRAY(v, path string) (Value, error) {
@@ -263,7 +263,7 @@ func JSON_QUERY_ARRAY(v, path string) (Value, error) {
 		if jsonValue == "null" {
 			ret.values = append(ret.values, nil)
 		} else {
-			ret.values = append(ret.values, JsonValue(jsonValue))
+			ret.values = append(ret.values, JsonValue{jsonValue})
 		}
 	}
 	return ret, nil
@@ -302,7 +302,7 @@ func JSON_VALUE_ARRAY(v, path string) (Value, error) {
 		if jsonValue == "null" {
 			ret.values = append(ret.values, nil)
 		} else {
-			ret.values = append(ret.values, StringValue(jsonValue))
+			ret.values = append(ret.values, StringValue{jsonValue})
 		}
 	}
 	return ret, nil
@@ -313,7 +313,7 @@ func PARSE_JSON(expr, mode string) (Value, error) {
 	if err := json.Unmarshal([]byte(expr), &v); err != nil {
 		return nil, err
 	}
-	return JsonValue(expr), nil
+	return JsonValue{expr}, nil
 }
 
 func TO_JSON(v Value, stringifyWideNumbers bool) (Value, error) {
@@ -321,7 +321,7 @@ func TO_JSON(v Value, stringifyWideNumbers bool) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return JsonValue(s), nil
+	return JsonValue{s}, nil
 }
 
 func TO_JSON_STRING(v Value, prettyPrint bool) (Value, error) {
@@ -329,9 +329,9 @@ func TO_JSON_STRING(v Value, prettyPrint bool) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(s), nil
+	return StringValue{s}, nil
 }
 
 func JSON_TYPE(v JsonValue) (Value, error) {
-	return StringValue(v.Type()), nil
+	return StringValue{v.Type()}, nil
 }

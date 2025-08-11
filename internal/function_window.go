@@ -49,7 +49,7 @@ func (f *WINDOW_AVG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 			if err != nil {
 				return nil, err
 			}
-			sum = FloatValue(f64)
+			sum = FloatValue{f64}
 		} else {
 			added, err := sum.Add(value)
 			if err != nil {
@@ -61,7 +61,7 @@ func (f *WINDOW_AVG) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	if sum == nil {
 		return nil, nil
 	}
-	ret, err := sum.Div(FloatValue(float64(total)))
+	ret, err := sum.Div(FloatValue{float64(total)})
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (f *WINDOW_COUNT) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(len(values)), nil
+	return IntValue{int64(len(values))}, nil
 }
 
 type WINDOW_COUNT_STAR struct {
@@ -102,7 +102,7 @@ func (f *WINDOW_COUNT_STAR) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(len(values)), nil
+	return IntValue{int64(len(values))}, nil
 }
 
 type WINDOW_COUNTIF struct {
@@ -126,7 +126,7 @@ func (f *WINDOW_COUNTIF) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 			count++
 		}
 	}
-	return IntValue(count), nil
+	return IntValue{count}, nil
 }
 
 type WINDOW_MAX struct {
@@ -225,7 +225,7 @@ func (f *WINDOW_STRING_AGG) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	if len(strValues) == 0 {
 		return nil, nil
 	}
-	return StringValue(strings.Join(strValues, f.delim)), nil
+	return StringValue{strings.Join(strValues, f.delim)}, nil
 }
 
 type WINDOW_SUM struct {
@@ -304,7 +304,7 @@ func (f *WINDOW_LEAD) ParseArguments(args []Value) error {
 			continue
 		case 1:
 			if arg == nil {
-				return fmt.Errorf("LEAD: constant integer expression must be not null value")
+				return fmt.Errorf("LEAD: constant integer expression must be not null Value")
 			}
 
 			offset, err := arg.ToInt64()
@@ -337,7 +337,7 @@ type WINDOW_NTH_VALUE struct {
 
 func (f *WINDOW_NTH_VALUE) ParseArguments(args []Value) error {
 	if args[1] == nil {
-		return fmt.Errorf("NTH_VALUE: constant integer expression must be not null value")
+		return fmt.Errorf("NTH_VALUE: constant integer expression must be not null Value")
 	}
 	n, err := args[1].ToInt64()
 	if err != nil {
@@ -380,7 +380,7 @@ func (f *WINDOW_LAG) ParseArguments(args []Value) error {
 			continue
 		case 1:
 			if arg == nil {
-				return fmt.Errorf("LAG: constant integer expression must be not null value")
+				return fmt.Errorf("LAG: constant integer expression must be not null Value")
 			}
 			offset, err := arg.ToInt64()
 			if err != nil {
@@ -422,11 +422,11 @@ func (f *WINDOW_LOGICAL_AND) Done(agg *WindowFuncAggregatedStatus) (Value, error
 		}
 
 		if !b {
-			return BoolValue(false), nil
+			return BoolValue{false}, nil
 		}
 	}
 
-	return BoolValue(true), nil
+	return BoolValue{true}, nil
 }
 
 type WINDOW_LOGICAL_OR struct {
@@ -445,11 +445,11 @@ func (f *WINDOW_LOGICAL_OR) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 		}
 
 		if b {
-			return BoolValue(true), nil
+			return BoolValue{true}, nil
 		}
 	}
 
-	return BoolValue(false), nil
+	return BoolValue{false}, nil
 }
 
 type WINDOW_PERCENTILE_CONT struct {
@@ -462,11 +462,11 @@ func (f *WINDOW_PERCENTILE_CONT) ParseArguments(args []Value) error {
 }
 
 func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
-	if cond, _ := f.percentile.LT(IntValue(0)); cond {
-		return nil, fmt.Errorf("PERCENTILE_CONT: percentile value must be greater than zero")
+	if cond, _ := f.percentile.LT(IntValue{0}); cond {
+		return nil, fmt.Errorf("PERCENTILE_CONT: percentile Value must be greater than zero")
 	}
-	if cond, _ := f.percentile.GT(IntValue(1)); cond {
-		return nil, fmt.Errorf("PERCENTILE_CONT: percentile value must be less than one")
+	if cond, _ := f.percentile.GT(IntValue{1}); cond {
+		return nil, fmt.Errorf("PERCENTILE_CONT: percentile Value must be less than one")
 	}
 	var (
 		maxValue         Value
@@ -515,9 +515,9 @@ func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, e
 	// rowNumber = (1 + (percentile * (length of array - 1)
 	rowNumber = 1 + percentile*float64(len(nonNullValues)-1)
 	floorRowNumber = math.Floor(rowNumber)
-	floorValue = FloatValue(nonNullValues[int(floorRowNumber-1)])
+	floorValue = FloatValue{float64(nonNullValues[int(floorRowNumber-1)])}
 	ceilingRowNumber = math.Ceil(rowNumber)
-	ceilingValue = FloatValue(nonNullValues[int(ceilingRowNumber-1)])
+	ceilingValue = FloatValue{float64(nonNullValues[int(ceilingRowNumber-1)])}
 
 	maxValue = filteredValues[0]
 	minValue = filteredValues[0]
@@ -542,22 +542,22 @@ func (f *WINDOW_PERCENTILE_CONT) Done(agg *WindowFuncAggregatedStatus) (Value, e
 	if maxValue == nil || minValue == nil {
 		return nil, nil
 	}
-	if cond, _ := maxValue.EQ(IntValue(0)); cond {
-		return FloatValue(0), nil
+	if cond, _ := maxValue.EQ(IntValue{0}); cond {
+		return FloatValue{0}, nil
 	}
 
-	// if ceilingRowNumber = floorRowNumber = rowNumber, return value at rownNumber which is equivalent of floorValue
+	// if ceilingRowNumber = floorRowNumber = rowNumber, return Value at rownNumber which is equivalent of floorValue
 	if ceilingRowNumber == floorRowNumber && ceilingRowNumber == rowNumber {
 		return floorValue, nil
 	}
 
-	// (value of row at ceilingRowNumber) * (rowNumber – floorRowNumber) +
-	// (value of row at floorRowNumber) * (ceilingRowNumber – rowNumber)
-	leftSide, err := ceilingValue.Mul(FloatValue(rowNumber - floorRowNumber))
+	// (Value of row at ceilingRowNumber) * (rowNumber – floorRowNumber) +
+	// (Value of row at floorRowNumber) * (ceilingRowNumber – rowNumber)
+	leftSide, err := ceilingValue.Mul(FloatValue{rowNumber - floorRowNumber})
 	if err != nil {
 		return nil, err
 	}
-	rightSide, err := floorValue.Mul(FloatValue(ceilingRowNumber - rowNumber))
+	rightSide, err := floorValue.Mul(FloatValue{ceilingRowNumber - rowNumber})
 	if err != nil {
 		return nil, err
 	}
@@ -579,11 +579,11 @@ func (f *WINDOW_PERCENTILE_DISC) ParseArguments(args []Value) error {
 }
 
 func (f *WINDOW_PERCENTILE_DISC) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
-	if cond, _ := f.percentile.LT(IntValue(0)); cond {
-		return nil, fmt.Errorf("PERCENTILE_DISC: percentile value must be greater than zero")
+	if cond, _ := f.percentile.LT(IntValue{0}); cond {
+		return nil, fmt.Errorf("PERCENTILE_DISC: percentile Value must be greater than zero")
 	}
-	if cond, _ := f.percentile.GT(IntValue(1)); cond {
-		return nil, fmt.Errorf("PERCENTILE_DISC: percentile value must be less than one")
+	if cond, _ := f.percentile.GT(IntValue{1}); cond {
+		return nil, fmt.Errorf("PERCENTILE_DISC: percentile Value must be less than one")
 	}
 	values, err := agg.RelevantValues()
 	if err != nil {
@@ -602,11 +602,11 @@ func (f *WINDOW_PERCENTILE_DISC) Done(agg *WindowFuncAggregatedStatus) (Value, e
 		cond, _ := values[i].LT(values[j])
 		return cond
 	})
-	pickPoint, err := f.percentile.Mul(IntValue(len(values)))
+	pickPoint, err := f.percentile.Mul(IntValue{int64(len(values))})
 	if err != nil {
 		return nil, err
 	}
-	if cond, _ := pickPoint.EQ(IntValue(0)); cond {
+	if cond, _ := pickPoint.EQ(IntValue{0}); cond {
 		return values[0], nil
 	}
 	fIdx, err := pickPoint.ToFloat64()
@@ -634,7 +634,7 @@ func (f *WINDOW_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return IntValue(len(values)), nil
+	return IntValue{int64(len(values))}, nil
 
 }
 
@@ -654,7 +654,7 @@ func (f *WINDOW_DENSE_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	if f.nStep != 0 {
 		f.nTotal++
 	}
-	return IntValue(f.nTotal), nil
+	return IntValue{int64(f.nTotal)}, nil
 }
 
 type WINDOW_PERCENT_RANK struct {
@@ -676,9 +676,9 @@ func (f *WINDOW_PERCENT_RANK) Inverse(args []Value, agg *WindowFuncAggregatedSta
 func (f *WINDOW_PERCENT_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	f.nValue = f.nStep
 	if f.nTotal > 1 {
-		return FloatValue(float64(f.nValue) / float64(f.nTotal-1)), nil
+		return FloatValue{float64(f.nValue) / float64(f.nTotal-1)}, nil
 	}
-	return FloatValue(0.0), nil
+	return FloatValue{0.0}, nil
 }
 
 type WINDOW_CUME_DIST struct {
@@ -697,7 +697,7 @@ func (f *WINDOW_CUME_DIST) Inverse(values []Value, agg *WindowFuncAggregatedStat
 }
 
 func (f *WINDOW_CUME_DIST) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
-	return FloatValue(float64(f.nStep) / float64(f.nTotal)), nil
+	return FloatValue{float64(f.nStep) / float64(f.nTotal)}, nil
 }
 
 type WINDOW_NTILE struct {
@@ -711,14 +711,14 @@ func (f *WINDOW_NTILE) ParseArguments(args []Value) error {
 		return fmt.Errorf("NTILE: must provide one argument")
 	}
 	if args[0] == nil {
-		return fmt.Errorf("NTILE: constant integer expression must not be null value")
+		return fmt.Errorf("NTILE: constant integer expression must not be null Value")
 	}
 	value, err := args[0].ToInt64()
 	if err != nil {
 		return fmt.Errorf("NTILE: error parsing argument: %s", err)
 	}
 	if value <= 0 {
-		return fmt.Errorf("NTILE: constant integer expression must be positive value")
+		return fmt.Errorf("NTILE: constant integer expression must be positive Value")
 	}
 	f.nParam = value
 	return nil
@@ -737,7 +737,7 @@ func (f *WINDOW_NTILE) Inverse(values []Value, agg *WindowFuncAggregatedStatus) 
 func (f *WINDOW_NTILE) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	nSize := f.nTotal / f.nParam
 	if nSize == 0 {
-		return IntValue(f.iRow + 1), nil
+		return IntValue{f.iRow + 1}, nil
 	} else {
 		nLarge := f.nTotal - f.nParam*nSize
 		iSmall := nLarge * (nSize + 1)
@@ -745,9 +745,9 @@ func (f *WINDOW_NTILE) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 			return nil, fmt.Errorf("assertion failed")
 		}
 		if f.iRow < iSmall {
-			return IntValue(1 + f.iRow/(nSize+1)), nil
+			return IntValue{1 + f.iRow/(nSize+1)}, nil
 		} else {
-			return IntValue(1 + nLarge + (f.iRow-iSmall)/nSize), nil
+			return IntValue{1 + nLarge + (f.iRow-iSmall)/nSize}, nil
 		}
 	}
 }
@@ -756,7 +756,7 @@ type WINDOW_ROW_NUMBER struct {
 }
 
 func (f *WINDOW_ROW_NUMBER) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
-	return IntValue(len(agg.Values)), nil
+	return IntValue{int64(len(agg.Values))}, nil
 }
 
 type WINDOW_CORR struct {
@@ -797,7 +797,7 @@ func (f *WINDOW_CORR) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	if len(x) == 0 || len(y) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Correlation(x, y, nil)), nil
+	return FloatValue{stat.Correlation(x, y, nil)}, nil
 }
 
 type WINDOW_COVAR_POP struct {
@@ -838,7 +838,7 @@ func (f *WINDOW_COVAR_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error) 
 		return nil, nil
 	}
 	// TODO(goccy/go-zetasqlite#168): Use population covariance instead of sample covariance
-	return FloatValue(stat.Covariance(x, y, nil)), nil
+	return FloatValue{stat.Covariance(x, y, nil)}, nil
 }
 
 type WINDOW_COVAR_SAMP struct {
@@ -878,7 +878,7 @@ func (f *WINDOW_COVAR_SAMP) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 	if len(x) == 0 || len(y) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Covariance(x, y, nil)), nil
+	return FloatValue{stat.Covariance(x, y, nil)}, nil
 }
 
 type WINDOW_STDDEV_POP struct {
@@ -904,7 +904,7 @@ func (f *WINDOW_STDDEV_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error)
 		return nil, nil
 	}
 	_, std := stat.PopMeanStdDev(stddevpop, nil)
-	return FloatValue(std), nil
+	return FloatValue{std}, nil
 }
 
 type WINDOW_STDDEV_SAMP struct {
@@ -929,7 +929,7 @@ func (f *WINDOW_STDDEV_SAMP) Done(agg *WindowFuncAggregatedStatus) (Value, error
 	if len(stddevsamp) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.StdDev(stddevsamp, nil)), nil
+	return FloatValue{stat.StdDev(stddevsamp, nil)}, nil
 }
 
 type WINDOW_STDDEV = WINDOW_STDDEV_SAMP
@@ -957,7 +957,7 @@ func (f *WINDOW_VAR_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 		return nil, nil
 	}
 	_, variance := stat.PopMeanVariance(varpop, nil)
-	return FloatValue(variance), nil
+	return FloatValue{variance}, nil
 }
 
 type WINDOW_VAR_SAMP struct {
@@ -982,7 +982,7 @@ func (f *WINDOW_VAR_SAMP) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 	if len(varsamp) == 0 {
 		return nil, nil
 	}
-	return FloatValue(stat.Variance(varsamp, nil)), nil
+	return FloatValue{stat.Variance(varsamp, nil)}, nil
 }
 
 type WINDOW_VARIANCE = WINDOW_VAR_SAMP

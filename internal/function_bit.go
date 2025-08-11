@@ -15,12 +15,12 @@ func BIT_COUNT(v Value) (Value, error) {
 		for _, vv := range b {
 			sum += int64(bits.OnesCount8(vv))
 		}
-		return IntValue(sum), nil
+		return IntValue{sum}, nil
 	default:
 		vv, err := v.ToInt64()
 		if err != nil {
 			return nil, err
 		}
-		return IntValue(bits.OnesCount64(uint64(vv))), nil
+		return IntValue{int64(bits.OnesCount64(uint64(vv)))}, nil
 	}
 }

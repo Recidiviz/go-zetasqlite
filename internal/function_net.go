@@ -22,9 +22,9 @@ func NET_HOST(v string) (Value, error) {
 		return nil, nil
 	}
 	if strings.HasPrefix(parsed.Host, "[") {
-		return StringValue("[" + hostname + "]"), nil
+		return StringValue{"[" + hostname + "]"}, nil
 	}
-	return StringValue(hostname), nil
+	return StringValue{hostname}, nil
 }
 
 func NET_IP_FROM_STRING(v string) (Value, error) {
@@ -32,7 +32,7 @@ func NET_IP_FROM_STRING(v string) (Value, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NET.IP_FROM_STRING: invalid ip address %v", v)
 	}
-	return BytesValue(ip), nil
+	return BytesValue{ip}, nil
 }
 
 func NET_IP_NET_MASK(output, prefix int64) (Value, error) {
@@ -43,7 +43,7 @@ func NET_IP_NET_MASK(output, prefix int64) (Value, error) {
 	if prefix < 0 || prefix > output*8 {
 		return nil, fmt.Errorf("NET.IP_NET_MASK: the second argument must be in the range from 0 to %d", output*8)
 	}
-	return BytesValue(result), nil
+	return BytesValue{result}, nil
 }
 
 func NET_IP_TO_STRING(v []byte) (Value, error) {
@@ -51,7 +51,7 @@ func NET_IP_TO_STRING(v []byte) (Value, error) {
 	if !ok {
 		return nil, fmt.Errorf("NET.IP_TO_STRING: invalid byte array")
 	}
-	return StringValue(ip.String()), nil
+	return StringValue{ip.String()}, nil
 }
 
 func NET_IP_TRUNC(v []byte, length int64) (Value, error) {
@@ -63,20 +63,20 @@ func NET_IP_TRUNC(v []byte, length int64) (Value, error) {
 	}
 	ip := net.IP(v)
 	mask := net.CIDRMask(int(length), len(v)*8)
-	return BytesValue(ip.Mask(mask)), nil
+	return BytesValue{ip.Mask(mask)}, nil
 }
 
 func NET_IPV4_FROM_INT64(v int64) (Value, error) {
 	ip := make([]byte, 4)
 	binary.BigEndian.PutUint32(ip, uint32(v))
-	return BytesValue(ip), nil
+	return BytesValue{ip}, nil
 }
 
 func NET_IPV4_TO_INT64(v []byte) (Value, error) {
 	if len(v) != 4 {
 		return nil, fmt.Errorf("NET.IPV4_TO_INT64: length of bytes array must be 4")
 	}
-	return IntValue(binary.BigEndian.Uint32(v)), nil
+	return IntValue{int64(binary.BigEndian.Uint32(v))}, nil
 }
 
 func NET_PUBLIC_SUFFIX(v string) (Value, error) {
@@ -92,7 +92,7 @@ func NET_PUBLIC_SUFFIX(v string) (Value, error) {
 	if suffix == "" {
 		return nil, nil
 	}
-	return StringValue(suffix), nil
+	return StringValue{suffix}, nil
 }
 
 func NET_REG_DOMAIN(v string) (Value, error) {
@@ -110,7 +110,7 @@ func NET_REG_DOMAIN(v string) (Value, error) {
 	if host == "" || suffix == "" || len(splitHost) <= len(splitSuffix) {
 		return nil, nil
 	}
-	return StringValue(strings.Join(splitHost[len(splitHost)-len(splitSuffix)-1:], ".")), nil
+	return StringValue{strings.Join(splitHost[len(splitHost)-len(splitSuffix)-1:], ".")}, nil
 }
 
 func NET_SAFE_IP_FROM_STRING(v string) (Value, error) {
@@ -118,7 +118,7 @@ func NET_SAFE_IP_FROM_STRING(v string) (Value, error) {
 	if err != nil {
 		return nil, nil
 	}
-	return BytesValue(ip), nil
+	return BytesValue{ip}, nil
 }
 
 func parseURL(v string) *url.URL {

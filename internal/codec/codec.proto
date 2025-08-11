@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package codec;
+
+// Go package name
+option go_package = "./internal/codec";
+
+// Enum equivalent to your ValueType string constants
+enum ValueType {
+  // Note: Proto3 enums must start with 0
+  VALUE_TYPE_UNSPECIFIED = 0;  // Default/unknown value
+  INT_VALUE_TYPE = 1;
+  STRING_VALUE_TYPE = 2;
+  BYTES_VALUE_TYPE = 3;
+  FLOAT_VALUE_TYPE = 4;
+  NUMERIC_VALUE_TYPE = 5;
+  BIG_NUMERIC_VALUE_TYPE = 6;
+  BOOL_VALUE_TYPE = 7;
+  JSON_VALUE_TYPE = 8;
+  ARRAY_VALUE_TYPE = 9;
+  STRUCT_VALUE_TYPE = 10;
+  DATE_VALUE_TYPE = 11;
+  DATETIME_VALUE_TYPE = 12;
+  TIME_VALUE_TYPE = 13;
+  TIMESTAMP_VALUE_TYPE = 14;
+  INTERVAL_VALUE_TYPE = 15;
+}
+
+// Equivalent to your ValueLayout struct
+message ValueLayout {
+  ValueType header = 1;
+  string body = 2;
+}
+
+// Forward declaration for recursive Any usage
+import "google/protobuf/any.proto";
+
+// Equivalent to your StructValueLayout struct
+// Since proto doesn't have interface{}, we use Any for flexible values
+message StructValueLayout {
+  repeated string keys = 1;
+  repeated ValueLayout values = 2;
+}
+
+// Alternative approach using oneof for type-safe values
+// This is more protobuf-idiomatic than using Any
+// The values here should map to ZetaSQL values
+
+message TypedValue {
+  oneof value {
+    int64 int_value = 1;
+    string string_value = 2;
+    bytes bytes_value = 3;
+    double float_value = 4;
+    string numeric_value = 5;      // Keep as string for precision
+    string big_numeric_value = 6;   // Keep as string for precision
+    bool bool_value = 7;
+    string json_value = 8;         // JSON as string
+    ArrayValue array_value = 9;
+    StructValue struct_value = 10;
+    string date_value = 11;        // ISO date string
+    string datetime_value = 12;    // ISO datetime string
+    string time_value = 13;        // ISO time string
+    int64 timestamp_value = 14;    // Unix timestamp
+    string interval_value = 15;    // ISO 8601 duration
+  }
+}
+
+// Supporting messages for complex types
+message ArrayValue {
+  repeated TypedValue elements = 1;
+}
+
+message StructValue {
+  map<string, TypedValue> fields = 1;
+}
+
+// Type-safe version of StructValueLayout
+message TypedStructValueLayout {
+  repeated string keys = 1;
+  repeated ValueLayout values = 2;
+}
+
+// If you want to maintain backward compatibility with interface{}
+// but still have some type safety, you can use this hybrid approach
+message FlexibleValue {
+  ValueType type = 1;
+  oneof value {
+    int64 int_value = 2;
+    string string_value = 3;
+    bytes bytes_value = 4;
+    double float_value = 5;
+    bool bool_value = 6;
+    string json_string = 7;  // For JSON, arrays, structs serialized as strings
+  }
+}
+
+message FlexibleStructValueLayout {
+  repeated string keys = 1;
+  repeated FlexibleValue values = 2;
+}

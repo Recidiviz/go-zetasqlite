@@ -23,6 +23,7 @@ require (
 	cloud.google.com/go/bigquery v1.51.0
 	github.com/DataDog/go-hll v1.0.2
 	github.com/dop251/goja v0.0.0-20221118162653-d4bf6fde1b86
+	github.com/segmentio/encoding v0.5.3
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	golang.org/x/net v0.37.0
 	golang.org/x/text v0.23.0
@@ -55,6 +56,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/pkg/errors v0.8.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
@@ -68,7 +70,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230330154414-c0448cd141ea // indirect
 	google.golang.org/grpc v1.54.0 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.36.7 // indirect
 	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.9.1 // indirect

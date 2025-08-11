@@ -4,13 +4,17 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"google.golang.org/protobuf/proto"
 	"math/big"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Recidiviz/go-zetasqlite/internal/codec"
 
 	"github.com/goccy/go-json"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
@@ -28,7 +32,7 @@ func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sq
 	for idx, vv := range v {
 		converted, err := encodeNamedValue(vv, params[idx])
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert value from %+v: %w", vv, err)
+			return nil, fmt.Errorf("failed to convert Value from %+v: %w", vv, err)
 		}
 		ret = append(ret, converted)
 	}
@@ -70,11 +74,11 @@ func EncodeValue(v Value) (interface{}, error) {
 		return nil, nil
 	}
 	switch vv := v.(type) {
-	case IntValue:
+	case IntValue, *IntValue:
 		return v.ToInt64()
-	case FloatValue:
+	case FloatValue, *FloatValue:
 		return v.ToFloat64()
-	case BoolValue:
+	case BoolValue, *BoolValue:
 		return v.ToBool()
 	case *SafeValue:
 		return EncodeValue(vv.value)
@@ -83,11 +87,11 @@ func EncodeValue(v Value) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	b, err := json.Marshal(layout)
+	b, err := proto.Marshal(layout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to encode value: %w", err)
+		return nil, fmt.Errorf("failed to encode Value: %w", err)
 	}
-	return base64.StdEncoding.EncodeToString(b), nil
+	return b, err
 }
 
 func LiteralFromValue(v Value) (string, error) {
@@ -108,7 +112,7 @@ func LiteralFromValue(v Value) (string, error) {
 		}
 		value := strconv.FormatFloat(f64, 'g', -1, 64)
 		if !strings.Contains(value, ".") && !strings.Contains(value, "e") {
-			// append x.0 suffix to keep float value context
+			// append x.0 suffix to keep float Value context
 			value = fmt.Sprintf("%s.0", value)
 		}
 		return value, nil
@@ -122,14 +126,15 @@ func LiteralFromValue(v Value) (string, error) {
 		return LiteralFromValue(vv.value)
 	}
 	layout, err := valueLayoutFromValue(v)
+
 	if err != nil {
 		return "", err
 	}
-	b, err := json.Marshal(layout)
+	b, err := proto.Marshal(layout)
 	if err != nil {
-		return "", fmt.Errorf("failed to encode value: %w", err)
+		return "", fmt.Errorf("failed to encode Value: %w", err)
 	}
-	return fmt.Sprintf(`"%s"`, base64.StdEncoding.EncodeToString(b)), nil
+	return "X'" + hex.EncodeToString(b) + "'", nil
 }
 
 func LiteralFromZetaSQLValue(v types.Value) (string, error) {
@@ -152,7 +157,7 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 	case types.FLOAT, types.DOUBLE:
 		return floatValueFromLiteral(v.SQLLiteral(0))
 	case types.STRING:
-		return StringValue(v.StringValue()), nil
+		return &StringValue{v.StringValue()}, nil
 	case types.ENUM:
 		return stringValueFromLiteral(v.SQLLiteral(0))
 	case types.BYTES:
@@ -186,47 +191,47 @@ func ValueFromZetaSQLValue(v types.Value) (Value, error) {
 func intValueFromLiteral(lit string) (IntValue, error) {
 	v, err := strconv.ParseInt(lit, 10, 64)
 	if err != nil {
-		return 0, err
+		return IntValue{0}, err
 	}
-	return IntValue(v), nil
+	return IntValue{v}, nil
 }
 
 func boolValueFromLiteral(lit string) (BoolValue, error) {
 	v, err := strconv.ParseBool(lit)
 	if err != nil {
-		return false, err
+		return BoolValue{false}, err
 	}
-	return BoolValue(v), nil
+	return BoolValue{v}, nil
 }
 
 func floatValueFromLiteral(lit string) (FloatValue, error) {
 	v, err := strconv.ParseFloat(lit, 64)
 	if err != nil {
-		return 0, err
+		return FloatValue{0}, err
 	}
-	return FloatValue(v), nil
+	return FloatValue{v}, nil
 }
 
 func stringValueFromLiteral(lit string) (StringValue, error) {
 	v, err := strconv.Unquote(lit)
 	if err != nil {
-		return "", fmt.Errorf("failed to unquote from string literal: %w", err)
+		return StringValue{""}, fmt.Errorf("failed to unquote from string literal: %w", err)
 	}
-	return StringValue(v), nil
+	return StringValue{v}, nil
 }
 
 func bytesValueFromLiteral(lit string) (BytesValue, error) {
 	// use a workaround because ToBytes doesn't work with certain values.
 	unquoted, err := strconv.Unquote(lit[1:])
 	if err != nil {
-		return BytesValue(lit), nil
+		return BytesValue{[]byte(lit)}, nil
 	}
-	return BytesValue(unquoted), nil
+	return BytesValue{value: []byte(unquoted)}, nil
 }
 
 func dateValueFromLiteral(days int64) (DateValue, error) {
 	t := time.Unix(int64(time.Duration(days)*24*(time.Hour/time.Second)), 0)
-	return DateValue(t), nil
+	return DateValue{t}, nil
 }
 
 const (
@@ -263,7 +268,7 @@ func datetimeValueFromLiteral(bit int64) (DatetimeValue, error) {
 		int(sec),
 		int(microSec)*1000, time.UTC,
 	)
-	return DatetimeValue(t), nil
+	return DatetimeValue{t}, nil
 }
 
 func timeValueFromLiteral(bit int64) (TimeValue, error) {
@@ -273,11 +278,11 @@ func timeValueFromLiteral(bit int64) (TimeValue, error) {
 	sec := (b & secMask) >> secShift
 	microSec := (bit & microSecMask) >> 0
 	t := time.Date(0, 0, 0, int(hour), int(min), int(sec), int(microSec)*1000, time.UTC)
-	return TimeValue(t), nil
+	return TimeValue{t}, nil
 }
 
 func timestampValueFromLiteral(t time.Time) (TimestampValue, error) {
-	return TimestampValue(t), nil
+	return TimestampValue{t}, nil
 }
 
 var (
@@ -302,7 +307,7 @@ func numericValueFromLiteral(lit string) (*NumericValue, error) {
 }
 
 func jsonValueFromLiteral(lit string) (JsonValue, error) {
-	return JsonValue(lit), nil
+	return JsonValue{lit}, nil
 }
 
 var (
@@ -327,7 +332,7 @@ func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
 		elem := v.Element(i)
 		value, err := ValueFromZetaSQLValue(elem)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert from zetasql value: %w", err)
+			return nil, fmt.Errorf("failed to convert from zetasql Value: %w", err)
 		}
 		ret.values = append(ret.values, value)
 	}
@@ -363,23 +368,23 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return IntValue(i64), nil
+		return IntValue{i64}, nil
 	case types.BOOL:
 		b, err := v.ToBool()
 		if err != nil {
 			return nil, err
 		}
-		return BoolValue(b), nil
+		return BoolValue{b}, nil
 	case types.FLOAT, types.DOUBLE:
 		f64, err := v.ToFloat64()
 		if err != nil {
 			return nil, err
 		}
-		return FloatValue(f64), nil
+		return FloatValue{f64}, nil
 	case types.STRING:
 		switch v.(type) {
 		// If this is coming from a date/time, the format is slightly different
-		// than when just writing the value out as a string.
+		// than when just writing the Value out as a string.
 		case DateValue:
 			return convertTimeValueToStringWithFormat(v, "2006-01-02")
 		case DatetimeValue:
@@ -393,43 +398,43 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(s), nil
+		return StringValue{s}, nil
 	case types.ENUM:
 		s, err := v.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return StringValue(s), nil
+		return StringValue{s}, nil
 	case types.BYTES:
 		b, err := v.ToBytes()
 		if err != nil {
 			return nil, err
 		}
-		return BytesValue(b), nil
+		return BytesValue{b}, nil
 	case types.DATE:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
-		return DateValue(t), nil
+		return DateValue{t}, nil
 	case types.DATETIME:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
-		return DatetimeValue(t), nil
+		return DatetimeValue{t}, nil
 	case types.TIME:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
-		return TimeValue(t), nil
+		return TimeValue{t}, nil
 	case types.TIMESTAMP:
 		t, err := v.ToTime()
 		if err != nil {
 			return nil, err
 		}
-		return TimestampValue(t), nil
+		return TimestampValue{t}, nil
 	case types.INTERVAL:
 		s, err := v.ToString()
 		if err != nil {
@@ -516,11 +521,11 @@ func CastValue(t types.Type, v Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		return JsonValue(j), nil
+		return JsonValue{j}, nil
 	case types.GEOGRAPHY:
 		return v, nil
 	}
-	return nil, fmt.Errorf("unsupported cast %s value", t.Kind())
+	return nil, fmt.Errorf("unsupported cast %s Value", t.Kind())
 }
 
 func convertTimeValueToStringWithFormat(v Value, format string) (Value, error) {
@@ -528,7 +533,7 @@ func convertTimeValueToStringWithFormat(v Value, format string) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
-	return StringValue(valueTime.UTC().Format(format)), nil
+	return StringValue{valueTime.UTC().Format(format)}, nil
 }
 
 func ValueFromGoValue(v interface{}) (Value, error) {
@@ -542,18 +547,18 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	kind := v.Type().Kind()
 	switch kind {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return IntValue(v.Int()), nil
+		return IntValue{v.Int()}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return IntValue(int64(v.Uint())), nil
+		return IntValue{int64(v.Uint())}, nil
 	case reflect.Float32, reflect.Float64:
-		return FloatValue(v.Float()), nil
+		return FloatValue{v.Float()}, nil
 	case reflect.Bool:
-		return BoolValue(v.Bool()), nil
+		return BoolValue{v.Bool()}, nil
 	case reflect.String:
-		return StringValue(v.String()), nil
+		return StringValue{v.String()}, nil
 	case reflect.Slice, reflect.Array:
 		if v.Type().Elem().Kind() == reflect.Uint8 {
-			return BytesValue(v.Bytes()), nil
+			return BytesValue{v.Bytes()}, nil
 		}
 		ret := &ArrayValue{}
 		for i := 0; i < v.Len(); i++ {
@@ -588,7 +593,7 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 	case reflect.Struct:
 		t, ok := v.Interface().(time.Time)
 		if ok {
-			return TimestampValue(t), nil
+			return TimestampValue{t}, nil
 		}
 		ret := &StructValue{m: map[string]Value{}}
 		typ := v.Type()
@@ -612,7 +617,7 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 		}
 		return valueFromGoReflectValue(reflect.ValueOf(vv))
 	}
-	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
+	return nil, fmt.Errorf("cannot convert %s type to zetasqlite Value type", kind)
 }
 
 func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {
@@ -626,17 +631,22 @@ func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedA
 	}, nil
 }
 
-func valueLayoutFromValue(v Value) (*ValueLayout, error) {
+func valueLayoutFromValue(v Value) (*codec.ValueLayout, error) {
 	switch vv := v.(type) {
 	case StringValue:
-		return &ValueLayout{
-			Header: StringValueType,
-			Body:   string(vv),
+		return &codec.ValueLayout{
+			Header: codec.ValueType_STRING_VALUE_TYPE,
+			Body:   string(vv.value),
 		}, nil
-	case BytesValue:
-		return &ValueLayout{
-			Header: BytesValueType,
-			Body:   base64.StdEncoding.EncodeToString([]byte(vv)),
+	case *StringValue:
+		return &codec.ValueLayout{
+			Header: codec.ValueType_STRING_VALUE_TYPE,
+			Body:   vv.value,
+		}, nil
+	case *BytesValue:
+		return &codec.ValueLayout{
+			Header: codec.ValueType_BYTES_VALUE_TYPE,
+			Body:   base64.StdEncoding.EncodeToString([]byte(vv.value)),
 		}, nil
 	case *NumericValue:
 		b, err := vv.Rat.MarshalText()
@@ -644,60 +654,60 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 			return nil, err
 		}
 		if vv.isBigNumeric {
-			return &ValueLayout{
-				Header: BigNumericValueType,
+			return &codec.ValueLayout{
+				Header: codec.ValueType_BIG_NUMERIC_VALUE_TYPE,
 				Body:   string(b),
 			}, nil
 		}
-		return &ValueLayout{
-			Header: NumericValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_NUMERIC_VALUE_TYPE,
 			Body:   string(b),
 		}, nil
-	case DateValue:
+	case DateValue, *DateValue:
 		body, err := vv.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return &ValueLayout{
-			Header: DateValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_DATE_VALUE_TYPE,
 			Body:   body,
 		}, nil
-	case DatetimeValue:
+	case DatetimeValue, *DatetimeValue:
 		body, err := vv.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return &ValueLayout{
-			Header: DatetimeValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_DATETIME_VALUE_TYPE,
 			Body:   body,
 		}, nil
-	case TimeValue:
+	case *TimeValue:
 		body, err := vv.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return &ValueLayout{
-			Header: TimeValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_TIME_VALUE_TYPE,
 			Body:   body,
 		}, nil
-	case TimestampValue:
-		return &ValueLayout{
-			Header: TimestampValueType,
-			Body:   fmt.Sprint(time.Time(vv).UnixMicro()),
+	case *TimestampValue:
+		return &codec.ValueLayout{
+			Header: codec.ValueType_TIMESTAMP_VALUE_TYPE,
+			Body:   fmt.Sprint(vv.value.UnixMicro()),
 		}, nil
 	case *IntervalValue:
 		s, err := vv.ToString()
 		if err != nil {
 			return nil, err
 		}
-		return &ValueLayout{
-			Header: IntervalValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_INTERVAL_VALUE_TYPE,
 			Body:   s,
 		}, nil
-	case JsonValue:
-		return &ValueLayout{
-			Header: JsonValueType,
-			Body:   string(vv),
+	case *JsonValue:
+		return &codec.ValueLayout{
+			Header: codec.ValueType_JSON_VALUE_TYPE,
+			Body:   string(vv.value),
 		}, nil
 	case *ArrayValue:
 		values := make([]interface{}, 0, len(vv.values))
@@ -716,30 +726,30 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &ValueLayout{
-			Header: ArrayValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_ARRAY_VALUE_TYPE,
 			Body:   string(body),
 		}, nil
 	case *StructValue:
-		values := make([]interface{}, 0, len(vv.values))
+		values := make([]*codec.ValueLayout, 0, len(vv.values))
 		for _, v := range vv.values {
-			value, err := EncodeValue(v)
+			vl, err := valueLayoutFromValue(v)
 			if err != nil {
 				return nil, err
 			}
-			values = append(values, value)
+			values = append(values, vl)
 		}
-		body, err := json.Marshal(&StructValueLayout{
+		body, err := json.Marshal(&codec.StructValueLayout{
 			Keys:   vv.keys,
 			Values: values,
 		})
 		if err != nil {
 			return nil, err
 		}
-		return &ValueLayout{
-			Header: StructValueType,
+		return &codec.ValueLayout{
+			Header: codec.ValueType_STRUCT_VALUE_TYPE,
 			Body:   string(body),
 		}, nil
 	}
-	return nil, fmt.Errorf("unexpected value type to get value layout: %T", v)
+	return nil, fmt.Errorf("unexpected Value type to get Value layout: %T", v)
 }

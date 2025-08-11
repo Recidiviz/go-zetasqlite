@@ -6,7 +6,7 @@ import (
 
 type AggregatorFuncOption struct {
 	Type  AggregatorFuncOptionType `json:"type"`
-	Value interface{}              `json:"value"`
+	Value interface{}              `json:"Value"`
 }
 
 func (o *AggregatorFuncOption) UnmarshalJSON(b []byte) error {
@@ -22,7 +22,7 @@ func (o *AggregatorFuncOption) UnmarshalJSON(b []byte) error {
 	case AggregatorFuncOptionIgnoreNulls:
 	case AggregatorFuncOptionLimit:
 		var value struct {
-			Value int64 `json:"value"`
+			Value int64 `json:"Value"`
 		}
 		if err := json.Unmarshal(b, &value); err != nil {
 			return err
@@ -30,7 +30,7 @@ func (o *AggregatorFuncOption) UnmarshalJSON(b []byte) error {
 		o.Value = value.Value
 	case AggregatorFuncOptionOrderBy:
 		var value struct {
-			Value *AggregateOrderBy `json:"value"`
+			Value *AggregateOrderBy `json:"Value"`
 		}
 		if err := json.Unmarshal(b, &value); err != nil {
 			return err
@@ -54,7 +54,7 @@ func DISTINCT() (Value, error) {
 	b, _ := json.Marshal(&AggregatorFuncOption{
 		Type: AggregatorFuncOptionDistinct,
 	})
-	return StringValue(string(b)), nil
+	return StringValue{string(b)}, nil
 }
 
 func LIMIT(limit int64) (Value, error) {
@@ -62,24 +62,24 @@ func LIMIT(limit int64) (Value, error) {
 		Type:  AggregatorFuncOptionLimit,
 		Value: limit,
 	})
-	return StringValue(string(b)), nil
+	return StringValue{string(b)}, nil
 }
 
 func IGNORE_NULLS() (Value, error) {
 	b, _ := json.Marshal(&AggregatorFuncOption{
 		Type: AggregatorFuncOptionIgnoreNulls,
 	})
-	return StringValue(string(b)), nil
+	return StringValue{string(b)}, nil
 }
 
 type AggregateOrderBy struct {
-	Value Value `json:"value"`
+	Value Value `json:"Value"`
 	IsAsc bool  `json:"isAsc"`
 }
 
 func (a *AggregateOrderBy) UnmarshalJSON(b []byte) error {
 	var v struct {
-		Value interface{} `json:"value"`
+		Value interface{} `json:"Value"`
 		IsAsc bool        `json:"isAsc"`
 	}
 	if err := json.Unmarshal(b, &v); err != nil {
@@ -102,7 +102,7 @@ func ORDER_BY(value Value, isAsc bool) (Value, error) {
 			IsAsc: isAsc,
 		},
 	})
-	return StringValue(string(b)), nil
+	return StringValue{string(b)}, nil
 }
 
 type AggregatorOption struct {

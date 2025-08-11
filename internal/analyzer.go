@@ -296,7 +296,7 @@ func (a *Analyzer) newStmtAction(ctx context.Context, query string, args []drive
 	case ast.CommitStmt:
 		return a.newCommitStmtAction(ctx, query, args, node)
 	case ast.CreateRowAccessPolicyStmt,
-	ast.DropRowAccessPolicyStmt:
+		ast.DropRowAccessPolicyStmt:
 		return a.newNullStmtAction(ctx, query, args, node)
 	}
 	return nil, fmt.Errorf("unsupported stmt %s", node.DebugString())
@@ -550,6 +550,7 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(formattedQuery)
 	return &QueryStmtAction{
 		query:          query,
 		params:         params,
@@ -744,7 +745,7 @@ func getArgsFromParams(values []driver.NamedValue, params []*ast.ParameterNode) 
 	}
 	namedValuesMap := map[string]driver.NamedValue{}
 	for _, value := range values {
-		// Name() value of ast.ParameterNode always returns lowercase name.
+		// Name() Value of ast.ParameterNode always returns lowercase name.
 		namedValuesMap[strings.ToLower(value.Name)] = value
 	}
 	var namedValues []driver.NamedValue

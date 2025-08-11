@@ -10,25 +10,25 @@ import (
 )
 
 func FARM_FINGERPRINT(v []byte) (Value, error) {
-	return IntValue(farm.Fingerprint64(v)), nil
+	return IntValue{int64(farm.Fingerprint64(v))}, nil
 }
 
 func MD5(v []byte) (Value, error) {
 	sum := md5.Sum(v)
-	return BytesValue(sum[:]), nil
+	return BytesValue{sum[:]}, nil
 }
 
 func SHA1(v []byte) (Value, error) {
 	sum := sha1.Sum(v)
-	return BytesValue(sum[:]), nil
+	return BytesValue{sum[:]}, nil
 }
 
 func SHA256(v []byte) (Value, error) {
 	sum := sha256.Sum256(v)
-	return BytesValue(sum[:]), nil
+	return BytesValue{sum[:]}, nil
 }
 
 func SHA512(v []byte) (Value, error) {
 	sum := sha512.Sum512(v)
-	return BytesValue(sum[:]), nil
+	return BytesValue{sum[:]}, nil
 }

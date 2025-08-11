@@ -98,7 +98,7 @@ func validateOctal(arg Value) error {
 	}
 	i64, _ := arg.ToInt64()
 	if i64 < 0 {
-		return fmt.Errorf("octal format (%%o) required positive value")
+		return fmt.Errorf("octal format (%%o) required positive Value")
 	}
 	return nil
 }
@@ -109,7 +109,7 @@ func validateHexInteger(arg Value) error {
 	}
 	i64, _ := arg.ToInt64()
 	if i64 < 0 {
-		return fmt.Errorf("hexadecimal integer format (%%x or %%X) required positive value")
+		return fmt.Errorf("hexadecimal integer format (%%x or %%X) required positive Value")
 	}
 	return nil
 }
@@ -216,9 +216,9 @@ func parseInteger(param *FormatParam, args []Value) ([]rune, error) {
 		}
 		return numWithComma, nil
 	case FormatFlagMinus:
-		return nil, fmt.Errorf("currently doesn't support - flag for integer value")
+		return nil, fmt.Errorf("currently doesn't support - flag for integer Value")
 	case FormatFlagSharp:
-		return nil, fmt.Errorf("currently doesn't support # flag for integer value")
+		return nil, fmt.Errorf("currently doesn't support # flag for integer Value")
 	}
 	integerFmt := param.specifier
 	if integerFmt == 'i' {
@@ -260,11 +260,11 @@ func parseFloat(param *FormatParam, args []Value) ([]rune, error) {
 	case FormatFlagSpace:
 		format = " " + format
 	case FormatFlagMinus:
-		return nil, fmt.Errorf("currently doesn't support - flag for float value")
+		return nil, fmt.Errorf("currently doesn't support - flag for float Value")
 	case FormatFlagSharp:
-		return nil, fmt.Errorf("currently doesn't support # flag for float value")
+		return nil, fmt.Errorf("currently doesn't support # flag for float Value")
 	case FormatFlagQuote:
-		return nil, fmt.Errorf("currently doesn't support ' flag for float value")
+		return nil, fmt.Errorf("currently doesn't support ' flag for float Value")
 	}
 	return []rune(format), nil
 }
@@ -352,13 +352,13 @@ func (p *FormatParam) validateArgs(info *FormatInfo, args []Value) error {
 	}
 	if p.width != nil && p.width.fromArg {
 		if _, ok := args[0].(IntValue); !ok {
-			return fmt.Errorf("width type required int64 value. but specified %T", args[0])
+			return fmt.Errorf("width type required int64 Value. but specified %T", args[0])
 		}
 		args = args[1:]
 	}
 	if p.precision != nil && p.precision.fromArg {
 		if _, ok := args[0].(IntValue); !ok {
-			return fmt.Errorf("precision type required int64 value. but specified %T", args[0])
+			return fmt.Errorf("precision type required int64 Value. but specified %T", args[0])
 		}
 		args = args[1:]
 	}
