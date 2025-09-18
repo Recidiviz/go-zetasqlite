@@ -29,19 +29,11 @@ func extractColumnDataList(columns []*ast.Column) []*ColumnData {
 
 // NodeExtractor is responsible for extracting pure data from AST nodes
 // This separates the concerns of AST traversal from data extraction
-type NodeExtractor struct {
-	// Coordinator reference for recursive extraction
-	coordinator Coordinator
-}
+type NodeExtractor struct{}
 
 // NewNodeExtractor creates a new node extractor
 func NewNodeExtractor() *NodeExtractor {
 	return &NodeExtractor{}
-}
-
-// SetCoordinator sets the coordinator reference for recursive operations
-func (e *NodeExtractor) SetCoordinator(coordinator Coordinator) {
-	e.coordinator = coordinator
 }
 
 // ExtractExpressionData extracts pure data from expression AST nodes
@@ -236,7 +228,7 @@ func (e *NodeExtractor) extractArgumentRefData(node *ast.ArgumentRefNode, ctx Tr
 // extractDMLDefaultData extracts data from DML default nodes
 func (e *NodeExtractor) extractDMLDefaultData(node *ast.DMLDefaultNode, ctx TransformContext) (ExpressionData, error) {
 	return ExpressionData{
-		Type:    ExpressionTypeLiteral,
+		Type: ExpressionTypeLiteral,
 		Literal: &LiteralData{
 			// DEFAULT keyword representation
 		},

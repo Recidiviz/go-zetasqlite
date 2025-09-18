@@ -445,17 +445,14 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFu
 	default:
 		funcExpr := stmt.FunctionExpression()
 		if funcExpr != nil {
-			factory := NewQueryTransformFactory(nil)
-			coordinator := factory.CreateCoordinator()
-			transformContext := factory.CreateTransformContext(ctx)
+			transformContext := GetGlobalQueryTransformFactory().CreateTransformContext(ctx)
 			extractor := NewNodeExtractor()
-			extractor.SetCoordinator(coordinator)
 			funcExprData, err := extractor.ExtractExpressionData(funcExpr, transformContext)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract function expression data: %w", err)
 			}
 
-			bodyQuery, err := coordinator.TransformExpression(funcExprData, transformContext)
+			bodyQuery, err := GetGlobalCoordinator().TransformExpression(funcExprData, transformContext)
 			if err != nil {
 				return nil, fmt.Errorf("failed to format function expression: %w", err)
 			}

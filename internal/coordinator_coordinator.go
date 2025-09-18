@@ -3,78 +3,109 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
+	"sync"
 
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 // QueryCoordinator orchestrates the transformation process by delegating to appropriate transformers
 type QueryCoordinator struct {
-	// Expression transformers mapped by AST node type
-	expressionTransformers map[reflect.Type]ExpressionTransformer
+	// Expression transformers - direct references for performance
+	literalTransformer   ExpressionTransformer
+	functionTransformer  ExpressionTransformer
+	castTransformer      ExpressionTransformer
+	columnRefTransformer ExpressionTransformer
+	subqueryTransformer  ExpressionTransformer
+	parameterTransformer ExpressionTransformer
 
-	// Statement transformers mapped by AST node type
-	statementTransformers map[reflect.Type]StatementTransformer
+	// Statement transformers - direct references
+	queryStmtTransformer               StatementTransformer
+	insertStmtTransformer              StatementTransformer
+	updateStmtTransformer              StatementTransformer
+	deleteStmtTransformer              StatementTransformer
+	createTableStmtTransformer         StatementTransformer
+	createViewStmtTransformer          StatementTransformer
+	createTableAsSelectStmtTransformer StatementTransformer
+	createFunctionStmtTransformer      StatementTransformer
+	dropStmtTransformer                StatementTransformer
+	mergeStmtTransformer               StatementTransformer
 
-	// Scan transformers mapped by AST node type
-	scanTransformers map[reflect.Type]ScanTransformer
+	// Scan transformers - direct references
+	tableScanTransformer     ScanTransformer
+	projectScanTransformer   ScanTransformer
+	filterScanTransformer    ScanTransformer
+	joinScanTransformer      ScanTransformer
+	aggregateScanTransformer ScanTransformer
+	orderByScanTransformer   ScanTransformer
+	limitScanTransformer     ScanTransformer
+	setOpScanTransformer     ScanTransformer
+	singleRowScanTransformer ScanTransformer
+	withScanTransformer      ScanTransformer
+	withRefScanTransformer   ScanTransformer
+	arrayScanTransformer     ScanTransformer
+	analyticScanTransformer  ScanTransformer
 
 	// Node data extractors
 	extractor *NodeExtractor
 }
 
-// NewQueryCoordinator creates a new coordinator with default transformers
+// NewQueryCoordinator creates a new coordinator with all transformers initialized directly
 func NewQueryCoordinator(extractor *NodeExtractor) *QueryCoordinator {
 	coordinator := &QueryCoordinator{
-		expressionTransformers: make(map[reflect.Type]ExpressionTransformer),
-		statementTransformers:  make(map[reflect.Type]StatementTransformer),
-		scanTransformers:       make(map[reflect.Type]ScanTransformer),
-		extractor:              extractor,
+		extractor: extractor,
 	}
 
-	coordinator.registerDefaultTransformers()
+	// Initialize all transformers directly - no reflection needed
+	// Expression transformers
+	coordinator.literalTransformer = NewLiteralTransformer()
+	coordinator.functionTransformer = NewFunctionCallTransformer(coordinator)
+	coordinator.castTransformer = NewCastTransformer(coordinator)
+	coordinator.columnRefTransformer = NewColumnRefTransformer(coordinator)
+	coordinator.subqueryTransformer = NewSubqueryTransformer(coordinator)
+	coordinator.parameterTransformer = NewParameterTransformer()
+
+	// Statement transformers
+	coordinator.queryStmtTransformer = NewQueryStmtTransformer(coordinator)
+	coordinator.insertStmtTransformer = NewDMLStmtTransformer(coordinator)
+	coordinator.updateStmtTransformer = NewDMLStmtTransformer(coordinator)
+	coordinator.deleteStmtTransformer = NewDMLStmtTransformer(coordinator)
+	coordinator.createViewStmtTransformer = NewCreateViewStmtTransformer(coordinator)
+	coordinator.createTableAsSelectStmtTransformer = NewCreateTableAsSelectStmtTransformer(coordinator)
+	coordinator.dropStmtTransformer = NewDropStmtTransformer(coordinator)
+	coordinator.mergeStmtTransformer = NewMergeStmtTransformer(coordinator)
+
+	// Scan transformers
+	coordinator.tableScanTransformer = NewTableScanTransformer(coordinator)
+	coordinator.projectScanTransformer = NewProjectScanTransformer(coordinator)
+	coordinator.filterScanTransformer = NewFilterScanTransformer(coordinator)
+	coordinator.joinScanTransformer = NewJoinScanTransformer(coordinator)
+	coordinator.aggregateScanTransformer = NewAggregateScanTransformer(coordinator)
+	coordinator.orderByScanTransformer = NewOrderByScanTransformer(coordinator)
+	coordinator.limitScanTransformer = NewLimitScanTransformer(coordinator)
+	coordinator.setOpScanTransformer = NewSetOperationScanTransformer(coordinator)
+	coordinator.singleRowScanTransformer = NewSingleRowScanTransformer(coordinator)
+	coordinator.withScanTransformer = NewWithScanTransformer(coordinator)
+	coordinator.withRefScanTransformer = NewWithRefScanTransformer(coordinator)
+	coordinator.arrayScanTransformer = NewArrayScanTransformer(coordinator)
+	coordinator.analyticScanTransformer = NewAnalyticScanTransformer(coordinator)
+
 	return coordinator
 }
 
-// registerDefaultTransformers sets up the default transformer mappings
-func (c *QueryCoordinator) registerDefaultTransformers() {
-	// Expression transformers
-	c.RegisterExpressionTransformer(reflect.TypeOf(&ast.ColumnRefNode{}), NewColumnRefTransformer(c))
-	c.RegisterExpressionTransformer(reflect.TypeOf(&ast.LiteralNode{}), NewLiteralTransformer())
-	c.RegisterExpressionTransformer(reflect.TypeOf(&ast.FunctionCallNode{}), NewFunctionCallTransformer(c))
-	c.RegisterExpressionTransformer(reflect.TypeOf(&ast.CastNode{}), NewCastTransformer(c))
-	c.RegisterExpressionTransformer(reflect.TypeOf(&ast.ParameterNode{}), NewParameterTransformer())
+// Global singleton for performance
+var (
+	globalCoordinator Coordinator
+	coordinatorOnce   sync.Once
+)
 
-	// Statement transformers
-	//c.RegisterStatementTransformer(reflect.TypeOf(&ast.QueryStmtNode{}), NewSelectTransformer(c))
-
-	// Scan transformers
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.TableScanNode{}), NewTableScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.ProjectScanNode{}), NewProjectScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.FilterScanNode{}), NewFilterScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.JoinScanNode{}), NewJoinScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.AggregateScanNode{}), NewAggregateScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.OrderByScanNode{}), NewOrderByScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.LimitOffsetScanNode{}), NewLimitScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.SingleRowScanNode{}), NewSingleRowScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.WithScanNode{}), NewWithScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.WithRefScanNode{}), NewWithRefScanTransformer(c))
-	c.RegisterScanTransformer(reflect.TypeOf(&ast.ArrayScanNode{}), NewArrayScanTransformer(c))
-}
-
-// RegisterExpressionTransformer registers a transformer for a specific expression node type
-func (c *QueryCoordinator) RegisterExpressionTransformer(nodeType reflect.Type, transformer ExpressionTransformer) {
-	c.expressionTransformers[nodeType] = transformer
-}
-
-// RegisterStatementTransformer registers a transformer for a specific statement node type
-func (c *QueryCoordinator) RegisterStatementTransformer(nodeType reflect.Type, transformer StatementTransformer) {
-	c.statementTransformers[nodeType] = transformer
-}
-
-// RegisterScanTransformer registers a transformer for a specific scan node type
-func (c *QueryCoordinator) RegisterScanTransformer(nodeType reflect.Type, transformer ScanTransformer) {
-	c.scanTransformers[nodeType] = transformer
+// GetGlobalCoordinator returns the singleton coordinator instance
+// This eliminates the overhead of creating new coordinators and registering transformers
+func GetGlobalCoordinator() Coordinator {
+	coordinatorOnce.Do(func() {
+		extractor := NewNodeExtractor()
+		globalCoordinator = NewQueryCoordinator(extractor)
+	})
+	return globalCoordinator
 }
 
 // TransformStatement transforms a statement AST node to SQLFragment
@@ -89,16 +120,10 @@ func (c *QueryCoordinator) TransformStatementNode(node ast.Node, ctx TransformCo
 		fmt.Print(node.DebugString())
 	}
 
-	nodeType := reflect.TypeOf(node)
-	transformer, exists := c.statementTransformers[nodeType]
-	if !exists {
-		return nil, fmt.Errorf("no transformer registered for statement node type: %v", nodeType)
-	}
-
 	// Extract pure data from the AST node
 	data, err := c.extractor.ExtractStatementData(node, ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract statement data from %v: %w", nodeType, err)
+		return nil, fmt.Errorf("failed to extract statement data: %w", err)
 	}
 
 	token := ctx.FragmentContext().EnterScope()
@@ -113,10 +138,10 @@ func (c *QueryCoordinator) TransformStatementNode(node ast.Node, ctx TransformCo
 		fmt.Println(string(j))
 	}
 
-	// Delegate to the appropriate transformer
-	result, err := transformer.Transform(data, ctx)
+	// Delegate to the appropriate transformer using direct dispatch
+	result, err := c.TransformStatement(data, ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to transform statement %v: %w", nodeType, err)
+		return nil, fmt.Errorf("failed to transform statement: %w", err)
 	}
 
 	if debug {
@@ -130,143 +155,118 @@ func (c *QueryCoordinator) TransformStatementNode(node ast.Node, ctx TransformCo
 
 // Data-based transformation methods (for transformers working with pure data)
 
-// TransformExpressionData transforms expression data to SQLExpression
+// TransformExpression transforms expression data to SQLExpression using direct dispatch
 func (c *QueryCoordinator) TransformExpression(exprData ExpressionData, ctx TransformContext) (*SQLExpression, error) {
-	// Route based on expression data type
-	var transformer ExpressionTransformer
-	var exists bool
-
+	// Direct dispatch based on expression data type - no reflection needed
 	switch exprData.Type {
 	case ExpressionTypeLiteral:
-		transformer, exists = c.expressionTransformers[reflect.TypeOf(&ast.LiteralNode{})]
+		return c.literalTransformer.Transform(exprData, ctx)
 	case ExpressionTypeFunction:
-		transformer, exists = c.expressionTransformers[reflect.TypeOf(&ast.FunctionCallNode{})]
+		return c.functionTransformer.Transform(exprData, ctx)
 	case ExpressionTypeCast:
-		transformer, exists = c.expressionTransformers[reflect.TypeOf(&ast.CastNode{})]
+		return c.castTransformer.Transform(exprData, ctx)
 	case ExpressionTypeColumn:
-		transformer, exists = c.expressionTransformers[reflect.TypeOf(&ast.ColumnRefNode{})]
+		return c.columnRefTransformer.Transform(exprData, ctx)
 	case ExpressionTypeSubquery:
-		transformer, exists = c.expressionTransformers[reflect.TypeOf(&ast.SubqueryExprNode{})]
+		return c.subqueryTransformer.Transform(exprData, ctx)
 	case ExpressionTypeParameter:
-		transformer, exists = c.expressionTransformers[reflect.TypeOf(&ast.ParameterNode{})]
+		return c.parameterTransformer.Transform(exprData, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported expression data type: %v", exprData.Type)
 	}
-
-	if !exists || transformer == nil {
-		return nil, fmt.Errorf("no transformer registered for expression data type: %v", exprData.Type)
-	}
-
-	return transformer.Transform(exprData, ctx)
 }
 
-// TransformStatementData transforms statement data to SQLFragment
+// TransformStatement transforms statement data to SQLFragment using direct dispatch
 func (c *QueryCoordinator) TransformStatement(stmtData StatementData, ctx TransformContext) (SQLFragment, error) {
-	// Route based on statement data type
-	var transformer StatementTransformer
-	var exists bool
-
 	token := ctx.FragmentContext().EnterScope()
 	defer ctx.FragmentContext().ExitScope(token)
 
+	// Direct dispatch based on statement data type - no reflection needed
 	switch stmtData.Type {
 	case StatementTypeSelect:
-		transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.QueryStmtNode{})]
+		return c.queryStmtTransformer.Transform(stmtData, ctx)
 	case StatementTypeInsert:
-		transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.InsertStmtNode{})]
+		return c.insertStmtTransformer.Transform(stmtData, ctx)
 	case StatementTypeUpdate:
-		transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.UpdateStmtNode{})]
+		return c.updateStmtTransformer.Transform(stmtData, ctx)
 	case StatementTypeDelete:
-		transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.DeleteStmtNode{})]
+		return c.deleteStmtTransformer.Transform(stmtData, ctx)
 	case StatementTypeCreate:
-		// For CREATE statements, we need to check the create type
+		// For CREATE statements, dispatch based on create type
 		if stmtData.Create != nil {
 			switch stmtData.Create.Type {
-			case CreateTypeTable:
-				transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.CreateTableStmtNode{})]
 			case CreateTypeView:
-				transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.CreateViewStmtNode{})]
-			case CreateTypeFunction:
-				transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.CreateFunctionStmtNode{})]
+				return c.createViewStmtTransformer.Transform(stmtData, ctx)
+			// CREATE TABLE and CREATE VIEW are handled separately
+			default:
+				return nil, fmt.Errorf("unsupported create statement data type: %v", stmtData.Create.Type)
 			}
 		}
+		return nil, fmt.Errorf("unsupported create statement type")
 	case StatementTypeDrop:
-		// For DROP statements, we use the same transformer for both DropStmt and DropFunctionStmt
-		transformer, exists = c.statementTransformers[reflect.TypeOf(&ast.DropStmtNode{})]
+		return c.dropStmtTransformer.Transform(stmtData, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported statement data type: %v", stmtData.Type)
 	}
-
-	if !exists {
-		return nil, fmt.Errorf("no transformer registered for statement data type: %v", stmtData.Type)
-	}
-
-	return transformer.Transform(stmtData, ctx)
 }
 
-// TransformScanData transforms scan data to FromItem
+// TransformScan transforms scan data to FromItem using direct dispatch
 func (c *QueryCoordinator) TransformScan(scanData ScanData, ctx TransformContext) (*FromItem, error) {
-	// Route based on scan data type
-	var transformer ScanTransformer
-	var exists bool
-
 	token := ctx.FragmentContext().EnterScope()
 	defer ctx.FragmentContext().ExitScope(token)
 
+	// Direct dispatch based on scan data type - no reflection needed
+	var fromItem *FromItem
+	var err error
 	var alias string
+
 	switch scanData.Type {
 	case ScanTypeTable:
 		alias = "table_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.TableScanNode{})]
+		fromItem, err = c.tableScanTransformer.Transform(scanData, ctx)
 	case ScanTypeJoin:
 		alias = "join_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.JoinScanNode{})]
+		fromItem, err = c.joinScanTransformer.Transform(scanData, ctx)
 	case ScanTypeFilter:
 		alias = "filter_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.FilterScanNode{})]
+		fromItem, err = c.filterScanTransformer.Transform(scanData, ctx)
 	case ScanTypeProject:
 		alias = "project_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.ProjectScanNode{})]
+		fromItem, err = c.projectScanTransformer.Transform(scanData, ctx)
 	case ScanTypeAggregate:
 		alias = "aggregate_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.AggregateScanNode{})]
+		fromItem, err = c.aggregateScanTransformer.Transform(scanData, ctx)
 	case ScanTypeOrderBy:
 		alias = "order_by_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.OrderByScanNode{})]
+		fromItem, err = c.orderByScanTransformer.Transform(scanData, ctx)
 	case ScanTypeLimit:
 		alias = "limit_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.LimitOffsetScanNode{})]
+		fromItem, err = c.limitScanTransformer.Transform(scanData, ctx)
 	case ScanTypeSetOp:
 		alias = "set_op_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.SetOperationScanNode{})]
+		fromItem, err = c.setOpScanTransformer.Transform(scanData, ctx)
 	case ScanTypeSingleRow:
 		alias = "single_row_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.SingleRowScanNode{})]
+		fromItem, err = c.singleRowScanTransformer.Transform(scanData, ctx)
 	case ScanTypeWith:
 		alias = "with_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.WithScanNode{})]
+		fromItem, err = c.withScanTransformer.Transform(scanData, ctx)
 	case ScanTypeWithRef:
 		alias = "with_ref_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.WithRefScanNode{})]
+		fromItem, err = c.withRefScanTransformer.Transform(scanData, ctx)
 	case ScanTypeWithEntry:
 		alias = "with_entry_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.WithEntryNode{})]
+		// WithEntry is handled specially - return early
+		return nil, fmt.Errorf("WithEntry scans should use TransformWithEntry method")
 	case ScanTypeArray:
 		alias = "array_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.ArrayScanNode{})]
+		fromItem, err = c.arrayScanTransformer.Transform(scanData, ctx)
 	case ScanTypeAnalytic:
 		alias = "analytic_scan"
-		transformer, exists = c.scanTransformers[reflect.TypeOf(&ast.AnalyticScanNode{})]
-
+		fromItem, err = c.analyticScanTransformer.Transform(scanData, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported scan data type: %v", scanData.Type)
 	}
-
-	if !exists {
-		return nil, fmt.Errorf("no transformer registered for scan data type: %v", scanData.Type)
-	}
-
-	fromItem, err := transformer.Transform(scanData, ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform scan data: %w", err)
@@ -291,7 +291,7 @@ func (c *QueryCoordinator) TransformScan(scanData ScanData, ctx TransformContext
 	// Register scope mappings for output columns
 	ctx.FragmentContext().RegisterColumnScopeMapping(alias, scanData.ColumnList)
 
-	return fromItem, err
+	return fromItem, nil
 }
 
 // TransformWithEntryData transforms WITH entry data to WithClause
@@ -334,33 +334,6 @@ func (c *QueryCoordinator) TransformOptionalExpressionData(exprData *ExpressionD
 		return nil, nil
 	}
 	return c.TransformExpression(*exprData, ctx)
-}
-
-// GetRegisteredExpressionTypes returns the types of registered expression transformers
-func (c *QueryCoordinator) GetRegisteredExpressionTypes() []string {
-	types := make([]string, 0, len(c.expressionTransformers))
-	for t := range c.expressionTransformers {
-		types = append(types, t.Name())
-	}
-	return types
-}
-
-// GetRegisteredStatementTypes returns the types of registered statement transformers
-func (c *QueryCoordinator) GetRegisteredStatementTypes() []string {
-	types := make([]string, 0, len(c.statementTransformers))
-	for t := range c.statementTransformers {
-		types = append(types, t.Name())
-	}
-	return types
-}
-
-// GetRegisteredScanTypes returns the types of registered scan transformers
-func (c *QueryCoordinator) GetRegisteredScanTypes() []string {
-	types := make([]string, 0, len(c.scanTransformers))
-	for t := range c.scanTransformers {
-		types = append(types, t.Name())
-	}
-	return types
 }
 
 // validateColumnData validates that output columns in a transformed scan's SelectList
