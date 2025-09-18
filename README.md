@@ -40,7 +40,7 @@ import (
   "database/sql"
   "fmt"
 
-  _ "github.com/goccy/go-zetasqlite"
+  _ "github.com/Recidiviz/go-zetasqlite"
 )
 
 func main() {

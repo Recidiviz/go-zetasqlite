@@ -811,7 +811,6 @@ func (e *NodeExtractor) extractFilterScanData(node *ast.FilterScanNode, ctx Tran
 }
 
 func (e *NodeExtractor) extractProjectScanData(node *ast.ProjectScanNode, ctx TransformContext) (ScanData, error) {
-	// CRITICAL: Extract the inner scan data recursively
 	inputScanData, err := e.ExtractScanData(node.InputScan(), ctx)
 	if err != nil {
 		return ScanData{}, fmt.Errorf("failed to extract input scan for project: %w", err)
@@ -910,7 +909,6 @@ func (e *NodeExtractor) extractAggregateScanData(node *ast.AggregateScanNode, ct
 }
 
 func (e *NodeExtractor) extractOrderByScanData(node *ast.OrderByScanNode, ctx TransformContext) (ScanData, error) {
-	// CRITICAL: Extract the inner scan data recursively
 	inputScanData, err := e.ExtractScanData(node.InputScan(), ctx)
 	if err != nil {
 		return ScanData{}, fmt.Errorf("failed to extract input scan for order by: %w", err)
@@ -934,7 +932,7 @@ func (e *NodeExtractor) extractOrderByScanData(node *ast.OrderByScanNode, ctx Tr
 
 	return ScanData{
 		Type:       ScanTypeOrderBy,
-		ColumnList: inputScanData.ColumnList, // OrderBy doesn't change column structure
+		ColumnList: extractColumnDataList(node.ColumnList()),
 		OrderByScan: &OrderByScanData{
 			InputScan:      inputScanData,
 			OrderByColumns: orderByItems,
@@ -943,7 +941,6 @@ func (e *NodeExtractor) extractOrderByScanData(node *ast.OrderByScanNode, ctx Tr
 }
 
 func (e *NodeExtractor) extractLimitScanData(node *ast.LimitOffsetScanNode, ctx TransformContext) (ScanData, error) {
-	// CRITICAL: Extract the inner scan data recursively
 	inputScanData, err := e.ExtractScanData(node.InputScan(), ctx)
 	if err != nil {
 		return ScanData{}, fmt.Errorf("failed to extract input scan for limit: %w", err)

@@ -6198,7 +6198,6 @@ SELECT * FROM target;
 			query:        `CREATE TABLE test_drop_target(id INT64); DROP TABLE test_drop_target;`,
 			expectedRows: [][]interface{}{},
 		},
-
 		{
 			name: "simple drop function",
 			query: `CREATE FUNCTION customfunc(
@@ -6207,6 +6206,33 @@ SELECT * FROM target;
   (SELECT SUM(IF(elem.name = "foo",elem.val,null)) FROM UNNEST(arr) AS elem)
 ); DROP FUNCTION customfunc;`,
 			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "with ref scan maps column aliases correctly",
+			query: `
+			CREATE TEMPORARY TABLE events (ID STRING, DT STRING);
+			WITH events_cte AS (
+				SELECT
+					CAST(ID AS string) as event_id,
+					EXTRACT(DATE FROM PARSE_DATETIME("%m/%d/%y %H:%M", NULLIF(DT, "09/17/25 00:00"))) as event_date
+				FROM events
+			)
+			SELECT
+				event_id,
+				event_date as occurrence_date,
+			FROM events_cte
+			WHERE EXTRACT(YEAR from event_date) = 2025
+`,
+			expectedRows: [][]interface{}{},
+		},
+		{
+			name: "ProjectScan with order by column does not output ordered column",
+			query: `with names as (
+			  select 'foo' as name, ['x', 'y'] as cols
+			)
+			select * from names
+			order by name, cols[SAFE_OFFSET(0)]`,
+			expectedRows: [][]interface{}{{"foo", []interface{}{"x", "y"}}},
 		},
 	} {
 		test := test

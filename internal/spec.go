@@ -445,7 +445,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFu
 	default:
 		funcExpr := stmt.FunctionExpression()
 		if funcExpr != nil {
-			factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+			factory := NewQueryTransformFactory(nil)
 			coordinator := factory.CreateCoordinator()
 			transformContext := factory.CreateTransformContext(ctx)
 			extractor := NewNodeExtractor()

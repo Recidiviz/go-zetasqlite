@@ -54,20 +54,6 @@ func (w *SQLWriter) String() string {
 	return w.builder.String()
 }
 
-// WriteDebug writes debug information with tree structure formatting
-func (w *SQLWriter) WriteDebug(prefix string, s string) {
-	w.Write(prefix + s)
-}
-
-// WriteDebugLine writes debug information with tree structure formatting and newline
-func (w *SQLWriter) WriteDebugLine(prefix string, s string) {
-	if w.useNewlines {
-		w.Write(prefix + s + "\n")
-	} else {
-		w.Write(prefix + s)
-	}
-}
-
 // SelectType represents different SELECT variants
 type SelectType int
 
@@ -136,18 +122,6 @@ func (e *BinaryExpression) String() string {
 	writer.useNewlines = false
 	e.WriteSql(writer)
 	return writer.String()
-}
-
-func (e *BinaryExpression) WriteDebugString(writer *SQLWriter, prefix string) {
-	writer.WriteDebugLine(prefix, fmt.Sprintf("+-BinaryExpression(operator=%s)", e.Operator))
-	if e.Left != nil {
-		writer.WriteDebugLine(prefix, "  +-left_operand=")
-		e.Left.writeDebugString(writer, prefix+"    ")
-	}
-	if e.Right != nil {
-		writer.WriteDebugLine(prefix, "  +-right_operand=")
-		e.Right.writeDebugString(writer, prefix+"    ")
-	}
 }
 
 // SQLExpression represents any SQL expression
@@ -222,69 +196,6 @@ func (e *SQLExpression) String() string {
 	writer.useNewlines = e.Subquery != nil
 	e.WriteSql(writer)
 	return writer.String()
-}
-
-// DebugString returns a hierarchical debug representation similar to ZetaSQL's node debug output
-func (e *SQLExpression) writeDebugString(writer *SQLWriter, prefix string) {
-	switch e.Type {
-	case ExpressionTypeColumn:
-		if e.TableAlias != "" {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("+-ColumnRef(table=%s, column=%s)", e.TableAlias, e.Value))
-		} else {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("+-ColumnRef(column=%s)", e.Value))
-		}
-	case ExpressionTypeLiteral:
-		writer.WriteDebugLine(prefix, fmt.Sprintf("+-Literal(value=%s)", e.Value))
-	case ExpressionTypeBinary:
-		e.BinaryExpression.WriteDebugString(writer, prefix)
-	case ExpressionTypeFunction:
-		if e.FunctionCall != nil {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("+-FunctionCall(name=%s)", e.FunctionCall.Name))
-			for i, arg := range e.FunctionCall.Arguments {
-				writer.WriteDebugLine(prefix, fmt.Sprintf("  +-argument[%d]=", i))
-				arg.writeDebugString(writer, prefix+"    ")
-			}
-		}
-	case ExpressionTypeSubquery:
-		writer.WriteDebugLine(prefix, "+-SubqueryExpression")
-		if e.Subquery != nil {
-			writer.WriteDebugLine(prefix, "  +-subquery=")
-			e.Subquery.writeDebugString(writer, prefix+"    ")
-		}
-	case ExpressionTypeStar:
-		if e.TableAlias != "" {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("+-StarExpression(table=%s)", e.TableAlias))
-		} else {
-			writer.WriteDebugLine(prefix, "+-StarExpression")
-		}
-	case ExpressionTypeCase:
-		writer.WriteDebugLine(prefix, "+-CaseExpression")
-		if e.CaseExpression != nil && e.CaseExpression.CaseExpr != nil {
-			writer.WriteDebugLine(prefix, "  +-case_expr=")
-			e.CaseExpression.CaseExpr.writeDebugString(writer, prefix+"    ")
-		}
-		for i, whenClause := range e.CaseExpression.WhenClauses {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("  +-when_clause[%d]=", i))
-			writer.WriteDebugLine(prefix+"    ", "+-condition=")
-			whenClause.Condition.writeDebugString(writer, prefix+"      ")
-			writer.WriteDebugLine(prefix+"    ", "+-result=")
-			whenClause.Result.writeDebugString(writer, prefix+"      ")
-		}
-		if e.CaseExpression.ElseExpr != nil {
-			writer.WriteDebugLine(prefix, "  +-else_expr=")
-			e.CaseExpression.ElseExpr.writeDebugString(writer, prefix+"    ")
-		}
-	case ExpressionTypeExists:
-		writer.WriteDebugLine(prefix, "+-ExistsExpression")
-		if e.ExistsExpr != nil && e.ExistsExpr.Subquery != nil {
-			writer.WriteDebugLine(prefix, "  +-subquery=")
-			e.ExistsExpr.Subquery.writeDebugString(writer, prefix+"    ")
-		}
-	}
-
-	if e.Alias != "" {
-		writer.WriteDebugLine(prefix, fmt.Sprintf("  +-alias=%s", e.Alias))
-	}
 }
 
 // WriteSql method for CaseExpression
@@ -725,7 +636,7 @@ func (w *WithClause) String() string {
 }
 
 func (w *WithClause) WriteSql(writer *SQLWriter) error {
-	writer.Write(w.Name)
+	writer.Write("`" + w.Name + "`")
 	if len(w.Columns) > 0 {
 		writer.Write(" (")
 		for i, col := range w.Columns {
@@ -935,165 +846,6 @@ func (s *SelectStatement) String() string {
 	return strings.TrimSpace(writer.String())
 }
 
-// DebugString returns a hierarchical debug representation similar to ZetaSQL's node debug output
-func (s *SelectStatement) writeDebugString(writer *SQLWriter, prefix string) {
-	selectType := "SELECT"
-	switch s.SelectType {
-	case SelectTypeDistinct:
-		selectType = "SELECT DISTINCT"
-	case SelectTypeAll:
-		selectType = "SELECT ALL"
-	case SelectTypeAsStruct:
-		selectType = "SELECT AS STRUCT"
-	case SelectTypeAsValue:
-		selectType = "SELECT AS VALUE"
-	}
-
-	writer.WriteDebugLine(prefix, fmt.Sprintf("+-SelectStatement(type=%s)", selectType))
-
-	if len(s.WithClauses) > 0 {
-		writer.WriteDebugLine(prefix, "  +-with_clause_list=")
-		for i, withClause := range s.WithClauses {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("    +-with_clause[%d]=%s", i, withClause.Name))
-			if withClause.Query != nil {
-				writer.WriteDebugLine(prefix, "      +-querybuilder=")
-				withClause.Query.writeDebugString(writer, prefix+"        ")
-			}
-		}
-	}
-
-	if s.SetOperation != nil {
-		writer.WriteDebugLine(prefix, fmt.Sprintf("  +-set_operation=%s %s", s.SetOperation.Type, s.SetOperation.Modifier))
-		for i, item := range s.SetOperation.Items {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("    +-item[%d]=", i))
-			item.writeDebugString(writer, prefix+"      ")
-		}
-	} else {
-		if len(s.SelectList) > 0 {
-			writer.WriteDebugLine(prefix, "  +-select_list=")
-			for i, item := range s.SelectList {
-				writer.WriteDebugLine(prefix, fmt.Sprintf("    +-select_item[%d]=", i))
-				item.Expression.writeDebugString(writer, prefix+"      ")
-				if item.Alias != "" {
-					writer.WriteDebugLine(prefix, fmt.Sprintf("      +-alias=%s", item.Alias))
-				}
-			}
-		}
-
-		if s.FromClause != nil {
-			writer.WriteDebugLine(prefix, "  +-from_clause=")
-			s.writeFromItemDebug(writer, prefix+"    ", s.FromClause)
-		}
-	}
-
-	if s.WhereClause != nil {
-		writer.WriteDebugLine(prefix, "  +-where_clause=")
-		s.WhereClause.writeDebugString(writer, prefix+"    ")
-	}
-
-	if len(s.GroupByList) > 0 {
-		writer.WriteDebugLine(prefix, "  +-group_by_list=")
-		for i, expr := range s.GroupByList {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("    +-group_by[%d]=", i))
-			expr.writeDebugString(writer, prefix+"      ")
-		}
-	}
-
-	if s.HavingClause != nil {
-		writer.WriteDebugLine(prefix, "  +-having_clause=")
-		s.HavingClause.writeDebugString(writer, prefix+"    ")
-	}
-
-	if len(s.OrderByList) > 0 {
-		writer.WriteDebugLine(prefix, "  +-order_by_list=")
-		for i, item := range s.OrderByList {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("    +-order_by[%d]=", i))
-			item.Expression.writeDebugString(writer, prefix+"      ")
-			if item.Direction != "" {
-				writer.WriteDebugLine(prefix, fmt.Sprintf("      +-direction=%s", item.Direction))
-			}
-			if item.NullsOrder != "" {
-				writer.WriteDebugLine(prefix, fmt.Sprintf("      +-nulls_order=%s", item.NullsOrder))
-			}
-		}
-	}
-
-	if s.LimitClause != nil {
-		writer.WriteDebugLine(prefix, "  +-limit_clause=")
-		if s.LimitClause.Count != nil {
-			writer.WriteDebugLine(prefix, "    +-count=")
-			s.LimitClause.Count.writeDebugString(writer, prefix+"      ")
-		}
-		if s.LimitClause.Offset != nil {
-			writer.WriteDebugLine(prefix, "    +-offset=")
-			s.LimitClause.Offset.writeDebugString(writer, prefix+"      ")
-		}
-	}
-}
-
-func (s *SelectStatement) writeFromItemDebug(writer *SQLWriter, prefix string, item *FromItem) {
-	switch item.Type {
-	case FromItemTypeTable:
-		writer.WriteDebugLine(prefix, fmt.Sprintf("+-TableRef(name=%s)", item.TableName))
-		if item.Alias != "" {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("  +-alias=%s", item.Alias))
-		}
-	case FromItemTypeSubquery:
-		writer.WriteDebugLine(prefix, "+-Subquery")
-		if item.Subquery != nil {
-			writer.WriteDebugLine(prefix, "  +-querybuilder=")
-			item.Subquery.writeDebugString(writer, prefix+"    ")
-		}
-		if item.Alias != "" {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("  +-alias=%s", item.Alias))
-		}
-	case FromItemTypeJoin:
-		if item.Join != nil {
-			joinType := "INNER"
-			switch item.Join.Type {
-			case JoinTypeLeft:
-				joinType = "LEFT"
-			case JoinTypeRight:
-				joinType = "RIGHT"
-			case JoinTypeFull:
-				joinType = "FULL OUTER"
-			case JoinTypeCross:
-				joinType = "CROSS"
-			}
-			writer.WriteDebugLine(prefix, fmt.Sprintf("+-JoinScan(type=%s)", joinType))
-			if item.Join.Left != nil {
-				writer.WriteDebugLine(prefix, "  +-left_scan=")
-				s.writeFromItemDebug(writer, prefix+"    ", item.Join.Left)
-			}
-			if item.Join.Right != nil {
-				writer.WriteDebugLine(prefix, "  +-right_scan=")
-				s.writeFromItemDebug(writer, prefix+"    ", item.Join.Right)
-			}
-			if item.Join.Condition != nil {
-				writer.WriteDebugLine(prefix, "  +-join_condition=")
-				item.Join.Condition.writeDebugString(writer, prefix+"    ")
-			}
-		}
-	case FromItemTypeUnnest:
-		writer.WriteDebugLine(prefix, "+-UnnestScan")
-		if item.UnnestExpr != nil {
-			writer.WriteDebugLine(prefix, "  +-expression=")
-			item.UnnestExpr.writeDebugString(writer, prefix+"    ")
-		}
-		if item.Alias != "" {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("  +-alias=%s", item.Alias))
-		}
-	case FromItemTypeTableFunction:
-		if item.TableFunction != nil {
-			writer.WriteDebugLine(prefix, fmt.Sprintf("+-TableFunctionScan(name=%s)", item.TableFunction.Name))
-			for i, arg := range item.TableFunction.Arguments {
-				writer.WriteDebugLine(prefix, fmt.Sprintf("  +-argument[%d]=", i))
-				arg.writeDebugString(writer, prefix+"    ")
-			}
-		}
-	}
-}
-
 // CreateTableStatement WriteSql implementation
 func (s *CreateTableStatement) WriteSql(writer *SQLWriter) error {
 	writer.Write("CREATE TABLE")
@@ -1101,7 +853,7 @@ func (s *CreateTableStatement) WriteSql(writer *SQLWriter) error {
 		writer.Write(" IF NOT EXISTS")
 	}
 	writer.Write(" ")
-	writer.Write(s.TableName)
+	writer.Write("`" + s.TableName + "`")
 
 	if s.AsSelect != nil {
 		writer.Write(" AS ")
@@ -1132,7 +884,7 @@ func (s *CreateTableStatement) String() string {
 
 // ColumnDefinition WriteSql implementation
 func (c *ColumnDefinition) WriteSql(writer *SQLWriter) error {
-	writer.Write(c.Name)
+	writer.Write("`" + c.Name + "`")
 	writer.Write(" ")
 	writer.Write(c.Type)
 	if c.NotNull {
@@ -1161,7 +913,7 @@ func (s *CreateViewStatement) WriteSql(writer *SQLWriter) error {
 		writer.Write(" IF NOT EXISTS")
 	}
 	writer.Write(" ")
-	writer.Write(s.ViewName)
+	writer.Write("`" + s.ViewName + "`")
 	writer.Write(" AS ")
 	return s.Query.WriteSql(writer)
 }
@@ -1179,7 +931,7 @@ func (s *CreateFunctionStatement) WriteSql(writer *SQLWriter) error {
 		writer.Write(" IF NOT EXISTS")
 	}
 	writer.Write(" ")
-	writer.Write(s.FunctionName)
+	writer.Write("`" + s.FunctionName + "`")
 	writer.Write("(")
 	for i, param := range s.Parameters {
 		if i > 0 {
@@ -1211,7 +963,7 @@ func (s *CreateFunctionStatement) String() string {
 
 // ParameterDefinition WriteSql implementation
 func (p *ParameterDefinition) WriteSql(writer *SQLWriter) error {
-	writer.Write(p.Name)
+	writer.Write("`" + p.Name + "`")
 	writer.Write(" ")
 	writer.Write(p.Type)
 	return nil
@@ -1251,59 +1003,6 @@ func (s *TruncateStatement) WriteSql(writer *SQLWriter) error {
 func (s *TruncateStatement) String() string {
 	writer := NewSQLWriter()
 	s.WriteSql(writer)
-	return strings.TrimSpace(writer.String())
-}
-
-// MergeStatement WriteSql implementation
-func (s *MergeStatement) WriteSql(writer *SQLWriter) error {
-	writer.Write("MERGE ")
-	writer.Write(s.TargetTable)
-	if s.SourceTable != nil {
-		writer.Write(" USING ")
-		s.SourceTable.WriteSql(writer)
-	}
-	if s.MergeClause != nil {
-		writer.Write(" ON ")
-		s.MergeClause.WriteSql(writer)
-	}
-	for _, when := range s.WhenClauses {
-		writer.WriteLine("")
-		when.WriteSql(writer)
-	}
-	return nil
-}
-
-func (s *MergeStatement) String() string {
-	writer := NewSQLWriter()
-	s.WriteSql(writer)
-	return strings.TrimSpace(writer.String())
-}
-
-// MergeWhenClause WriteSql implementation
-func (c *MergeWhenClause) WriteSql(writer *SQLWriter) error {
-	writer.Write("WHEN ")
-	writer.Write(c.Type)
-	if c.Condition != nil {
-		writer.Write(" AND ")
-		c.Condition.WriteSql(writer)
-	}
-	writer.Write(" THEN ")
-	writer.Write(c.Action)
-	if len(c.SetList) > 0 {
-		writer.Write(" SET ")
-		for i, set := range c.SetList {
-			if i > 0 {
-				writer.Write(", ")
-			}
-			set.WriteSql(writer)
-		}
-	}
-	return nil
-}
-
-func (c *MergeWhenClause) String() string {
-	writer := NewSQLWriter()
-	c.WriteSql(writer)
 	return strings.TrimSpace(writer.String())
 }
 
@@ -1599,20 +1298,6 @@ type DropStatement struct {
 
 type TruncateStatement struct {
 	TableName string
-}
-
-type MergeStatement struct {
-	TargetTable string
-	SourceTable *FromItem
-	MergeClause *SQLExpression
-	WhenClauses []*MergeWhenClause
-}
-
-type MergeWhenClause struct {
-	Type      string // "MATCHED", "NOT MATCHED"
-	Condition *SQLExpression
-	Action    string // "UPDATE", "DELETE", "INSERT"
-	SetList   []*SetItem
 }
 
 type UpdateStatement struct {

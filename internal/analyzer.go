@@ -318,7 +318,7 @@ func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, args []driver.N
 
 func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *ast.CreateTableAsSelectStmtNode) (*CreateTableStmtAction, error) {
 	// Use the new transformer pattern for CREATE TABLE AS SELECT statements
-	factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+	factory := NewQueryTransformFactory(nil)
 	result, err := factory.TransformQuery(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", "CREATE TABLE AS SELECT", err)
@@ -377,7 +377,7 @@ func (a *Analyzer) newCreateFunctionStmtAction(ctx context.Context, query string
 
 func (a *Analyzer) newCreateViewStmtAction(ctx context.Context, _ string, args []driver.NamedValue, node *ast.CreateViewStmtNode) (*CreateViewStmtAction, error) {
 	// Use the new transformer pattern for CREATE VIEW statements
-	factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+	factory := NewQueryTransformFactory(nil)
 	result, err := factory.TransformQuery(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", "CREATE VIEW", err)
@@ -470,7 +470,7 @@ func (a *Analyzer) buildArrayTypeFuncFromTemplatedFunc(node *ast.CreateFunctionS
 }
 
 func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.DropStmtNode) (*DropStmtAction, error) {
-	factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+	factory := NewQueryTransformFactory(nil)
 	result, err := factory.TransformQuery(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
@@ -497,7 +497,7 @@ func (a *Analyzer) newDropStmtAction(ctx context.Context, query string, args []d
 }
 
 func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.DropFunctionStmtNode) (*DropStmtAction, error) {
-	factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+	factory := NewQueryTransformFactory(nil)
 	result, err := factory.TransformQuery(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
@@ -524,7 +524,7 @@ func (a *Analyzer) newDropFunctionStmtAction(ctx context.Context, query string, 
 
 func (a *Analyzer) newDMLStmtAction(ctx context.Context, query string, args []driver.NamedValue, node ast.Node) (*DMLStmtAction, error) {
 	// Use the new transformer pattern for DML statements
-	factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+	factory := NewQueryTransformFactory(nil)
 	result, err := factory.TransformQuery(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", query, err)
@@ -571,7 +571,7 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 		}
 	} else {
 		var err error
-		factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+		factory := NewQueryTransformFactory(nil)
 		result, err := factory.TransformQuery(ctx, node)
 		if err != nil {
 			return nil, fmt.Errorf("failed to format query %s: %w", query, err)
@@ -612,7 +612,7 @@ func (a *Analyzer) newTruncateStmtAction(ctx context.Context, query string, args
 
 func (a *Analyzer) newMergeStmtAction(ctx context.Context, query string, args []driver.NamedValue, node *ast.MergeStmtNode) (*MergeStmtAction, error) {
 	// Use the new transformer pattern for MERGE statements
-	factory := NewQueryTransformFactory(DefaultTransformConfig(true))
+	factory := NewQueryTransformFactory(nil)
 	result, err := factory.TransformQuery(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format query %s: %w", "MERGE", err)

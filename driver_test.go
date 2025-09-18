@@ -3,6 +3,7 @@ package zetasqlite_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -226,6 +227,45 @@ CREATE TABLE IF NOT EXISTS Singers (
 		_, err = stmt.Exec(sql.Named("SingerID", int64(1)), sql.Named("FirstName", "Miss"), sql.Named("LastName", "Kitten"))
 		if !strings.Contains(err.Error(), "UNIQUE constraint failed: Singers.SingerId") {
 			t.Fatalf("expected failed unique constraint err, got: %s", err)
+		}
+	})
+
+	t.Run("create table/view in dataset (with hyphens)", func(t *testing.T) {
+		db, err := sql.Open("zetasqlite", ":memory:")
+		ctx := context.Background()
+		conn, err := db.Conn(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := conn.Raw(func(c interface{}) error {
+			zetasqliteConn, ok := c.(*zetasqlite.ZetaSQLiteConn)
+			if !ok {
+				return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
+			}
+			zetasqliteConn.SetNamePath([]string{"project-hypens", "dataset-with-hyphens"})
+			const maxNamePath = 3 // projectID and datasetID and tableID
+			zetasqliteConn.SetMaxNamePath(maxNamePath)
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := conn.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS Singers (
+  SingerId   INT64 NOT NULL PRIMARY KEY,
+  FirstName  STRING(1024),
+  LastName   STRING(1024)
+)`); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := conn.ExecContext(ctx, `CREATE VIEW IF NOT EXISTS SingerNames AS (SELECT FirstName FROM Singers)`); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, err := conn.QueryContext(ctx, `SELECT * FROM SingerNames`); err != nil {
+			t.Fatal(err)
 		}
 	})
 }

@@ -50,8 +50,23 @@ func (t *OrderByScanTransformer) Transform(data ScanData, ctx TransformContext) 
 		return nil, fmt.Errorf("failed to transform order by items: %w", err)
 	}
 
-	// Always create a SELECT * statement with ORDER BY - no folding
-	return t.createSelectStarWithOrderBy(innerFromItem, orderByItems, data.ColumnList, ctx)
+	selectStatement := NewSelectStatement()
+	selectStatement.FromClause = innerFromItem
+	selectStatement.OrderByList = orderByItems
+
+	// Select the ColumnList explicitly (rather than SELECT *), as this scan should drop used `$orderby` columns
+	// from the output columns
+	for _, col := range data.ColumnList {
+		selectStatement.SelectList = append(selectStatement.SelectList, &SelectListItem{
+			Expression: ctx.FragmentContext().GetQualifiedColumnExpression(col.ID),
+			Alias:      generateIDBasedAlias(col.Name, col.ID),
+		})
+	}
+
+	return &FromItem{
+		Type:     FromItemTypeSubquery,
+		Subquery: selectStatement,
+	}, nil
 }
 
 // transformOrderByItems converts OrderByItemData to OrderByItem
@@ -168,19 +183,4 @@ func createOrderByItems(expr *SQLExpression, orderData *OrderByItemData) ([]*Ord
 	})
 
 	return items, nil
-}
-
-// createSelectStarWithOrderBy creates a SELECT * statement with ORDER BY and proper column registration
-func (t *OrderByScanTransformer) createSelectStarWithOrderBy(fromItem *FromItem, orderByItems []*OrderByItem, columnList []*ColumnData, ctx TransformContext) (*FromItem, error) {
-	// Create SELECT * statement
-	selectStatement := NewSelectStarStatement(fromItem)
-	selectStatement.OrderByList = orderByItems
-	scopeAlias := fmt.Sprintf("order_by_scan_%s", ctx.FragmentContext().GetID())
-	ctx.FragmentContext().RegisterColumnScopeMapping(scopeAlias, columnList)
-
-	return &FromItem{
-		Type:     FromItemTypeSubquery,
-		Subquery: selectStatement,
-		Alias:    scopeAlias,
-	}, nil
 }

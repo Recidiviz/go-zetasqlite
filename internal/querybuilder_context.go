@@ -13,7 +13,7 @@ type DefaultTransformContext struct {
 	config          *TransformConfig
 	scope           *ScopeManager
 	//symbolTable     *SymbolTableManager  // Hierarchical symbol table
-	withMappings map[string]map[string]string // WITH query name -> column mappings
+	withMappings map[string][]string // WITH query name -> position-based column mappings
 }
 
 // NewDefaultTransformContext creates a new transform context
@@ -23,8 +23,7 @@ func NewDefaultTransformContext(ctx context.Context, config *TransformConfig) *D
 		fragmentContext: NewDefaultFragmentContext(),
 		config:          config,
 		scope:           NewScopeManager(),
-		//symbolTable:     NewSymbolTableManager(),
-		withMappings: make(map[string]map[string]string),
+		withMappings:    make(map[string][]string),
 	}
 }
 
@@ -52,19 +51,19 @@ func (c *DefaultTransformContext) WithFragmentContext(fc FragmentContextProvider
 
 // AddWithEntryColumnMapping adds column mappings for a WITH query
 func (c *DefaultTransformContext) AddWithEntryColumnMapping(name string, columns []*ColumnData) {
-	mapping := make(map[string]string)
+	mapping := make([]string, 0, len(columns))
 	for _, col := range columns {
-		mapping[col.Name] = generateIDBasedAlias(col.Name, col.ID)
+		mapping = append(mapping, generateIDBasedAlias(col.Name, col.ID))
 	}
 	c.withMappings[name] = mapping
 }
 
 // GetWithEntryMapping retrieves column mappings for a WITH query
-func (c *DefaultTransformContext) GetWithEntryMapping(name string) map[string]string {
+func (c *DefaultTransformContext) GetWithEntryMapping(name string) []string {
 	if mapping, exists := c.withMappings[name]; exists {
 		return mapping
 	}
-	return make(map[string]string)
+	return nil
 }
 
 // DefaultFragmentContext provides fragment context functionality
@@ -87,18 +86,6 @@ func NewDefaultFragmentContext() *DefaultFragmentContext {
 		scopes:           make([]ScopeToken, 0),
 		columnIDToScope:  make(map[int]string),
 	}
-}
-
-// GetColumnExpression gets the SQL expression for a column
-func (fc *DefaultFragmentContext) GetColumnExpression(columnID int) *SQLExpression {
-	fc.mu.RLock()
-	defer fc.mu.RUnlock()
-
-	if expr, exists := fc.columnMap[columnID]; exists {
-		return expr
-	}
-
-	panic(fmt.Sprintf("column id %d not found in fragment context. transformers must register column in scope prior to reference", columnID))
 }
 
 // AddAvailableColumn adds a column to the available columns map

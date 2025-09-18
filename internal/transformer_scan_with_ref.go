@@ -47,20 +47,20 @@ func (t *WithRefScanTransformer) Transform(data ScanData, ctx TransformContext) 
 
 	// Get stored column mappings from context for this WITH query
 	mapping := ctx.GetWithEntryMapping(withRefScanData.WithQueryName)
+	if mapping == nil {
+		return nil, fmt.Errorf("no entry mapping found for query %v", withRefScanData.WithQueryName)
+	}
+	if len(mapping) != len(withRefScanData.ColumnList) {
+		return nil, fmt.Errorf("incorrect number of columns found for query %v", withRefScanData.WithQueryName)
+	}
 
 	// Add SELECT items for each column
-	for _, column := range withRefScanData.ColumnList {
+	for i, column := range withRefScanData.ColumnList {
 		alias := generateIDBasedAlias(column.Name, column.ID)
-		columnName := column.Name
-		if mapping != nil {
-			if mappedName, exists := mapping[columnName]; exists {
-				columnName = mappedName
-			}
-		}
 
 		selectStatement.SelectList = append(selectStatement.SelectList,
 			&SelectListItem{
-				Expression: NewColumnExpression(columnName, withRefScanData.WithQueryName),
+				Expression: NewColumnExpression(mapping[i], withRefScanData.WithQueryName),
 				Alias:      alias,
 			},
 		)

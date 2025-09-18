@@ -16,7 +16,7 @@ type QueryTransformFactory struct {
 // NewQueryTransformFactory creates a new factory with the given configuration
 func NewQueryTransformFactory(config *TransformConfig) *QueryTransformFactory {
 	if config == nil {
-		config = DefaultTransformConfig(false)
+		config = DefaultTransformConfig()
 	}
 
 	return &QueryTransformFactory{

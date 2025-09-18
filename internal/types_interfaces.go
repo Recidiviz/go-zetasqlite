@@ -55,12 +55,11 @@ type TransformContext interface {
 
 	// WITH clause support
 	AddWithEntryColumnMapping(name string, columns []*ColumnData)
-	GetWithEntryMapping(name string) map[string]string
+	GetWithEntryMapping(name string) []string
 }
 
 // FragmentContextProvider abstracts the fragment context functionality
 type FragmentContextProvider interface {
-	GetColumnExpression(columnID int) *SQLExpression
 	GetQualifiedColumnExpression(columnID int) *SQLExpression
 	AddAvailableColumn(columnID int, info *ColumnInfo)
 	GetID() string
