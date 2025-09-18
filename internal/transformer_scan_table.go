@@ -76,12 +76,10 @@ func (t *TableScanTransformer) Transform(data ScanData, ctx TransformContext) (*
 		})
 	}
 
-	namePath := namePathFromContext(ctx.Context())
-
 	// Create the table FROM item
 	tableFromItem := &FromItem{
 		Type:      FromItemTypeTable,
-		TableName: namePath.format([]string{tableData.TableName}),
+		TableName: tableData.TableName,
 		Alias:     tableData.Alias,
 	}
 

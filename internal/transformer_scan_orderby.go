@@ -177,6 +177,7 @@ func createOrderByItems(expr *SQLExpression, orderData *OrderByItemData) ([]*Ord
 		direction = "DESC"
 	}
 
+	expr.Collation = "zetasqlite_collate"
 	items = append(items, &OrderByItem{
 		Expression: expr,
 		Direction:  direction,

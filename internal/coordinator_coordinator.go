@@ -205,6 +205,8 @@ func (c *QueryCoordinator) TransformStatement(stmtData StatementData, ctx Transf
 		return nil, fmt.Errorf("unsupported create statement type")
 	case StatementTypeDrop:
 		return c.dropStmtTransformer.Transform(stmtData, ctx)
+	case StatementTypeMerge:
+		return c.mergeStmtTransformer.Transform(stmtData, ctx)
 	default:
 		return nil, fmt.Errorf("unsupported statement data type: %v", stmtData.Type)
 	}

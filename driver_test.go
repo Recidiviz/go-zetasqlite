@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 			if !ok {
 				return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
 			}
-			zetasqliteConn.SetNamePath([]string{"project-hypens", "dataset-with-hyphens"})
+			zetasqliteConn.SetNamePath([]string{"project-hyphens", "dataset-with-hyphens"})
 			const maxNamePath = 3 // projectID and datasetID and tableID
 			zetasqliteConn.SetMaxNamePath(maxNamePath)
 			return nil
@@ -264,7 +264,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 			t.Fatal(err)
 		}
 
-		if _, err := conn.QueryContext(ctx, `SELECT * FROM SingerNames`); err != nil {
+		if _, err := conn.QueryContext(ctx, "SELECT * FROM `project-hyphens`.`dataset-with-hyphens`.`SingerNames`"); err != nil {
 			t.Fatal(err)
 		}
 	})

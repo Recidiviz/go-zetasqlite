@@ -53,13 +53,7 @@ func (t *DMLStmtTransformer) transformInsert(data StatementData, ctx TransformCo
 	}
 
 	insertData := data.Insert
-	tableName := insertData.TableName
-
-	// Format table name for SQLite
-	if namePath := namePathFromContext(ctx.Context()); namePath != nil {
-		tableName = namePath.format([]string{tableName})
-	}
-
+	
 	// Format column names
 	columns := make([]string, 0, len(insertData.Columns))
 	for _, col := range insertData.Columns {
@@ -67,7 +61,7 @@ func (t *DMLStmtTransformer) transformInsert(data StatementData, ctx TransformCo
 	}
 
 	insertStmt := &InsertStatement{
-		TableName: tableName,
+		TableName: insertData.TableName,
 		Columns:   columns,
 	}
 
@@ -128,19 +122,13 @@ func (t *DMLStmtTransformer) transformUpdate(data StatementData, ctx TransformCo
 
 	updateData := data.Update
 
-	// Format table name for SQLite
-	tableName := updateData.TableName
-	if namePath := namePathFromContext(ctx.Context()); namePath != nil {
-		tableName = namePath.format([]string{tableName})
-	}
-
 	// Add table scan columns to the fragment context before transforming WHERE clause
 	ctx.FragmentContext().AddAvailableColumnsForDML(updateData.TableScan)
 
 	// Create table scan for the target table
 	table := &FromItem{
 		Type:      FromItemTypeTable,
-		TableName: tableName,
+		TableName: updateData.TableName,
 	}
 
 	updateStmt := &UpdateStatement{
@@ -191,16 +179,10 @@ func (t *DMLStmtTransformer) transformDelete(data StatementData, ctx TransformCo
 
 	deleteData := data.Delete
 
-	// Format table name for SQLite
-	tableName := deleteData.TableName
-	if namePath := namePathFromContext(ctx.Context()); namePath != nil {
-		tableName = namePath.format([]string{tableName})
-	}
-
 	// Create table reference
 	table := &FromItem{
 		Type:      FromItemTypeTable,
-		TableName: tableName,
+		TableName: deleteData.TableName,
 	}
 
 	deleteStmt := &DeleteStatement{

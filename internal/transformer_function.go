@@ -164,6 +164,10 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 				if err != nil {
 					return nil, fmt.Errorf("failed to transform partition by expression: %w", err)
 				}
+
+				// Apply collation so SQLite will partition the rows based on zetasqlite_collate return value
+				expr.Collation = "zetasqlite_collate"
+
 				partitionBy = append(partitionBy, expr)
 			}
 

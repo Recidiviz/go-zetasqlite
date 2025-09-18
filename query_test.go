@@ -55,6 +55,13 @@ UNION ALL
 			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
 		},
 		{
+			name: "with scan union distinct",
+			query: `(WITH toks AS (SELECT 1 AS x) SELECT x FROM toks)
+UNION DISTINCT
+(WITH toks2 AS (SELECT 1 AS x) SELECT x FROM toks2)`,
+			expectedRows: [][]interface{}{{int64(1)}},
+		},
+		{
 			name: "having with union all",
 			query: `(WITH toks AS (SELECT 1 AS x) SELECT COUNT(x) AS total_rows FROM toks WHERE x > 0 HAVING total_rows >= 0)
 UNION ALL

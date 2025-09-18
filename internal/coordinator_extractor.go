@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
@@ -624,6 +625,20 @@ func (e *NodeExtractor) ExtractScanData(node ast.Node, ctx TransformContext) (Sc
 	}
 }
 
+func getTableName(ctx context.Context, n ast.Node) (string, error) {
+	nodeMap := nodeMapFromContext(ctx)
+	found := nodeMap.FindNodeFromResolvedNode(n)
+	if len(found) == 0 {
+		return "", fmt.Errorf("failed to find path node from table node %T", n)
+	}
+	path, err := getPathFromNode(found[0])
+	if err != nil {
+		return "", fmt.Errorf("failed to find path: %w", err)
+	}
+	namePath := namePathFromContext(ctx)
+	return namePath.format(path), nil
+}
+
 // extractTableScanData extracts data from table scan nodes
 func (e *NodeExtractor) extractTableScanData(node *ast.TableScanNode, ctx TransformContext) (ScanData, error) {
 	// Check if this is a wildcard table
@@ -633,11 +648,16 @@ func (e *NodeExtractor) extractTableScanData(node *ast.TableScanNode, ctx Transf
 		return e.extractWildcardTableAsSetOp(wildcardTable, node, ctx)
 	}
 
+	tableName, err := getTableName(ctx.Context(), node)
+	if err != nil {
+		return ScanData{}, fmt.Errorf("failed to extract table name from table node %T: %w", node, err)
+	}
+
 	return ScanData{
 		Type:       ScanTypeTable,
 		ColumnList: extractColumnDataList(node.ColumnList()),
 		TableScan: &TableScanData{
-			TableName: table.Name(),
+			TableName: tableName,
 			Alias:     node.Alias(),
 		},
 	}, nil
@@ -1109,7 +1129,10 @@ func (e *NodeExtractor) extractCreateTableStatementData(node *ast.CreateTableStm
 
 func (e *NodeExtractor) extractInsertStatementData(node *ast.InsertStmtNode, ctx TransformContext) (StatementData, error) {
 	// Extract table name
-	tableName := node.TableScan().Table().Name()
+	tableName, err := getTableName(ctx.Context(), node.TableScan())
+	if err != nil {
+		return StatementData{}, fmt.Errorf("failed to extract table name from table node %T: %w", node, err)
+	}
 
 	// Extract column names
 	columns := make([]string, 0, len(node.InsertColumnList()))
@@ -1168,7 +1191,10 @@ func (e *NodeExtractor) extractInsertStatementData(node *ast.InsertStmtNode, ctx
 
 func (e *NodeExtractor) extractUpdateStatementData(node *ast.UpdateStmtNode, ctx TransformContext) (StatementData, error) {
 	// Extract table name from table scan
-	tableName := node.TableScan().Table().Name()
+	tableName, err := getTableName(ctx.Context(), node.TableScan())
+	if err != nil {
+		return StatementData{}, fmt.Errorf("failed to extract table name from table node %T: %w", node, err)
+	}
 
 	// Extract table scan data to provide column information for WHERE clause and SET value resolution
 	tableScanData, err := e.ExtractScanData(node.TableScan(), ctx)
@@ -1240,7 +1266,10 @@ func (e *NodeExtractor) extractUpdateStatementData(node *ast.UpdateStmtNode, ctx
 
 func (e *NodeExtractor) extractDeleteStatementData(node *ast.DeleteStmtNode, ctx TransformContext) (StatementData, error) {
 	// Extract table name from table scan
-	tableName := node.TableScan().Table().Name()
+	tableName, err := getTableName(ctx.Context(), node.TableScan())
+	if err != nil {
+		return StatementData{}, fmt.Errorf("failed to extract table name from table node %T: %w", node, err)
+	}
 
 	// Extract table scan data to provide column information for WHERE clause resolution
 	tableScanData, err := e.ExtractScanData(node.TableScan(), ctx)
@@ -1271,7 +1300,10 @@ func (e *NodeExtractor) extractDeleteStatementData(node *ast.DeleteStmtNode, ctx
 // extractMergeStatementData extracts data from MERGE statement nodes
 func (e *NodeExtractor) extractMergeStatementData(node *ast.MergeStmtNode, ctx TransformContext) (StatementData, error) {
 	// Extract target table name
-	targetTableName := node.TableScan().Table().Name()
+	targetTableName, err := getTableName(ctx.Context(), node.TableScan())
+	if err != nil {
+		return StatementData{}, fmt.Errorf("failed to extract table name from table node %T: %w", node, err)
+	}
 
 	// Extract target table scan data
 	targetScanData, err := e.ExtractScanData(node.TableScan(), ctx)

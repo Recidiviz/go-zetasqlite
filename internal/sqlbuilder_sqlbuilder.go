@@ -477,11 +477,13 @@ func (f *FromItem) WriteSql(writer *SQLWriter) error {
 			writer.Write("`" + f.Alias + "`")
 		}
 	case FromItemTypeSubquery:
-		writer.Write("(")
+		writer.Write("(\n")
 		if f.Subquery != nil {
+			writer.Indent()
 			f.Subquery.WriteSql(writer)
+			writer.Dedent()
 		}
-		writer.Write(")")
+		writer.Write("\n)")
 		if f.Alias != "" {
 			writer.Write(" AS ")
 			writer.Write("`" + f.Alias + "`")
@@ -520,7 +522,7 @@ func (f *FromItem) WriteSql(writer *SQLWriter) error {
 
 func (f *FromItem) String() string {
 	writer := NewSQLWriter()
-	writer.useNewlines = false
+	writer.useNewlines = true
 	f.WriteSql(writer)
 	return writer.String()
 }
@@ -1043,8 +1045,9 @@ func NewSelectStarStatement(from *FromItem) *SelectStatement {
 // NewColumnExpression creates a new column reference expression
 func NewColumnExpression(column string, tableAlias ...string) *SQLExpression {
 	expr := &SQLExpression{
-		Type:  ExpressionTypeColumn,
-		Value: column,
+		Type:      ExpressionTypeColumn,
+		Value:     column,
+		Collation: "zetasqlite_collate",
 	}
 	if len(tableAlias) > 0 {
 		expr.TableAlias = tableAlias[0]
