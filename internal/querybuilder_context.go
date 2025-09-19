@@ -159,25 +159,12 @@ func (fc *DefaultFragmentContext) ExitScope(token ScopeToken) {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 
-	defaultToken, ok := token.(*DefaultScopeToken)
-	if !ok {
-		return
-	}
-
 	// Remove scopes until we find the matching one
 	for i := len(fc.scopes) - 1; i >= 0; i-- {
 		if fc.scopes[i].ID() == token.ID() {
 			fc.scopes = fc.scopes[:i]
 			break
 		}
-	}
-
-	// Restore column map to the state when this scope was entered
-	// This is a simplified approach - in practice, you'd track which columns
-	// were added in this scope and remove only those
-	if defaultToken.startSize < len(fc.columnMap) {
-		// In a real implementation, you'd track column additions per scope
-		// For now, we'll leave the columns as they are
 	}
 }
 

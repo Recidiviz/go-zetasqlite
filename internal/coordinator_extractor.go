@@ -139,7 +139,7 @@ func getFuncName(ctx context.Context, n ast.Node) (string, error) {
 
 func getZetasqliteFuncName(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, error) {
 	funcName := node.Function().FullName(false)
-	funcName = strings.Replace(funcName, ".", "_", -1)
+	funcName = strings.ReplaceAll(funcName, ".", "_")
 
 	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
 	_, existsNormalFunc := normalFuncMap[funcName]
@@ -302,7 +302,7 @@ func (e *NodeExtractor) extractArgumentRefData(node *ast.ArgumentRefNode, ctx Tr
 // extractDMLDefaultData extracts data from DML default nodes
 func (e *NodeExtractor) extractDMLDefaultData(node *ast.DMLDefaultNode, ctx TransformContext) (ExpressionData, error) {
 	return ExpressionData{
-		Type:    ExpressionTypeLiteral,
+		Type: ExpressionTypeLiteral,
 		Literal: &LiteralData{
 			// DEFAULT keyword representation
 		},
@@ -633,12 +633,12 @@ func (e *NodeExtractor) ExtractStatementData(node ast.Node, ctx TransformContext
 	}
 }
 
-// extractQueryStatementData extracts data from querybuilder statements
+// extractQueryStatementData extracts data from query statements
 func (e *NodeExtractor) extractQueryStatementData(node *ast.QueryStmtNode, ctx TransformContext) (StatementData, error) {
-	// Extract the main querybuilder scan
+	// Extract the main query scan
 	scanData, err := e.ExtractScanData(node.Query(), ctx)
 	if err != nil {
-		return StatementData{}, fmt.Errorf("failed to extract querybuilder scan: %w", err)
+		return StatementData{}, fmt.Errorf("failed to extract query scan: %w", err)
 	}
 
 	// Extract output column information
@@ -1642,7 +1642,7 @@ func (e *NodeExtractor) extractAnalyticScanData(node *ast.AnalyticScanNode, ctx 
 
 // extractDropStatementData extracts data from DROP statement nodes
 func (e *NodeExtractor) extractDropStatementData(node *ast.DropStmtNode, ctx TransformContext) (StatementData, error) {
-	objectType := "TABLE"
+	var objectType string
 	switch node.ObjectType() {
 	case "TABLE":
 		objectType = "TABLE"

@@ -6044,7 +6044,7 @@ SELECT @a + @b;
 SELECT @a + @b;
 `,
 			args:        []interface{}{sql.NamedArg{Name: "a", Value: 1}},
-			expectedErr: "not enough querybuilder arguments",
+			expectedErr: "not enough query arguments",
 		},
 		{
 			name: "single statement with params below default limit",
@@ -6075,18 +6075,18 @@ SELECT ? + ?;
 SELECT ? + ?;
 `,
 			args:        []interface{}{int64(1)},
-			expectedErr: "not enough querybuilder arguments",
+			expectedErr: "not enough query arguments",
 		},
 
 		{
 			name: "limit offset test",
 			query: `
-CREATE TEMP TABLE SingerNames AS 
+CREATE TEMP TABLE IconNames AS 
 SELECT 'Kylie' AS FirstName, 'Minogue' AS LastName
 UNION ALL SELECT 'Robyn', null;
-INSERT INTO SingerNames (FirstName, LastName) VALUES ("Bjork", NULL);
+INSERT INTO IconNames (FirstName, LastName) VALUES ("Bjork", NULL);
 
-SELECT * FROM SingerNames
+SELECT * FROM IconNames
 ORDER BY FirstName ASC
 LIMIT 1 OFFSET 1;`,
 			expectedRows: [][]interface{}{{"Kylie", "Minogue"}},

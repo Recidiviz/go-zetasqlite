@@ -97,7 +97,7 @@ func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCa
 	for i := 0; i < len(s.Args); i++ {
 		argRef := fmt.Sprintf("@%s", s.Args[i].Name)
 		value := argValues[i]
-		body = NewLiteralExpression(strings.Replace(body.String(), argRef, value.String(), -1))
+		body = NewLiteralExpression(strings.ReplaceAll(body.String(), argRef, value.String()))
 	}
 	return NewLiteralExpression(fmt.Sprintf("( %s )", body.String())), nil
 }
@@ -134,7 +134,7 @@ func (s *FunctionSpec) CallSQLData(ctx context.Context, functionData *FunctionCa
 	for i := 0; i < len(s.Args); i++ {
 		argRef := fmt.Sprintf("@%s", s.Args[i].Name)
 		value := argValues[i]
-		body = NewLiteralExpression(strings.Replace(body.String(), argRef, value.String(), -1))
+		body = NewLiteralExpression(strings.ReplaceAll(body.String(), argRef, value.String()))
 	}
 	return NewLiteralExpression(fmt.Sprintf("( %s )", body.String())), nil
 }

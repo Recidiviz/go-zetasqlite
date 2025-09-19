@@ -8,7 +8,7 @@ import (
 
 // SQLFragment represents any component that can generate SQL
 type SQLFragment interface {
-	WriteSql(writer *SQLWriter) error
+	WriteSql(writer *SQLWriter)
 	String() string
 }
 
@@ -104,7 +104,7 @@ type BinaryExpression struct {
 	Operator string
 }
 
-func (e *BinaryExpression) WriteSql(writer *SQLWriter) error {
+func (e *BinaryExpression) WriteSql(writer *SQLWriter) {
 	if e.Left != nil {
 		e.Left.WriteSql(writer)
 	}
@@ -112,7 +112,6 @@ func (e *BinaryExpression) WriteSql(writer *SQLWriter) error {
 	if e.Right != nil {
 		e.Right.WriteSql(writer)
 	}
-	return nil
 }
 
 func (e *BinaryExpression) String() string {
@@ -136,7 +135,7 @@ type SQLExpression struct {
 	Collation        string
 }
 
-func (e *SQLExpression) WriteSql(writer *SQLWriter) error {
+func (e *SQLExpression) WriteSql(writer *SQLWriter) {
 	switch e.Type {
 	case ExpressionTypeColumn:
 		if e.TableAlias != "" {
@@ -186,7 +185,6 @@ func (e *SQLExpression) WriteSql(writer *SQLWriter) error {
 		writer.Write("`" + e.Alias + "`")
 	}
 
-	return nil
 }
 
 func (e *SQLExpression) String() string {
@@ -197,39 +195,30 @@ func (e *SQLExpression) String() string {
 }
 
 // WriteSql method for CaseExpression
-func (c *CaseExpression) WriteSql(writer *SQLWriter) error {
+func (c *CaseExpression) WriteSql(writer *SQLWriter) {
 	writer.Write("CASE")
 
 	// Optional CASE expression (for CASE expr WHEN value THEN...)
 	if c.CaseExpr != nil {
 		writer.Write(" ")
-		if err := c.CaseExpr.WriteSql(writer); err != nil {
-			return err
-		}
+		c.CaseExpr.WriteSql(writer)
 	}
 
 	// WHEN clauses
 	for _, whenClause := range c.WhenClauses {
 		writer.Write(" WHEN ")
-		if err := whenClause.Condition.WriteSql(writer); err != nil {
-			return err
-		}
+		whenClause.Condition.WriteSql(writer)
 		writer.Write(" THEN ")
-		if err := whenClause.Result.WriteSql(writer); err != nil {
-			return err
-		}
+		whenClause.Result.WriteSql(writer)
 	}
 
 	// Optional ELSE clause
 	if c.ElseExpr != nil {
 		writer.Write(" ELSE ")
-		if err := c.ElseExpr.WriteSql(writer); err != nil {
-			return err
-		}
+		c.ElseExpr.WriteSql(writer)
 	}
 
 	writer.Write(" END")
-	return nil
 }
 
 func (c *CaseExpression) String() string {
@@ -240,15 +229,12 @@ func (c *CaseExpression) String() string {
 }
 
 // WriteSql method for ExistsExpression
-func (e *ExistsExpression) WriteSql(writer *SQLWriter) error {
+func (e *ExistsExpression) WriteSql(writer *SQLWriter) {
 	writer.Write("EXISTS (")
 	if e.Subquery != nil {
-		if err := e.Subquery.WriteSql(writer); err != nil {
-			return err
-		}
+		e.Subquery.WriteSql(writer)
 	}
 	writer.Write(")")
-	return nil
 }
 
 func (e *ExistsExpression) String() string {
@@ -266,7 +252,7 @@ type FunctionCall struct {
 	WindowSpec *WindowSpecification
 }
 
-func (f *FunctionCall) WriteSql(writer *SQLWriter) error {
+func (f *FunctionCall) WriteSql(writer *SQLWriter) {
 	writer.Write(f.Name)
 	writer.Write("(")
 	if f.IsDistinct {
@@ -277,7 +263,6 @@ func (f *FunctionCall) WriteSql(writer *SQLWriter) error {
 			writer.Write(", ")
 		}
 		arg.WriteSql(writer)
-		i++
 	}
 	writer.Write(")")
 	if f.WindowSpec != nil {
@@ -285,7 +270,6 @@ func (f *FunctionCall) WriteSql(writer *SQLWriter) error {
 		f.WindowSpec.WriteSql(writer)
 		writer.Write(")")
 	}
-	return nil
 }
 
 func (f *FunctionCall) String() string {
@@ -302,7 +286,7 @@ type WindowSpecification struct {
 	FrameClause *FrameClause
 }
 
-func (w *WindowSpecification) WriteSql(writer *SQLWriter) error {
+func (w *WindowSpecification) WriteSql(writer *SQLWriter) {
 	if len(w.PartitionBy) > 0 {
 		writer.Write("PARTITION BY ")
 		for i, expr := range w.PartitionBy {
@@ -333,7 +317,6 @@ func (w *WindowSpecification) WriteSql(writer *SQLWriter) error {
 		w.FrameClause.WriteSql(writer)
 	}
 
-	return nil
 }
 
 // FrameClause represents window frame specifications
@@ -343,7 +326,7 @@ type FrameClause struct {
 	End   *FrameBound
 }
 
-func (f *FrameClause) WriteSql(writer *SQLWriter) error {
+func (f *FrameClause) WriteSql(writer *SQLWriter) {
 	writer.Write(f.Unit)
 	if f.End != nil {
 		writer.Write(" BETWEEN ")
@@ -354,7 +337,6 @@ func (f *FrameClause) WriteSql(writer *SQLWriter) error {
 		writer.Write(" ")
 		f.Start.WriteSql(writer)
 	}
-	return nil
 }
 
 // FrameBound represents frame boundary specifications
@@ -363,13 +345,12 @@ type FrameBound struct {
 	Offset *SQLExpression
 }
 
-func (f *FrameBound) WriteSql(writer *SQLWriter) error {
+func (f *FrameBound) WriteSql(writer *SQLWriter) {
 	if f.Offset != nil {
 		f.Offset.WriteSql(writer)
 		writer.Write(" ")
 	}
 	writer.Write(f.Type)
-	return nil
 }
 
 // SelectListItem represents an item in the SELECT clause
@@ -381,7 +362,7 @@ type SelectListItem struct {
 	ReplaceColumns  map[string]*SQLExpression // For SELECT * REPLACE
 }
 
-func (s *SelectListItem) WriteSql(writer *SQLWriter) error {
+func (s *SelectListItem) WriteSql(writer *SQLWriter) {
 	if s.IsStarExpansion {
 		s.Expression.WriteSql(writer)
 		if len(s.ExceptColumns) > 0 {
@@ -413,7 +394,6 @@ func (s *SelectListItem) WriteSql(writer *SQLWriter) error {
 			writer.Write(" AS `" + s.Alias + "`")
 		}
 	}
-	return nil
 }
 
 func (s *SelectListItem) String() string {
@@ -466,7 +446,7 @@ type FromItem struct {
 	Hints         []string
 }
 
-func (f *FromItem) WriteSql(writer *SQLWriter) error {
+func (f *FromItem) WriteSql(writer *SQLWriter) {
 	switch f.Type {
 	case FromItemTypeTable:
 		writer.Write("`" + f.TableName + "`")
@@ -515,7 +495,6 @@ func (f *FromItem) WriteSql(writer *SQLWriter) error {
 			writer.Write("`" + f.Alias + "`")
 		}
 	}
-	return nil
 }
 
 func (f *FromItem) String() string {
@@ -534,7 +513,7 @@ type JoinClause struct {
 	Using     []string
 }
 
-func (j *JoinClause) WriteSql(writer *SQLWriter) error {
+func (j *JoinClause) WriteSql(writer *SQLWriter) {
 	if j.Left != nil {
 		j.Left.WriteSql(writer)
 	}
@@ -572,7 +551,6 @@ func (j *JoinClause) WriteSql(writer *SQLWriter) error {
 		}
 	}
 
-	return nil
 }
 
 // TableFunction represents table-valued functions
@@ -581,7 +559,7 @@ type TableFunction struct {
 	Arguments []*SQLExpression
 }
 
-func (t *TableFunction) WriteSql(writer *SQLWriter) error {
+func (t *TableFunction) WriteSql(writer *SQLWriter) {
 	writer.Write(t.Name)
 	writer.Write("(")
 	for i, arg := range t.Arguments {
@@ -591,7 +569,6 @@ func (t *TableFunction) WriteSql(writer *SQLWriter) error {
 		arg.WriteSql(writer)
 	}
 	writer.Write(")")
-	return nil
 }
 
 // OrderByItem represents items in ORDER BY clause
@@ -601,7 +578,7 @@ type OrderByItem struct {
 	NullsOrder string // NULLS FIRST, NULLS LAST
 }
 
-func (o *OrderByItem) WriteSql(writer *SQLWriter) error {
+func (o *OrderByItem) WriteSql(writer *SQLWriter) {
 	o.Expression.WriteSql(writer)
 	if o.Direction != "" {
 		writer.Write(" ")
@@ -611,7 +588,6 @@ func (o *OrderByItem) WriteSql(writer *SQLWriter) error {
 		writer.Write(" ")
 		writer.Write(o.NullsOrder)
 	}
-	return nil
 }
 
 func (o *OrderByItem) String() string {
@@ -636,7 +612,7 @@ func (w *WithClause) String() string {
 	return writer.String()
 }
 
-func (w *WithClause) WriteSql(writer *SQLWriter) error {
+func (w *WithClause) WriteSql(writer *SQLWriter) {
 	writer.Write("`" + w.Name + "`")
 	if len(w.Columns) > 0 {
 		writer.Write(" (")
@@ -656,7 +632,6 @@ func (w *WithClause) WriteSql(writer *SQLWriter) error {
 	}
 	writer.Dedent()
 	writer.WriteLine(")")
-	return nil
 }
 
 // SetOperation represents UNION, INTERSECT, EXCEPT operations
@@ -673,7 +648,7 @@ func (s *SetOperation) String() string {
 	return writer.String()
 }
 
-func (s *SetOperation) WriteSql(writer *SQLWriter) error {
+func (s *SetOperation) WriteSql(writer *SQLWriter) {
 	for i := 0; i < len(s.Items); i++ {
 		s.Items[i].WriteSql(writer)
 		if i != len(s.Items)-1 {
@@ -686,7 +661,6 @@ func (s *SetOperation) WriteSql(writer *SQLWriter) error {
 			writer.WriteLine("")
 		}
 	}
-	return nil
 }
 
 // SelectStatement represents the main SELECT statement structure
@@ -730,7 +704,7 @@ type LimitClause struct {
 	Offset *SQLExpression
 }
 
-func (s *SelectStatement) WriteSql(writer *SQLWriter) error {
+func (s *SelectStatement) WriteSql(writer *SQLWriter) {
 	// WITH clause
 	if len(s.WithClauses) > 0 {
 		writer.Write("WITH ")
@@ -838,7 +812,6 @@ func (s *SelectStatement) WriteSql(writer *SQLWriter) error {
 		}
 	}
 
-	return nil
 }
 
 func (s *SelectStatement) String() string {
@@ -848,7 +821,7 @@ func (s *SelectStatement) String() string {
 }
 
 // CreateTableStatement WriteSql implementation
-func (s *CreateTableStatement) WriteSql(writer *SQLWriter) error {
+func (s *CreateTableStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("CREATE TABLE")
 	if s.IfNotExists {
 		writer.Write(" IF NOT EXISTS")
@@ -858,7 +831,8 @@ func (s *CreateTableStatement) WriteSql(writer *SQLWriter) error {
 
 	if s.AsSelect != nil {
 		writer.Write(" AS ")
-		return s.AsSelect.WriteSql(writer)
+		s.AsSelect.WriteSql(writer)
+		return
 	}
 
 	writer.Write(" (")
@@ -874,7 +848,6 @@ func (s *CreateTableStatement) WriteSql(writer *SQLWriter) error {
 	writer.Dedent()
 	writer.WriteLine("")
 	writer.Write(")")
-	return nil
 }
 
 func (s *CreateTableStatement) String() string {
@@ -884,7 +857,7 @@ func (s *CreateTableStatement) String() string {
 }
 
 // ColumnDefinition WriteSql implementation
-func (c *ColumnDefinition) WriteSql(writer *SQLWriter) error {
+func (c *ColumnDefinition) WriteSql(writer *SQLWriter) {
 	writer.Write("`" + c.Name + "`")
 	writer.Write(" ")
 	writer.Write(c.Type)
@@ -898,7 +871,6 @@ func (c *ColumnDefinition) WriteSql(writer *SQLWriter) error {
 		writer.Write(" DEFAULT ")
 		c.DefaultValue.WriteSql(writer)
 	}
-	return nil
 }
 
 func (c *ColumnDefinition) String() string {
@@ -908,15 +880,13 @@ func (c *ColumnDefinition) String() string {
 }
 
 // CreateViewStatement WriteSql implementation
-func (s *CreateViewStatement) WriteSql(writer *SQLWriter) error {
+func (s *CreateViewStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("CREATE VIEW")
 	if s.IfNotExists {
 		writer.Write(" IF NOT EXISTS")
 	}
-	writer.Write(" ")
-	writer.Write("`" + s.ViewName + "`")
-	writer.Write(" AS ")
-	return s.Query.WriteSql(writer)
+	writer.Write(" `" + s.ViewName + "` AS ")
+	s.Query.WriteSql(writer)
 }
 
 func (s *CreateViewStatement) String() string {
@@ -926,7 +896,7 @@ func (s *CreateViewStatement) String() string {
 }
 
 // CreateFunctionStatement WriteSql implementation
-func (s *CreateFunctionStatement) WriteSql(writer *SQLWriter) error {
+func (s *CreateFunctionStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("CREATE FUNCTION")
 	if s.IfNotExists {
 		writer.Write(" IF NOT EXISTS")
@@ -953,7 +923,6 @@ func (s *CreateFunctionStatement) WriteSql(writer *SQLWriter) error {
 		writer.Write(" AS ")
 		writer.Write(s.Code)
 	}
-	return nil
 }
 
 func (s *CreateFunctionStatement) String() string {
@@ -963,11 +932,10 @@ func (s *CreateFunctionStatement) String() string {
 }
 
 // ParameterDefinition WriteSql implementation
-func (p *ParameterDefinition) WriteSql(writer *SQLWriter) error {
+func (p *ParameterDefinition) WriteSql(writer *SQLWriter) {
 	writer.Write("`" + p.Name + "`")
 	writer.Write(" ")
 	writer.Write(p.Type)
-	return nil
 }
 
 func (p *ParameterDefinition) String() string {
@@ -977,7 +945,7 @@ func (p *ParameterDefinition) String() string {
 }
 
 // DropStatement WriteSql implementation
-func (s *DropStatement) WriteSql(writer *SQLWriter) error {
+func (s *DropStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("DROP ")
 	writer.Write(s.ObjectType)
 	if s.IfExists {
@@ -985,7 +953,6 @@ func (s *DropStatement) WriteSql(writer *SQLWriter) error {
 	}
 	writer.Write(" ")
 	writer.Write("`" + s.ObjectName + "`")
-	return nil
 }
 
 func (s *DropStatement) String() string {
@@ -995,10 +962,9 @@ func (s *DropStatement) String() string {
 }
 
 // TruncateStatement WriteSql implementation
-func (s *TruncateStatement) WriteSql(writer *SQLWriter) error {
+func (s *TruncateStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("TRUNCATE TABLE ")
 	writer.Write("`" + s.TableName + "`")
-	return nil
 }
 
 func (s *TruncateStatement) String() string {
@@ -1008,10 +974,10 @@ func (s *TruncateStatement) String() string {
 }
 
 // SetItem WriteSql implementation
-func (s *SetItem) WriteSql(writer *SQLWriter) error {
+func (s *SetItem) WriteSql(writer *SQLWriter) {
 	s.Column.WriteSql(writer)
 	writer.Write(" = ")
-	return s.Value.WriteSql(writer)
+	s.Value.WriteSql(writer)
 }
 
 func (s *SetItem) String() string {
@@ -1211,14 +1177,13 @@ func (d *DeleteStatement) String() string {
 	return strings.TrimSpace(writer.String())
 }
 
-func (d *DeleteStatement) WriteSql(writer *SQLWriter) error {
+func (d *DeleteStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("DELETE FROM ")
 	d.Table.WriteSql(writer)
 	if d.WhereExpr != nil {
 		writer.Write(" WHERE ")
 		writer.Write(d.WhereExpr.String())
 	}
-	return nil
 }
 
 type InsertStatement struct {
@@ -1234,7 +1199,7 @@ func (d *InsertStatement) String() string {
 	return strings.TrimSpace(writer.String())
 }
 
-func (d *InsertStatement) WriteSql(writer *SQLWriter) error {
+func (d *InsertStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("INSERT INTO ")
 	writer.WriteLine("`" + d.TableName + "`")
 	writer.WriteLine(" (" + strings.Join(d.Columns, ", ") + ") ")
@@ -1249,10 +1214,7 @@ func (d *InsertStatement) WriteSql(writer *SQLWriter) error {
 				writer.Write(",")
 			}
 		}
-	} else {
-		return fmt.Errorf("expected either Query or Rows in InsertStatement.WriteSql")
 	}
-	return nil
 }
 
 type DropStatement struct {
@@ -1272,7 +1234,7 @@ type UpdateStatement struct {
 	WhereClause *SQLExpression
 }
 
-func (u *UpdateStatement) WriteSql(writer *SQLWriter) error {
+func (u *UpdateStatement) WriteSql(writer *SQLWriter) {
 	writer.Write("UPDATE ")
 	u.Table.WriteSql(writer)
 	writer.Write(" SET ")
@@ -1290,7 +1252,6 @@ func (u *UpdateStatement) WriteSql(writer *SQLWriter) error {
 		writer.Write(" WHERE ")
 		u.WhereClause.WriteSql(writer)
 	}
-	return nil
 }
 
 func (u *UpdateStatement) String() string {
@@ -1323,14 +1284,13 @@ func (c *CompoundSQLFragment) String() string {
 }
 
 // WriteSql writes the compound fragment to a SQL writer
-func (c *CompoundSQLFragment) WriteSql(writer *SQLWriter) error {
+func (c *CompoundSQLFragment) WriteSql(writer *SQLWriter) {
 	for i, stmt := range c.statements {
 		if i > 0 {
 			writer.Write(";\n")
 		}
 		writer.Write(stmt)
 	}
-	return nil
 }
 
 // GetStatements returns the individual statements in the compound fragment

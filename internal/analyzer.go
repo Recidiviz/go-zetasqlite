@@ -255,7 +255,7 @@ func (a *Analyzer) analyzeTemplatedFunctionWithRuntimeArgument(ctx context.Conte
 	node := out.Statement()
 	stmt, ok := node.(*ast.CreateFunctionStmtNode)
 	if !ok {
-		return nil, fmt.Errorf("unexpected create function querybuilder %s", query)
+		return nil, fmt.Errorf("unexpected create function query %s", query)
 	}
 	spec, err := newFunctionSpec(ctx, a.namePath, stmt)
 	if err != nil {

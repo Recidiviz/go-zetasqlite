@@ -68,9 +68,7 @@ func (t *SetOperationScanTransformer) Transform(data ScanData, ctx TransformCont
 
 	// Move all WITH queries from items to top-level
 	for _, item := range setOperation.Items {
-		for _, withClause := range item.WithClauses {
-			setStatement.WithClauses = append(setStatement.WithClauses, withClause)
-		}
+		setStatement.WithClauses = append(setStatement.WithClauses, item.WithClauses...)
 		item.WithClauses = item.WithClauses[:0] // Clear the WITH clauses from the items
 	}
 

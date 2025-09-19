@@ -308,15 +308,6 @@ func (t *MergeStmtTransformer) transformUpdateAction(whenClause *MergeWhenClause
 	), nil
 }
 
-// transformDeleteAction transforms a DELETE action within a WHEN clause
-func (t *MergeStmtTransformer) transformDeleteAction(targetTableName, whereStmt string) string {
-	return fmt.Sprintf(
-		"DELETE FROM `%s` %s",
-		targetTableName,
-		whereStmt,
-	)
-}
-
 // CreateMergedTableStatement creates a CREATE TABLE AS SELECT statement using the merged table pattern
 // for MERGE operations with distinct column naming. This generates the SQL pattern:
 // CREATE TABLE tableName AS SELECT DISTINCT sourceCol1 AS merged_sourceCol1, targetCol1 AS merged_targetCol1, ... FROM (

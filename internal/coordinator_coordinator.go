@@ -24,7 +24,6 @@ type QueryCoordinator struct {
 	deleteStmtTransformer              StatementTransformer
 	createViewStmtTransformer          StatementTransformer
 	createTableAsSelectStmtTransformer StatementTransformer
-	createFunctionStmtTransformer      StatementTransformer
 	dropStmtTransformer                StatementTransformer
 	mergeStmtTransformer               StatementTransformer
 
@@ -260,7 +259,6 @@ func (c *QueryCoordinator) TransformScan(scanData ScanData, ctx TransformContext
 		alias = "with_ref_scan"
 		fromItem, err = c.withRefScanTransformer.Transform(scanData, ctx)
 	case ScanTypeWithEntry:
-		alias = "with_entry_scan"
 		// WithEntry is handled specially - return early
 		return nil, fmt.Errorf("WithEntry scans should use TransformWithEntry method")
 	case ScanTypeArray:

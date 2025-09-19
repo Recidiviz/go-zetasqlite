@@ -77,12 +77,6 @@ func (t *LimitScanTransformer) addLimitToSelect(selectStmt *SelectStatement, lim
 	}, nil
 }
 
-// createSelectWithLimit creates a new SELECT statement with LIMIT for simple table references
-func (t *LimitScanTransformer) createSelectWithLimit(fromItem *FromItem, limitData *LimitScanData, ctx TransformContext) (*FromItem, error) {
-	// Add the limit clause
-	return t.addLimitToSelect(NewSelectStarStatement(fromItem), limitData, ctx)
-}
-
 // wrapInSubqueryWithLimit wraps complex from items in a subquery with LIMIT
 func (t *LimitScanTransformer) wrapInSubqueryWithLimit(fromItem *FromItem, limitData *LimitScanData, ctx TransformContext) (*FromItem, error) {
 	// Create SELECT * FROM (complex_query) LIMIT count OFFSET offset

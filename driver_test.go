@@ -232,6 +232,9 @@ CREATE TABLE IF NOT EXISTS Singers (
 
 	t.Run("create table/view in dataset (with hyphens)", func(t *testing.T) {
 		db, err := sql.Open("zetasqlite", ":memory:")
+		if err != nil {
+			t.Fatal(err)
+		}
 		ctx := context.Background()
 		conn, err := db.Conn(context.Background())
 		if err != nil {
@@ -242,7 +245,9 @@ CREATE TABLE IF NOT EXISTS Singers (
 			if !ok {
 				return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
 			}
-			zetasqliteConn.SetNamePath([]string{"project-hyphens", "dataset-with-hyphens"})
+			if err := zetasqliteConn.SetNamePath([]string{"project-hyphens", "dataset-with-hyphens"}); err != nil {
+				return err
+			}
 			const maxNamePath = 3 // projectID and datasetID and tableID
 			zetasqliteConn.SetMaxNamePath(maxNamePath)
 			return nil

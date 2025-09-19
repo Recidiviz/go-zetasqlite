@@ -52,10 +52,10 @@ func (f *QueryTransformFactory) CreateTransformContext(ctx context.Context) Tran
 func (f *QueryTransformFactory) TransformQuery(ctx context.Context, queryNode ast.Node) (*TransformResult, error) {
 	transformCtx := f.CreateTransformContext(ctx)
 
-	// Transform the querybuilder
+	// Transform the query
 	fragment, err := f.coordinator.TransformStatementNode(queryNode, transformCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to transform querybuilder: %w", err)
+		return nil, fmt.Errorf("failed to transform query: %w", err)
 	}
 
 	result := NewTransformResult(fragment)
