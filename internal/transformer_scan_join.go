@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	ast "github.com/goccy/go-zetasql/resolved_ast"
 )
 
 // JoinScanTransformer handles JOIN scan transformations from ZetaSQL to SQLite.
@@ -81,4 +82,19 @@ func (t *JoinScanTransformer) Transform(data ScanData, ctx TransformContext) (*F
 		Type:     FromItemTypeSubquery,
 		Subquery: selectStatement,
 	}, nil
+}
+
+func convertJoinType(joinType ast.JoinType) JoinType {
+	switch joinType {
+	case ast.JoinTypeInner:
+		return JoinTypeInner
+	case ast.JoinTypeLeft:
+		return JoinTypeLeft
+	case ast.JoinTypeRight:
+		return JoinTypeRight
+	case ast.JoinTypeFull:
+		return JoinTypeFull
+	default:
+		return JoinTypeInner
+	}
 }

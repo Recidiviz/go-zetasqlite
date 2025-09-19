@@ -3,9 +3,8 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
-
 	ast "github.com/goccy/go-zetasql/resolved_ast"
+	"sync"
 )
 
 // QueryCoordinator orchestrates the transformation process by delegating to appropriate transformers
@@ -23,7 +22,6 @@ type QueryCoordinator struct {
 	insertStmtTransformer              StatementTransformer
 	updateStmtTransformer              StatementTransformer
 	deleteStmtTransformer              StatementTransformer
-	createTableStmtTransformer         StatementTransformer
 	createViewStmtTransformer          StatementTransformer
 	createTableAsSelectStmtTransformer StatementTransformer
 	createFunctionStmtTransformer      StatementTransformer
@@ -195,6 +193,11 @@ func (c *QueryCoordinator) TransformStatement(stmtData StatementData, ctx Transf
 		// For CREATE statements, dispatch based on create type
 		if stmtData.Create != nil {
 			switch stmtData.Create.Type {
+			case CreateTypeTable:
+				if stmtData.Create.Table.AsSelect != nil {
+					return c.createTableAsSelectStmtTransformer.Transform(stmtData, ctx)
+				}
+				return nil, fmt.Errorf("unsupported CREATE TABLE statement")
 			case CreateTypeView:
 				return c.createViewStmtTransformer.Transform(stmtData, ctx)
 			// CREATE TABLE and CREATE VIEW are handled separately

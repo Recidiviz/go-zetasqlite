@@ -38,10 +38,12 @@ func (t *WithRefScanTransformer) Transform(data ScanData, ctx TransformContext) 
 	withRefScanData := data.WithRefScan
 
 	// Create a SELECT statement that references the WITH query by name
+	tableAlias := fmt.Sprintf("wrs%s", ctx.FragmentContext().GetID())
 	selectStatement := NewSelectStatement()
 	selectStatement.FromClause = &FromItem{
 		Type:      FromItemTypeTable,
 		TableName: withRefScanData.WithQueryName,
+		Alias:     tableAlias,
 	}
 	selectStatement.SelectList = []*SelectListItem{}
 
@@ -60,7 +62,7 @@ func (t *WithRefScanTransformer) Transform(data ScanData, ctx TransformContext) 
 
 		selectStatement.SelectList = append(selectStatement.SelectList,
 			&SelectListItem{
-				Expression: NewColumnExpression(mapping[i], withRefScanData.WithQueryName),
+				Expression: NewColumnExpression(mapping[i], tableAlias),
 				Alias:      alias,
 			},
 		)

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
 	"github.com/goccy/go-zetasql/types"
 	"strings"
 )
@@ -74,7 +73,6 @@ const (
 	ExpressionTypeParameter
 	ExpressionTypeFunction
 	ExpressionTypeBinary
-	ExpressionTypeUnary
 	ExpressionTypeSubquery
 	ExpressionTypeStar
 	ExpressionTypeCase
@@ -625,9 +623,10 @@ func (o *OrderByItem) String() string {
 
 // WithClause represents CTE (Common Table Expression) definitions
 type WithClause struct {
-	Name    string
-	Columns []string
-	Query   *SelectStatement
+	Name         string
+	Materialized bool
+	Columns      []string
+	Query        *SelectStatement
 }
 
 func (w *WithClause) String() string {
@@ -649,7 +648,7 @@ func (w *WithClause) WriteSql(writer *SQLWriter) error {
 		}
 		writer.Write(")")
 	}
-	writer.Write(" AS (")
+	writer.Write(" AS MATERIALIZED 	(")
 	writer.WriteLine("")
 	writer.Indent()
 	if w.Query != nil {
@@ -1045,9 +1044,8 @@ func NewSelectStarStatement(from *FromItem) *SelectStatement {
 // NewColumnExpression creates a new column reference expression
 func NewColumnExpression(column string, tableAlias ...string) *SQLExpression {
 	expr := &SQLExpression{
-		Type:      ExpressionTypeColumn,
-		Value:     column,
-		Collation: "zetasqlite_collate",
+		Type:  ExpressionTypeColumn,
+		Value: column,
 	}
 	if len(tableAlias) > 0 {
 		expr.TableAlias = tableAlias[0]
@@ -1059,22 +1057,6 @@ func NewColumnExpression(column string, tableAlias ...string) *SQLExpression {
 func NewStarExpression(tableAlias ...string) *SQLExpression {
 	expr := &SQLExpression{
 		Type: ExpressionTypeStar,
-	}
-	if len(tableAlias) > 0 {
-		expr.TableAlias = tableAlias[0]
-	}
-	return expr
-}
-
-func GetUniqueColumnName(column *ast.Column) string {
-	return fmt.Sprintf("%s__%d", column.Name(), column.ColumnID())
-}
-
-// NewUniqueColumnExpression creates a new unique column reference expression
-func NewUniqueColumnExpression(column *ast.Column, tableAlias ...string) *SQLExpression {
-	expr := &SQLExpression{
-		Type:  ExpressionTypeColumn,
-		Value: GetUniqueColumnName(column),
 	}
 	if len(tableAlias) > 0 {
 		expr.TableAlias = tableAlias[0]
@@ -1146,26 +1128,6 @@ func NewSimpleCaseExpression(caseExpr *SQLExpression, whenClauses []*WhenClause,
 			ElseExpr:    elseExpr,
 		},
 	}
-}
-
-// NewWhenClause creates a new WHEN clause for CASE expressions
-func NewWhenClause(condition *SQLExpression, result *SQLExpression) *WhenClause {
-	return &WhenClause{
-		Condition: condition,
-		Result:    result,
-	}
-}
-
-// NewTableFromItem creates a table FROM item
-func NewTableFromItem(tableName string, alias ...string) *FromItem {
-	item := &FromItem{
-		Type:      FromItemTypeTable,
-		TableName: tableName,
-	}
-	if len(alias) > 0 {
-		item.Alias = alias[0]
-	}
-	return item
 }
 
 // NewSubqueryFromItem creates a subquery FROM item
@@ -1374,226 +1336,4 @@ func (c *CompoundSQLFragment) WriteSql(writer *SQLWriter) error {
 // GetStatements returns the individual statements in the compound fragment
 func (c *CompoundSQLFragment) GetStatements() []string {
 	return c.statements
-}
-
-type ScopeInfo struct {
-	ResolvedColumns map[string]*ColumnInfo
-}
-
-// FragmentContext stores contextual information during AST traversal
-type FragmentContext struct {
-	// Current scope information
-	TableAliases map[string]string
-	CurrentScope *ScopeInfo
-
-	// Symbol management
-	AliasGenerator *AliasGenerator
-
-	// Stack for nested contexts (subqueries, CTEs)
-	scopeStack []*ScopeInfo
-
-	WithEntries map[string]map[string]string
-
-	// Testing instrumentation (optional)
-	OnPushScope     func(scopeType string, stackDepth int)
-	OnPopScope      func(alias string, stackDepth int)
-	ResolvedColumns map[string]*ColumnInfo
-}
-
-// NodeID represents a unique identifier for AST nodes based on path in the AST
-type NodeID string
-
-// ColumnInfo stores metadata about available columns
-type ColumnInfo struct {
-	Name         string
-	Type         string
-	TableAlias   string
-	Expression   *SQLExpression
-	ID           int
-	IsAggregated bool
-	ColumnID     string `json:"column_id,omitempty"` // Full column identifier like "A.id#1"
-}
-
-func (i ColumnInfo) Clone() *ColumnInfo {
-	return &ColumnInfo{
-		Name:         i.Name,
-		Type:         i.Type,
-		TableAlias:   i.TableAlias,
-		Expression:   i.Expression,
-		ID:           i.ID,
-		IsAggregated: i.IsAggregated,
-	}
-}
-
-// AliasGenerator creates unique aliases for tables and columns
-type AliasGenerator struct {
-	usedAliases     map[string]bool
-	tableCounter    int
-	columnCounter   int
-	subqueryCounter int
-}
-
-// FragmentStorage implements the main storage mechanism
-type FragmentStorage struct {
-	context *FragmentContext
-}
-
-func NewFragmentContext() *FragmentContext {
-	return &FragmentContext{
-		TableAliases:    make(map[string]string),
-		WithEntries:     make(map[string]map[string]string),
-		ResolvedColumns: make(map[string]*ColumnInfo),
-		AliasGenerator:  NewAliasGenerator(),
-	}
-}
-
-func NewAliasGenerator() *AliasGenerator {
-	return &AliasGenerator{
-		usedAliases: make(map[string]bool),
-	}
-}
-
-// Scope management methods
-
-func (fc *FragmentContext) UseScope(scopeType string) func() {
-	newScope := &ScopeInfo{
-		ResolvedColumns: make(map[string]*ColumnInfo),
-	}
-	fc.scopeStack = append(fc.scopeStack, newScope)
-	fc.CurrentScope = newScope
-	return func() {
-		fc.PopScope(scopeType)
-	}
-}
-
-func (fc *FragmentContext) OpenScope(scopeType string, columns []*ast.Column) ScopeInfo {
-	fc.PushScope(scopeType)
-	for _, column := range columns {
-		fc.AddAvailableColumn(column, &ColumnInfo{
-			Name: column.Name(),
-			Type: column.Type().Kind().String(),
-		})
-	}
-	return *fc.CurrentScope
-}
-
-func (fc *FragmentContext) PushScope(scopeType string) {
-	newScope := &ScopeInfo{
-		ResolvedColumns: make(map[string]*ColumnInfo),
-	}
-	fc.scopeStack = append(fc.scopeStack, newScope)
-	fc.CurrentScope = newScope
-
-	if fc.OnPushScope != nil {
-		fc.OnPushScope(scopeType, len(fc.scopeStack))
-	}
-}
-
-func (fc *FragmentContext) PopScope(alias string) *ScopeInfo {
-	if len(fc.scopeStack) == 0 {
-		return nil
-	}
-
-	currentScope := fc.CurrentScope
-	fc.scopeStack = fc.scopeStack[:len(fc.scopeStack)-1]
-
-	if len(fc.scopeStack) > 0 {
-		fc.CurrentScope = fc.scopeStack[len(fc.scopeStack)-1]
-	} else {
-		fc.CurrentScope = nil
-	}
-
-	// Push resolved columns to the latest scope
-	if currentScope != nil {
-		for key, column := range currentScope.ResolvedColumns {
-			column = column.Clone()
-			// All references must use the generated table alias
-			column.TableAlias = alias
-
-			// Once a scope has been finalized, the column is no longer available to be inlined as a direct expression
-			// It must be referenced as a column
-			column.Expression = nil
-			fc.ResolvedColumns[key] = column
-		}
-	}
-
-	if fc.OnPopScope != nil {
-		fc.OnPopScope(alias, len(fc.scopeStack))
-	}
-
-	return currentScope
-}
-
-// Column management methods
-func (fc *FragmentContext) AddAvailableColumn(column *ast.Column, info *ColumnInfo) {
-	name := GetUniqueColumnName(column)
-	info.ID = column.ColumnID()
-	info.Name = generateIDBasedAlias(info.Name, info.ID)
-	info.TableAlias = name
-	fc.ResolvedColumns[name] = info
-	if fc.CurrentScope != nil {
-		fc.CurrentScope.ResolvedColumns[name] = info
-	}
-}
-
-func (fc *FragmentContext) GetColumnExpression(column *ast.Column) *SQLExpression {
-	columnID := GetUniqueColumnName(column)
-	columnInfo, exists := fc.ResolvedColumns[columnID]
-	if exists {
-		if columnInfo.Expression != nil {
-			return columnInfo.Expression
-		}
-
-		return NewColumnExpression(columnInfo.Name, columnInfo.TableAlias)
-	}
-	// All columns are expected to be visited before being referenced
-	// Panic when we don't have a reference to this column
-	panic(fmt.Sprintf("column not found in current scope: %s", columnID))
-}
-
-func (fc *FragmentContext) AddWithEntryColumnMapping(name string, columns []*ast.Column) {
-	mapping := make(map[string]string)
-	for _, column := range columns {
-		mapping[column.Name()] = generateIDBasedAlias(column.Name(), column.ColumnID())
-	}
-	fc.WithEntries[name] = mapping
-}
-
-func (fc *FragmentContext) FilterScope(scopeType string, list []*ast.Column) {
-	scope := fc.PopScope(scopeType)
-	previous := scope.ResolvedColumns
-	scope.ResolvedColumns = make(map[string]*ColumnInfo)
-
-	for _, column := range list {
-		columnID := GetUniqueColumnName(column)
-		if column, exists := previous[columnID]; exists {
-			column.Expression = nil
-			scope.ResolvedColumns[columnID] = column
-		}
-	}
-	fc.PushScope(scopeType)
-}
-
-// Alias generation methods
-
-func (ag *AliasGenerator) GenerateTableAlias() string {
-	ag.tableCounter++
-	alias := fmt.Sprintf("t%d", ag.tableCounter)
-	for ag.usedAliases[alias] {
-		ag.tableCounter++
-		alias = fmt.Sprintf("t%d", ag.tableCounter)
-	}
-	ag.usedAliases[alias] = true
-	return alias
-}
-
-func (ag *AliasGenerator) GenerateSubqueryAlias() string {
-	ag.subqueryCounter++
-	alias := fmt.Sprintf("subquery%d", ag.subqueryCounter)
-	for ag.usedAliases[alias] {
-		ag.subqueryCounter++
-		alias = fmt.Sprintf("subquery%d", ag.subqueryCounter)
-	}
-	ag.usedAliases[alias] = true
-	return alias
 }

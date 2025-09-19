@@ -79,8 +79,7 @@ func (t *AnalyticScanTransformer) Transform(data ScanData, ctx TransformContext)
 			// Use pre-transformed function expression
 			expr = transformedFunctions[col.ID]
 		} else {
-			name, table := ctx.FragmentContext().GetQualifiedColumnRef(col.ID)
-			expr = NewColumnExpression(name, table)
+			expr = ctx.FragmentContext().GetQualifiedColumnExpression(col.ID)
 		}
 
 		// Create select list item

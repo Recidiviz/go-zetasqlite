@@ -71,36 +71,22 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 		if len(args) != 2 {
 			return nil, fmt.Errorf("zetasqlite_ifnull requires exactly 2 arguments")
 		}
-		return &SQLExpression{
-			Type: ExpressionTypeCase,
-			CaseExpression: &CaseExpression{
-				WhenClauses: []*WhenClause{
-					{
-						Condition: NewBinaryExpression(args[0], "IS", NewLiteralExpression("NULL")),
-						Result:    args[1],
-					},
+		return NewCaseExpression(
+			[]*WhenClause{
+				{
+					Condition: NewBinaryExpression(args[0], "IS", NewLiteralExpression("NULL")),
+					Result:    args[1],
 				},
-				ElseExpr: args[0],
 			},
-		}, nil
+			args[0],
+		), nil
 
 	case "zetasqlite_if":
 		// Convert to CASE expression: IF(condition, then_result, else_result) => CASE WHEN condition THEN then_result ELSE else_result END
 		if len(args) != 3 {
 			return nil, fmt.Errorf("zetasqlite_if requires exactly 3 arguments")
 		}
-		return &SQLExpression{
-			Type: ExpressionTypeCase,
-			CaseExpression: &CaseExpression{
-				WhenClauses: []*WhenClause{
-					{
-						Condition: args[0],
-						Result:    args[1],
-					},
-				},
-				ElseExpr: args[2],
-			},
-		}, nil
+		return NewCaseExpression([]*WhenClause{{Condition: args[0], Result: args[1]}}, args[2]), nil
 
 	case "zetasqlite_case_no_value":
 		// Convert to CASE expression: arguments are condition, result, condition, result, ..., [else]
@@ -116,13 +102,7 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 		if len(args) > (len(args)/2)*2 {
 			elseExpr = args[len(args)-1]
 		}
-		return &SQLExpression{
-			Type: ExpressionTypeCase,
-			CaseExpression: &CaseExpression{
-				WhenClauses: whenClauses,
-				ElseExpr:    elseExpr,
-			},
-		}, nil
+		return NewCaseExpression(whenClauses, elseExpr), nil
 
 	case "zetasqlite_case_with_value":
 		// Convert to CASE expression with value: first arg is value, then condition, result, condition, result, ..., [else]
@@ -145,14 +125,7 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 		if len(remainingArgs) > (len(remainingArgs)/2)*2 {
 			elseExpr = remainingArgs[len(remainingArgs)-1]
 		}
-		return &SQLExpression{
-			Type: ExpressionTypeCase,
-			CaseExpression: &CaseExpression{
-				CaseExpr:    valueExpr,
-				WhenClauses: whenClauses,
-				ElseExpr:    elseExpr,
-			},
-		}, nil
+		return NewSimpleCaseExpression(valueExpr, whenClauses, elseExpr), nil
 
 	default:
 		var windowSpec *WindowSpecification

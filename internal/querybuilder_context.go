@@ -66,6 +66,15 @@ func (c *DefaultTransformContext) GetWithEntryMapping(name string) []string {
 	return nil
 }
 
+// ColumnInfo stores metadata about available columns
+type ColumnInfo struct {
+	Name       string
+	Type       string
+	TableAlias string
+	Expression *SQLExpression
+	ID         int
+}
+
 // DefaultFragmentContext provides fragment context functionality
 type DefaultFragmentContext struct {
 	mu               sync.RWMutex
@@ -190,8 +199,8 @@ func (fc *DefaultFragmentContext) GetQualifiedColumnRef(columnID int) (string, s
 }
 
 func (fc *DefaultFragmentContext) GetQualifiedColumnExpression(columnID int) *SQLExpression {
-	name, table := fc.GetQualifiedColumnRef(columnID)
-	return NewColumnExpression(name, table)
+	name, _ := fc.GetQualifiedColumnRef(columnID)
+	return NewColumnExpression(name)
 }
 
 // RegisterColumnScope registers a mapping from column ID to scope alias
@@ -214,6 +223,11 @@ func (fc *DefaultFragmentContext) RegisterColumnScopeMapping(scopeAlias string, 
 			ID:   col.ID,
 		}
 	}
+}
+
+// generateIDBasedAlias creates a unique column alias using the column ID
+func generateIDBasedAlias(columnName string, columnID int) string {
+	return fmt.Sprintf("%s__%d", columnName, columnID)
 }
 
 // DefaultScopeToken implements ScopeToken

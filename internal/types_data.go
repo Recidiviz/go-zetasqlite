@@ -410,7 +410,6 @@ type CreateType int
 const (
 	CreateTypeTable CreateType = iota
 	CreateTypeView
-	CreateTypeFunction
 )
 
 // CreateTableData represents CREATE TABLE data

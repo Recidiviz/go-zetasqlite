@@ -35,11 +35,5 @@ func (t *ColumnRefTransformer) Transform(data ExpressionData, ctx TransformConte
 	}
 
 	columnData := data.Column
-	columnName, tableAlias := ctx.FragmentContext().GetQualifiedColumnRef(columnData.ColumnID)
-
-	return &SQLExpression{
-		Type:       ExpressionTypeColumn,
-		Value:      columnName,
-		TableAlias: tableAlias,
-	}, nil
+	return ctx.FragmentContext().GetQualifiedColumnExpression(columnData.ColumnID), nil
 }

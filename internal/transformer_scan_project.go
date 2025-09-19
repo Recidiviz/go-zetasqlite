@@ -108,8 +108,3 @@ func (t *ProjectScanTransformer) Transform(data ScanData, ctx TransformContext) 
 		Subquery: selectStmt,
 	}, nil
 }
-
-// generateIDBasedAlias creates a unique column alias using the column ID
-func generateIDBasedAlias(columnName string, columnID int) string {
-	return fmt.Sprintf("%s__id_%d", columnName, columnID)
-}

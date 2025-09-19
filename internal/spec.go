@@ -521,11 +521,17 @@ func newTemplatedFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast
 	funcExpr := stmt.FunctionExpression()
 	var body *SQLExpression
 	if funcExpr != nil {
-		bodyQuery, err := NewSQLBuilderVisitor(ctx).VisitExpression(funcExpr)
+		transformContext := GetGlobalQueryTransformFactory().CreateTransformContext(ctx)
+		extractor := NewNodeExtractor()
+		funcExprData, err := extractor.ExtractExpressionData(funcExpr, transformContext)
 		if err != nil {
 			return nil, fmt.Errorf("failed to format function expression: %w", err)
 		}
-		body = bodyQuery.(*SQLExpression)
+		bodyExpr, err := GetGlobalCoordinator().TransformExpression(funcExprData, transformContext)
+		if err != nil {
+			return nil, fmt.Errorf("failed to format function expression: %w", err)
+		}
+		body = bodyExpr
 	}
 	now := time.Now()
 	return &FunctionSpec{

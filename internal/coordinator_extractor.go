@@ -3,7 +3,9 @@ package internal
 import (
 	"context"
 	"fmt"
+	parsed_ast "github.com/goccy/go-zetasql/ast"
 	ast "github.com/goccy/go-zetasql/resolved_ast"
+	"strings"
 )
 
 // extractColumnData converts an ast.Column to ColumnData for JSON serialization
@@ -107,6 +109,77 @@ func (e *NodeExtractor) extractLiteralData(node *ast.LiteralNode, ctx TransformC
 			TypeName: typeName,
 		},
 	}, nil
+}
+
+func getFuncName(ctx context.Context, n ast.Node) (string, error) {
+	nodeMap := nodeMapFromContext(ctx)
+	found := nodeMap.FindNodeFromResolvedNode(n)
+	if len(found) == 0 {
+		return "", fmt.Errorf("failed to find path node from function node %T", n)
+	}
+	var foundCallNode *parsed_ast.FunctionCallNode
+	for _, node := range found {
+		fcallNode, ok := node.(*parsed_ast.FunctionCallNode)
+		if !ok {
+			continue
+		}
+		foundCallNode = fcallNode
+		break
+	}
+	if foundCallNode == nil {
+		return "", fmt.Errorf("failed to find function call node from %T", n)
+	}
+	path, err := getPathFromNode(foundCallNode.Function())
+	if err != nil {
+		return "", fmt.Errorf("failed to find path: %w", err)
+	}
+	namePath := namePathFromContext(ctx)
+	return namePath.format(path), nil
+}
+
+func getZetasqliteFuncName(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, error) {
+	funcName := node.Function().FullName(false)
+	funcName = strings.Replace(funcName, ".", "_", -1)
+
+	_, existsCurrentTimeFunc := currentTimeFuncMap[funcName]
+	_, existsNormalFunc := normalFuncMap[funcName]
+	_, existsAggregateFunc := aggregateFuncMap[funcName]
+	_, existsWindowFunc := windowFuncMap[funcName]
+
+	funcPrefix := "zetasqlite"
+	if node.ErrorMode() == ast.SafeErrorMode {
+		if !existsNormalFunc {
+			return "", fmt.Errorf("SAFE is not supported for function %s", funcName)
+		}
+		funcPrefix = "zetasqlite_safe"
+	}
+
+	if strings.HasPrefix(funcName, "$") {
+		if isWindowFunc {
+			funcName = fmt.Sprintf("%s_window_%s", funcPrefix, funcName[1:])
+		} else {
+			funcName = fmt.Sprintf("%s_%s", funcPrefix, funcName[1:])
+		}
+	} else if existsCurrentTimeFunc {
+		funcName = fmt.Sprintf("%s_%s", funcPrefix, funcName)
+	} else if existsNormalFunc {
+		funcName = fmt.Sprintf("%s_%s", funcPrefix, funcName)
+	} else if !isWindowFunc && existsAggregateFunc {
+		funcName = fmt.Sprintf("%s_%s", funcPrefix, funcName)
+	} else if isWindowFunc && existsWindowFunc {
+		funcName = fmt.Sprintf("%s_window_%s", funcPrefix, funcName)
+	} else {
+		if node.Function().IsZetaSQLBuiltin() {
+			return "", fmt.Errorf("%s function is unimplemented", funcName)
+		}
+		fname, err := getFuncName(ctx, node)
+		if err != nil {
+			return "", err
+		}
+		funcName = fname
+	}
+
+	return funcName, nil
 }
 
 // extractFunctionCallData extracts data from function call nodes
@@ -229,7 +302,7 @@ func (e *NodeExtractor) extractArgumentRefData(node *ast.ArgumentRefNode, ctx Tr
 // extractDMLDefaultData extracts data from DML default nodes
 func (e *NodeExtractor) extractDMLDefaultData(node *ast.DMLDefaultNode, ctx TransformContext) (ExpressionData, error) {
 	return ExpressionData{
-		Type: ExpressionTypeLiteral,
+		Type:    ExpressionTypeLiteral,
 		Literal: &LiteralData{
 			// DEFAULT keyword representation
 		},
@@ -474,6 +547,10 @@ var windowFuncFixedRanges = map[string]*FrameClauseData{
 	},
 }
 
+var windowFunctionsIgnoreNullsByDefault = map[string]bool{
+	"zetasqlite_window_percentile_disc": true,
+}
+
 // extractAnalyticFunctionCallData extracts data from analytic function nodes
 func (e *NodeExtractor) extractAnalyticFunctionCallData(node *ast.AnalyticFunctionCallNode, ctx TransformContext) (ExpressionData, error) {
 	// Extract the base function call
@@ -623,6 +700,28 @@ func (e *NodeExtractor) ExtractScanData(node ast.Node, ctx TransformContext) (Sc
 	default:
 		return ScanData{}, fmt.Errorf("unsupported scan node type: %T", node)
 	}
+}
+
+func getPathFromNode(n parsed_ast.Node) ([]string, error) {
+	var path []string
+	switch node := n.(type) {
+	case *parsed_ast.IdentifierNode:
+		path = append(path, node.Name())
+	case *parsed_ast.PathExpressionNode:
+		for _, name := range node.Names() {
+			path = append(path, name.Name())
+		}
+	case *parsed_ast.TablePathExpressionNode:
+		switch {
+		case node.PathExpr() != nil:
+			for _, name := range node.PathExpr().Names() {
+				path = append(path, name.Name())
+			}
+		}
+	default:
+		return nil, fmt.Errorf("found unknown path node: %T", node)
+	}
+	return path, nil
 }
 
 func getTableName(ctx context.Context, n ast.Node) (string, error) {
