@@ -56,7 +56,6 @@ func (t *ArrayScanTransformer) Transform(data ScanData, ctx TransformContext) (*
 	}
 
 	// Create the json_each table function call with zetasqlite_decode_array
-	// This mirrors the approach used in the existing VisitArrayScan formatter
 	jsonEachFromItem := &FromItem{
 		Type: FromItemTypeTableFunction,
 		TableFunction: &TableFunction{

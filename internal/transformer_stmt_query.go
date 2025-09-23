@@ -31,7 +31,6 @@ func NewQueryStmtTransformer(coordinator Coordinator) *QueryStmtTransformer {
 }
 
 // Transform converts QueryStmt data to SelectStatement
-// This mirrors the logic from the existing VisitQuery method
 func (t *QueryStmtTransformer) Transform(data StatementData, ctx TransformContext) (SQLFragment, error) {
 	if data.Type != StatementTypeSelect || data.Select == nil {
 		return nil, fmt.Errorf("expected select statement data for query stmt, got type %v", data.Type)

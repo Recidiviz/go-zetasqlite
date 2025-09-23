@@ -94,9 +94,6 @@ func (t *OrderByScanTransformer) transformOrderByItems(items []*OrderByItemData,
 
 // createOrderByItems handles NULL ordering by potentially creating multiple ORDER BY items
 func (t *OrderByScanTransformer) createOrderByItems(expr *SQLExpression, itemData *OrderByItemData) ([]*OrderByItem, error) {
-	// This mirrors the logic from VisitOrderByItemNode which can create multiple items
-	// for handling ZetaSQL's NULLS FIRST/LAST semantics in SQLite
-
 	// Apply zetasqlite_collate collation to the expression
 	expr.Collation = "zetasqlite_collate"
 

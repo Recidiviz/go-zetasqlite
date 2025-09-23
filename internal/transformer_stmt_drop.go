@@ -29,7 +29,6 @@ func NewDropStmtTransformer(coordinator Coordinator) *DropStmtTransformer {
 }
 
 // Transform converts DROP statement data to DropStatement
-// This mirrors the logic from the existing VisitDropStmt method
 func (t *DropStmtTransformer) Transform(data StatementData, ctx TransformContext) (SQLFragment, error) {
 	if data.Type != StatementTypeDrop || data.Drop == nil {
 		return nil, fmt.Errorf("expected drop statement data for drop stmt, got type %v", data.Type)
