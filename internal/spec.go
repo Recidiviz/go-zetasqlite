@@ -65,44 +65,7 @@ func (s *FunctionSpec) SQL() string {
 	)
 }
 
-func (s *FunctionSpec) CallSQL(ctx context.Context, callNode *ast.BaseFunctionCallNode, argValues []*SQLExpression) (*SQLExpression, error) {
-	args := callNode.ArgumentList()
-	var body *SQLExpression
-	if s.Body == nil {
-		// templated argument func
-		definedArgs := make([]string, 0, len(args))
-		for idx, arg := range args {
-			typeName := newType(arg.Type()).FormatType()
-			definedArgs = append(
-				definedArgs,
-				fmt.Sprintf("%s %s", s.Args[idx].Name, typeName),
-			)
-		}
-		funcName := strings.Join(s.NamePath, ".")
-		runtimeDefinedFunc := fmt.Sprintf(
-			"CREATE FUNCTION `%s`(%s) as (%s)",
-			funcName,
-			strings.Join(definedArgs, ","),
-			s.Code,
-		)
-		analyzer := analyzerFromContext(ctx)
-		runtimeSpec, err := analyzer.analyzeTemplatedFunctionWithRuntimeArgument(ctx, runtimeDefinedFunc)
-		if err != nil {
-			return nil, err
-		}
-		body = runtimeSpec.Body
-	} else {
-		body = s.Body
-	}
-	for i := 0; i < len(s.Args); i++ {
-		argRef := fmt.Sprintf("@%s", s.Args[i].Name)
-		value := argValues[i]
-		body = NewLiteralExpression(strings.ReplaceAll(body.String(), argRef, value.String()))
-	}
-	return NewLiteralExpression(fmt.Sprintf("( %s )", body.String())), nil
-}
-
-func (s *FunctionSpec) CallSQLData(ctx context.Context, functionData *FunctionCallData, argValues []*SQLExpression) (*SQLExpression, error) {
+func (s *FunctionSpec) CallSQL(ctx context.Context, functionData *FunctionCallData, argValues []*SQLExpression) (*SQLExpression, error) {
 	args := functionData.Arguments
 	var body *SQLExpression
 	if s.Body == nil {

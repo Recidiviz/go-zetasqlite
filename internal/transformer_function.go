@@ -208,7 +208,7 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 
 		funcMap := funcMapFromContext(ctx.Context())
 		if spec, exists := funcMap[function.Name]; exists {
-			return spec.CallSQLData(ctx.Context(), function, args)
+			return spec.CallSQL(ctx.Context(), function, args)
 		}
 		// Default function call transformation
 		return &SQLExpression{

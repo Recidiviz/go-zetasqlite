@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	zetasqlite "github.com/Recidiviz/go-zetasqlite"
+	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
 )
 

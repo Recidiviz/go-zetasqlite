@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	internal "github.com/Recidiviz/go-zetasqlite/internal"
+	internal "github.com/goccy/go-zetasqlite/internal"
 )
 
 type (

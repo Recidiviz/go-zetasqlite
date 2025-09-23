@@ -391,7 +391,7 @@ func (e *NodeExtractor) extractGetJsonFieldData(node *ast.GetJsonFieldNode, ctx 
 					Type: ExpressionTypeLiteral,
 					Literal: &LiteralData{
 						TypeName: "STRING",
-						Value:    StringValue(node.FieldName()), // TODO: Verify this method exists
+						Value:    StringValue(node.FieldName()),
 					},
 				},
 			},
@@ -591,12 +591,6 @@ func (e *NodeExtractor) extractAnalyticFunctionCallData(node *ast.AnalyticFuncti
 	baseData.Function.WindowSpec = &WindowSpecificationData{
 		FrameClause: frameClause,
 	}
-
-	// TODO:
-	//funcMap := funcMapFromContext(v.context)
-	//if spec, exists := funcMap[funcName]; exists {
-	//	return spec.CallSQL(v.context, node.BaseFunctionCallNode, args)
-	//}
 
 	return baseData, nil
 }
@@ -1222,7 +1216,7 @@ func (e *NodeExtractor) extractSingleRowScanData(node *ast.SingleRowScanNode, ct
 
 // Placeholder implementations for remaining statement extraction methods
 func (e *NodeExtractor) extractCreateTableStatementData(node *ast.CreateTableStmtNode, ctx TransformContext) (StatementData, error) {
-	// TODO: Implement
+	// TODO: Implement. Currently managed by spec.go Table.SQLiteSchema()
 	return StatementData{}, fmt.Errorf("create table statement extraction not implemented")
 }
 
