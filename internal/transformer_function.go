@@ -206,12 +206,12 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 			}
 		}
 
-		// Fast path optimization: bypass function calls for primitive type comparisons
-		// Functions calls incur huge overheads: as each call's args must be decoded/encoded, as well as
+		// Fast path optimization: bypass function calls for primitive type operations
+		// Function calls incur huge overheads: as each call's args must be decoded/encoded, as well as
 		// allocated within both the modernc.org/sqlite driver and the go-zetasqlite driver
 		// This could happen potentially hundreds of thousands of times per query in the case of complex JOINs
-		if canOptimizeComparison(function) {
-			return optimizeComparisonToSQL(function.Name, args)
+		if canOptimizeFunction(function) {
+			return optimizeFunctionToSQL(function.Name, args)
 		}
 
 		funcMap := funcMapFromContext(ctx.Context())
@@ -230,46 +230,77 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 	}
 }
 
-// canOptimizeComparison checks if a comparison function can be optimized to use direct SQL operators
-func canOptimizeComparison(function *FunctionCallData) bool {
-	if len(function.Arguments) != 2 {
+// canOptimizeFunction checks if a function can be optimized to use direct SQL operators
+func canOptimizeFunction(function *FunctionCallData) bool {
+	_, found := functionToOperator[function.Name]
+	if !found {
 		return false
 	}
 
-	_, found := comparisonToOperator[function.Name]
-	if found {
-		// Both arguments must be primitive SQLite-compatible types
-		return isPrimitiveSQLiteType(function.Arguments[0]) && isPrimitiveSQLiteType(function.Arguments[1])
+	// Check argument count requirements
+	switch function.Name {
+	case "zetasqlite_and", "zetasqlite_or":
+		if len(function.Arguments) < 2 {
+			return false
+		}
+	default: // comparison operators
+		if len(function.Arguments) != 2 {
+			return false
+		}
 	}
 
-	return false
+	// All arguments must be primitive SQLite-compatible types or optimizable expressions
+	for _, arg := range function.Arguments {
+		if !isPrimitiveSQLiteType(arg) {
+			return false
+		}
+	}
+
+	return true
 }
 
-var comparisonToOperator = map[string]string{
+var functionToOperator = map[string]string{
+	// Comparison operators
 	"zetasqlite_equal":            "=",
 	"zetasqlite_not_equal":        "!=",
 	"zetasqlite_less":             "<",
 	"zetasqlite_greater":          ">",
 	"zetasqlite_less_or_equal":    "<=",
 	"zetasqlite_greater_or_equal": ">=",
+	// Logical operators
+	"zetasqlite_and": "AND",
+	"zetasqlite_or":  "OR",
 }
 
-// optimizeComparisonToSQL converts comparison functions to direct SQL operators
-func optimizeComparisonToSQL(functionName string, args []*SQLExpression) (*SQLExpression, error) {
-	if len(args) != 2 {
-		// Should not happen due to canOptimizeComparison check, but be safe
-		return nil, fmt.Errorf("expected 2 arguments, got %d", len(args))
-	}
-
-	operator, found := comparisonToOperator[functionName]
+// optimizeFunctionToSQL converts functions to direct SQL operators
+func optimizeFunctionToSQL(functionName string, args []*SQLExpression) (*SQLExpression, error) {
+	operator, found := functionToOperator[functionName]
 	if !found {
-		return nil, fmt.Errorf("unknown comparison operator: %s", functionName)
+		return nil, fmt.Errorf("unknown optimizable function: %s", functionName)
 	}
 
-	return NewBinaryExpression(args[0], operator, args[1]), nil
+	switch functionName {
+	case "zetasqlite_and", "zetasqlite_or":
+		if len(args) < 2 {
+			return nil, fmt.Errorf("%s expected at least 2 arguments, got %d", functionName, len(args))
+		}
+		// Chain multiple arguments with the operator
+		result := args[0]
+		for i := 1; i < len(args); i++ {
+			result = NewBinaryExpression(result, operator, args[i])
+		}
+		return result, nil
+
+	default: // comparison operators
+		if len(args) != 2 {
+			return nil, fmt.Errorf("%s expected 2 arguments, got %d", functionName, len(args))
+		}
+		return NewBinaryExpression(args[0], operator, args[1]), nil
+	}
 }
 
 // isPrimitiveSQLiteType checks if an expression represents a primitive type that SQLite can handle natively
+// or if it's an already-optimized expression that can be further optimized
 func isPrimitiveSQLiteType(expr ExpressionData) bool {
 	switch expr.Type {
 	case ExpressionTypeLiteral:
@@ -296,6 +327,13 @@ func isPrimitiveSQLiteType(expr ExpressionData) bool {
 			t.IsFloat() ||
 			t.IsDouble() ||
 			t.IsString()
+	case ExpressionTypeFunction:
+		// If this is an optimizable function, it can be treated as primitive for further optimization
+		if expr.Function != nil {
+			_, found := functionToOperator[expr.Function.Name]
+			return found && canOptimizeFunction(expr.Function)
+		}
+		return false
 	default:
 		return false
 	}
