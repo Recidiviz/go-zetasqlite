@@ -4,15 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	zetasqlite "github.com/goccy/go-zetasqlite"
+	"github.com/google/go-cmp/cmp"
 	"math"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
-
-	zetasqlite "github.com/goccy/go-zetasqlite"
-	"github.com/google/go-cmp/cmp"
 )
 
 func TestQuery(t *testing.T) {
@@ -232,6 +231,66 @@ UNION ALL
 			query: `SELECT 3 IN (1, 2, 3, 4), null IN (1), null IN (null)`,
 			// When left-hand side is null, null is always returned
 			expectedRows: [][]interface{}{{true, nil, nil}},
+		},
+		{
+			name: "recursive cte",
+			// These direct equality comparisons compare the fields of the struct pairwise in ordinal order ignoring
+			// any field names. If instead you want to compare identically named fields of a struct,
+			// you can compare the individual fields directly.
+			// https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#limited_comparisons_for_structs
+			query: `WITH RECURSIVE
+  CTE_1 AS (
+    (SELECT 1 AS iteration UNION ALL SELECT 1 AS iteration)
+    UNION ALL
+    SELECT iteration + 1 AS iteration FROM CTE_1 WHERE iteration < 3
+  )
+SELECT iteration FROM CTE_1
+ORDER BY 1 ASC;`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(1)},
+				{int64(2)},
+				{int64(2)},
+				{int64(3)},
+				{int64(3)},
+			},
+		},
+		{
+			name: "recursive cte 2",
+			query: `
+			WITH RECURSIVE
+			  GraphData AS (
+				--    1          5
+				--   / \        / \
+				--  2 - 3      6   7
+				--      |       \ /
+				--      4        8
+				SELECT 1 AS from_node, 2 AS to_node UNION ALL
+				SELECT 1, 3 UNION ALL
+				SELECT 2, 3 UNION ALL
+				SELECT 3, 4 UNION ALL
+				SELECT 5, 6 UNION ALL
+				SELECT 5, 7 UNION ALL
+				SELECT 6, 8 UNION ALL
+				SELECT 7, 8
+			  ),
+			  R AS (
+				(SELECT 5 AS node)
+				UNION ALL
+				(
+				  SELECT GraphData.to_node AS node
+				  FROM R
+				  INNER JOIN GraphData
+					ON (R.node = GraphData.from_node)
+				)
+			  )
+			SELECT DISTINCT node FROM R ORDER BY node;`,
+			expectedRows: [][]interface{}{
+				{int64(5)},
+				{int64(6)},
+				{int64(7)},
+				{int64(8)},
+			},
 		},
 		{
 			name:  "not in operator",
