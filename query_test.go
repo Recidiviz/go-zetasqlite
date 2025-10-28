@@ -349,6 +349,136 @@ SELECT * FROM T1 CROSS JOIN T0 ORDER BY n`,
 				{int64(5), int64(2)}},
 		},
 		{
+			name: "recursive cte integration",
+			query: `CREATE TEMP TABLE grid_interior_resources (
+  id STRING,
+  type STRING,
+  length_m FLOAT64,
+  upline_parent STRING,
+  upline_feeder STRING,
+);
+
+CREATE TEMP TABLE ancestry (
+  id STRING,
+  type STRING,
+  upline_resource_id STRING,
+  upline_resource_type STRING,
+  upline_resource_hops INT64,
+  upline_resource_distance FLOAT64
+);
+
+INSERT INTO grid_interior_resources
+  (id, type, length_m, upline_parent, upline_feeder) 
+VALUES
+  ("m1", "m", 1, "t1", "f1"),
+  ("t1", "t", 1, "f1", "f1"),
+  ("f1", "f", 1, NULL, "f1")
+;
+
+INSERT INTO ancestry (id, type, upline_resource_id, upline_resource_hops, upline_resource_distance, upline_resource_type)
+
+WITH RECURSIVE
+
+CTE_1 AS (
+  SELECT id, type, upline_parent, 1 pos, 1 iteration, coalesce(length_m, 0.0) as distance_meters
+    FROM grid_interior_resources
+  UNION ALL
+  SELECT a.id, a.type, b.upline_parent, pos + 1, iteration + 1, distance_meters + coalesce(length_m, 0.0)
+    FROM grid_interior_resources a INNER JOIN CTE_1 b
+    ON b.id = a.upline_parent
+    WHERE iteration < 500
+),
+
+CTE_2 AS (
+  SELECT * FROM CTE_1 WHERE iteration = 500 * 1
+  UNION ALL
+  SELECT a.id, a.type, b.upline_parent, pos + 1, iteration + 1, distance_meters + coalesce(length_m, 0.0)
+    FROM grid_interior_resources a INNER JOIN CTE_2 b
+    ON b.id = a.upline_parent
+    WHERE iteration < 500 * 2
+),
+
+CTE_3 AS (
+  SELECT * FROM CTE_2 WHERE iteration = 500 * 2
+  UNION ALL
+  SELECT a.id, a.type, b.upline_parent, pos + 1, iteration + 1, distance_meters + coalesce(length_m, 0.0)
+    FROM grid_interior_resources a INNER JOIN CTE_3 b
+    ON b.id = a.upline_parent
+    WHERE iteration < 500 * 3
+)
+
+SELECT
+	r.id as id,
+	r.type as type,
+	r.upline_parent as upline_resource_id,
+	r.pos as upline_resource_hops,
+	r.distance_meters as upline_resource_distance,
+	b.type as upline_resource_type
+FROM (
+	SELECT * FROM CTE_1
+	UNION ALL SELECT * FROM CTE_2 WHERE iteration > 500 * 1
+	UNION ALL SELECT * FROM CTE_3 WHERE iteration > 500 * 2
+) as r
+LEFT JOIN grid_interior_resources as b
+	ON r.upline_parent = b.id
+;
+
+SELECT
+  *
+FROM
+  ancestry
+ORDER BY
+  id,
+  upline_resource_hops
+;
+`,
+			expectedRows: [][]interface{}{
+				{
+					"f1",
+					"f",
+					nil,
+					nil,
+					int64(1),
+					float64(1.0),
+				}, {
+					"m1",
+					"m",
+					"t1",
+					"t",
+					int64(1),
+					float64(1.0),
+				}, {
+					"m1",
+					"m",
+					"f1",
+					"f",
+					int64(2),
+					float64(2.0),
+				}, {
+					"m1",
+					"m",
+					nil,
+					nil,
+					int64(3),
+					float64(3.0),
+				}, {
+					"t1",
+					"t",
+					"f1",
+					"f",
+					int64(1),
+					float64(1.0),
+				}, {
+					"t1",
+					"t",
+					nil,
+					nil,
+					int64(2),
+					float64(2.0),
+				},
+			},
+		},
+		{
 			name:  "not in operator",
 			query: `SELECT 5 NOT IN (1, 2, 3, 4), null NOT IN (1), null NOT IN (null)`,
 			// When left-hand side is null, null is always returned
