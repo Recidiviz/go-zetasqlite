@@ -7,7 +7,6 @@ import (
 	zetasqlite "github.com/goccy/go-zetasqlite"
 	"github.com/google/go-cmp/cmp"
 	"math"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestQuery(t *testing.T) {
-	os.Setenv("TZ", "UTC")
+	t.Setenv("TZ", "UTC")
 	now := time.Now()
 	ctx := context.Background()
 	ctx = zetasqlite.WithCurrentTime(ctx, now)
@@ -291,6 +290,63 @@ ORDER BY 1 ASC;`,
 				{int64(7)},
 				{int64(8)},
 			},
+		},
+		{
+			name: "recursive cte 3",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT * FROM T0) UNION ALL (SELECT n + 1 FROM T1 WHERE n < 4)),
+  T2 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T2 WHERE n < 4)),
+  T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
+SELECT * FROM T3 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(2)},
+				{int64(3)},
+				{int64(4)},
+			},
+		},
+		{
+
+			name: "recursive cte 4",
+			query: `WITH RECURSIVE
+	  T1 AS (
+		(SELECT 1 AS n) UNION ALL
+		(SELECT n + 2 FROM T1 WHERE n < 4))
+	SELECT * FROM T1 ORDER BY n
+	`,
+			expectedRows: [][]interface{}{
+				{int64(1)},
+				{int64(3)},
+				{int64(5)},
+			},
+		},
+		{
+			name: "recursive cte 5",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT * FROM UNNEST ([60, 20, 30])),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
+SELECT * FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(4)}},
+		},
+		{
+			name: "recursive cte 6",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS n),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
+SELECT * FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}},
+		},
+		{
+			name: "recursive cte 7",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 2 AS p),
+  T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
+SELECT * FROM T1 CROSS JOIN T0 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), int64(2)},
+				{int64(3), int64(2)},
+				{int64(5), int64(2)}},
 		},
 		{
 			name:  "not in operator",
@@ -6360,7 +6416,6 @@ SELECT * FROM target;
 			}
 		})
 	}
-	os.Unsetenv("TZ")
 }
 
 func createTimestampFormatFromTime(t time.Time) string {

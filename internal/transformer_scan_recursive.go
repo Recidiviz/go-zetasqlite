@@ -57,6 +57,12 @@ func (t *RecursiveScanTransformer) Transform(data ScanData, ctx TransformContext
 		return nil, fmt.Errorf("recursive term is not a SELECT statement")
 	}
 
+	// CRITICAL: Flatten the recursive term to expose the table reference at the top level
+	// SQLite requires the recursive CTE reference to be directly in the FROM clause,
+	// not buried in nested subqueries. Our bottom-up transformers create layers of
+	// subqueries for column aliasing, so we need to collapse them here.
+	recursiveSelect = flattenSelectForRecursiveCTE(recursiveSelect)
+
 	// Parse the operation type to extract type and modifier
 	var opType, modifier string
 	switch recursiveScanData.OpType {
