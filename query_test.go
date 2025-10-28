@@ -479,6 +479,29 @@ ORDER BY
 			},
 		},
 		{
+			name: "recursive cte integration 2",
+			query: `CREATE TEMP TABLE numbers (num INT64);
+-- Insert rows 1-5
+INSERT INTO numbers (num)
+WITH RECURSIVE seq AS (
+  -- Base case
+  SELECT 1 AS num
+
+  UNION ALL
+
+  -- Recursive case
+  SELECT num + 1
+  FROM seq
+  WHERE num < 5
+)
+SELECT num FROM seq;
+
+-- Select remaining numbers
+SELECT * FROM numbers;
+`,
+			expectedRows: [][]interface{}{{int64(1)}, {int64(2)}, {int64(3)}, {int64(4)}, {int64(5)}},
+		},
+		{
 			name:  "not in operator",
 			query: `SELECT 5 NOT IN (1, 2, 3, 4), null NOT IN (1), null NOT IN (null)`,
 			// When left-hand side is null, null is always returned
