@@ -1141,7 +1141,7 @@ func NewSubqueryFromItem(subquery *SelectStatement, alias string) *FromItem {
 	}
 }
 
-// NewNotExpression creates a new NOT expression
+// NewListExpression creates a new list expression
 func NewListExpression(expressions []*SQLExpression) *SQLExpression {
 	return &SQLExpression{
 		Type: ExpressionTypeList,
