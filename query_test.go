@@ -2798,7 +2798,7 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 		{
 			name:         "generate_array function with null",
 			query:        `SELECT GENERATE_ARRAY(5, NULL, 1) AS example_array`,
-			expectedRows: [][]interface{}{{nil}},
+			expectedRows: [][]interface{}{{[]interface{}{}}},
 		},
 		{
 			name:  "generate_array function for generate multiple array",
@@ -2855,7 +2855,7 @@ SELECT ARRAY_TO_STRING(list, '--', 'MISSING') AS text FROM items`,
 			name:  "generate_date_array function with null",
 			query: `SELECT GENERATE_DATE_ARRAY('2016-10-05', NULL) AS example`,
 			expectedRows: [][]interface{}{
-				{nil},
+				{[]interface{}{}},
 			},
 		},
 		{
@@ -2943,7 +2943,7 @@ FROM (
 			name:  "generate_timestamp_array function with null",
 			query: `SELECT GENERATE_TIMESTAMP_ARRAY('2016-10-05 00:00:00+00', NULL, INTERVAL 1 HOUR) AS timestamp_array`,
 			expectedRows: [][]interface{}{
-				{nil},
+				{[]interface{}{}},
 			},
 		},
 		{
