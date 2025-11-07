@@ -6509,6 +6509,73 @@ SELECT * FROM target;
 			order by name, cols[SAFE_OFFSET(0)]`,
 			expectedRows: [][]interface{}{{"foo", []interface{}{"x", "y"}}},
 		},
+		{
+			name: "recursive cte with star expression",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS n, 'a' AS letter),
+  T1 AS (
+    (SELECT * FROM T0)
+    UNION ALL
+    (SELECT n + 1, letter FROM T1 WHERE n < 3)
+  )
+SELECT * FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), "a"},
+				{int64(2), "a"},
+				{int64(3), "a"},
+			},
+		},
+		{
+			name: "recursive cte with list expression in WHERE",
+			query: `WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n, 'start' AS status)
+    UNION ALL
+    (SELECT n + 1, 'progress' FROM T1 WHERE n < 5 AND status IN ('start', 'progress', 'active'))
+  )
+SELECT n, status FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), "start"},
+				{int64(2), "progress"},
+				{int64(3), "progress"},
+				{int64(4), "progress"},
+				{int64(5), "progress"},
+			},
+		},
+		{
+			name: "recursive cte with unary expression",
+			query: `WITH RECURSIVE
+  T1 AS (
+    (SELECT 1 AS n, TRUE AS active)
+    UNION ALL
+    (SELECT n + 1, NOT active FROM T1 WHERE n < 4)
+  )
+SELECT n, active FROM T1 ORDER BY n`,
+			expectedRows: [][]interface{}{
+				{int64(1), true},
+				{int64(2), false},
+				{int64(3), true},
+				{int64(4), false},
+			},
+		},
+		{
+			name: "recursive cte with complex list and star in join",
+			query: `WITH RECURSIVE
+  T0 AS (SELECT 1 AS id, 'root' AS name),
+  T1 AS (
+    (SELECT * FROM T0)
+    UNION ALL
+    (SELECT T1.id + 1, CONCAT(T1.name, '_child')
+     FROM T1
+     INNER JOIN (SELECT * FROM T0) AS base ON T1.id = base.id
+     WHERE T1.id IN (1, 2, 3))
+  )
+SELECT id, name FROM T1 ORDER BY id`,
+			expectedRows: [][]interface{}{
+				{int64(1), "root"},
+				{int64(2), "root_child"},
+			},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {

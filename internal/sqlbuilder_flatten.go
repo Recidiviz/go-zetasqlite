@@ -63,8 +63,8 @@ func flattenSelectForRecursiveCTE(stmt *SelectStatement) *SelectStatement {
 
 	// Create the flattened statement
 	flattened := &SelectStatement{
-		// Combine WITH clauses from both levels
-		WithClauses: append(stmt.WithClauses, innerStmt.WithClauses...),
+		// Combine WITH clauses from both levels, resolving conflicts by preferring inner CTEs
+		WithClauses: mergeWithClauses(stmt.WithClauses, innerStmt.WithClauses),
 		SelectType:  stmt.SelectType,
 		// Use the inner FROM clause (this exposes the table reference)
 		FromClause: innerStmt.FromClause,
@@ -171,6 +171,10 @@ func updateTableAlias(expr *SQLExpression, newAlias string) {
 		// Update the table alias for this column reference
 		expr.TableAlias = newAlias
 
+	case ExpressionTypeStar:
+		// Update the table alias for star expressions (e.g., table.*)
+		expr.TableAlias = newAlias
+
 	case ExpressionTypeFunction:
 		if expr.FunctionCall != nil {
 			for _, arg := range expr.FunctionCall.Arguments {
@@ -184,6 +188,20 @@ func updateTableAlias(expr *SQLExpression, newAlias string) {
 			updateTableAlias(expr.BinaryExpression.Right, newAlias)
 		}
 
+	case ExpressionTypeUnary:
+		// Handle unary expressions like NOT, -, +
+		if expr.UnaryExpression != nil {
+			updateTableAlias(expr.UnaryExpression.Expression, newAlias)
+		}
+
+	case ExpressionTypeList:
+		// Handle list expressions like IN (...) or tuple expressions
+		if expr.ListExpression != nil {
+			for _, listExpr := range expr.ListExpression.Expressions {
+				updateTableAlias(listExpr, newAlias)
+			}
+		}
+
 	case ExpressionTypeCase:
 		if expr.CaseExpression != nil {
 			updateTableAlias(expr.CaseExpression.CaseExpr, newAlias)
@@ -193,6 +211,14 @@ func updateTableAlias(expr *SQLExpression, newAlias string) {
 			}
 			updateTableAlias(expr.CaseExpression.ElseExpr, newAlias)
 		}
+
+	// Types with their own scope - don't traverse into them
+	case ExpressionTypeSubquery, ExpressionTypeExists:
+		return
+
+	// Simple types with no nested expressions - no action needed
+	case ExpressionTypeLiteral, ExpressionTypeParameter:
+		return
 	}
 }
 
@@ -247,6 +273,49 @@ func canFlattenSelect(stmt *SelectStatement) bool {
 		stmt.SetOperation == nil
 }
 
+// mergeWithClauses combines WITH clauses from outer and inner SELECT statements,
+// resolving name conflicts by preferring inner CTEs.
+//
+// When flattening nested queries, if both levels define CTEs with the same name,
+// we keep the inner CTE because:
+// 1. In SQL scoping, inner CTEs shadow outer ones within the inner scope
+// 2. After flattening, the query references the inner CTE's definition
+// 3. We're exposing the inner query's table references
+//
+// Example:
+//
+//	Outer: WITH x AS (SELECT 1) ...
+//	Inner: WITH x AS (SELECT 2) ...
+//	Merged: WITH x AS (SELECT 2) ... (inner wins)
+func mergeWithClauses(outerClauses, innerClauses []*WithClause) []*WithClause {
+	if len(outerClauses) == 0 {
+		return innerClauses
+	}
+	if len(innerClauses) == 0 {
+		return outerClauses
+	}
+
+	// Build a map of inner CTE names for O(1) duplicate detection
+	innerNames := make(map[string]bool)
+	for _, clause := range innerClauses {
+		innerNames[clause.Name] = true
+	}
+
+	// Start with all inner clauses (they take precedence)
+	result := make([]*WithClause, len(innerClauses))
+	copy(result, innerClauses)
+
+	// Add outer clauses that don't conflict with inner ones
+	for _, outerClause := range outerClauses {
+		if !innerNames[outerClause.Name] {
+			result = append(result, outerClause)
+		}
+		// If conflict exists, prefer inner (skip outer clause)
+	}
+
+	return result
+}
+
 // buildColumnAliasMap creates a mapping from column aliases to their expressions.
 // This is used during flattening to substitute column references.
 func buildColumnAliasMap(selectList []*SelectListItem) map[string]*SQLExpression {
@@ -269,7 +338,23 @@ func buildColumnAliasMap(selectList []*SelectListItem) map[string]*SQLExpression
 //	Map: {col1 -> x}
 //
 // Then f(col1) becomes f(x)
+//
+// This function includes protection against circular references in the alias map
+// by limiting recursion depth.
 func substituteColumnRefs(expr *SQLExpression, aliasMap map[string]*SQLExpression, tableAlias string) *SQLExpression {
+	return substituteColumnRefsWithDepth(expr, aliasMap, tableAlias, 0)
+}
+
+// substituteColumnRefsWithDepth is the internal implementation of substituteColumnRefs
+// with depth tracking to prevent infinite recursion from circular references.
+func substituteColumnRefsWithDepth(expr *SQLExpression, aliasMap map[string]*SQLExpression, tableAlias string, depth int) *SQLExpression {
+	// Protect against circular references or excessively deep expression trees
+	const maxDepth = 100
+	if depth > maxDepth {
+		// Return expression as-is to prevent stack overflow
+		return expr
+	}
+
 	if expr == nil {
 		return nil
 	}
@@ -294,7 +379,7 @@ func substituteColumnRefs(expr *SQLExpression, aliasMap map[string]*SQLExpressio
 		// Recursively substitute in function arguments
 		newArgs := make([]*SQLExpression, len(expr.FunctionCall.Arguments))
 		for i, arg := range expr.FunctionCall.Arguments {
-			newArgs[i] = substituteColumnRefs(arg, aliasMap, tableAlias)
+			newArgs[i] = substituteColumnRefsWithDepth(arg, aliasMap, tableAlias, depth+1)
 		}
 		return &SQLExpression{
 			Type: ExpressionTypeFunction,
@@ -315,9 +400,40 @@ func substituteColumnRefs(expr *SQLExpression, aliasMap map[string]*SQLExpressio
 		return &SQLExpression{
 			Type: ExpressionTypeBinary,
 			BinaryExpression: &BinaryExpression{
-				Left:     substituteColumnRefs(expr.BinaryExpression.Left, aliasMap, tableAlias),
+				Left:     substituteColumnRefsWithDepth(expr.BinaryExpression.Left, aliasMap, tableAlias, depth+1),
 				Operator: expr.BinaryExpression.Operator,
-				Right:    substituteColumnRefs(expr.BinaryExpression.Right, aliasMap, tableAlias),
+				Right:    substituteColumnRefsWithDepth(expr.BinaryExpression.Right, aliasMap, tableAlias, depth+1),
+			},
+			Collation: expr.Collation,
+		}
+
+	case ExpressionTypeUnary:
+		if expr.UnaryExpression == nil {
+			return expr
+		}
+		// Recursively substitute in unary operand
+		return &SQLExpression{
+			Type: ExpressionTypeUnary,
+			UnaryExpression: &UnaryExpression{
+				Operator:   expr.UnaryExpression.Operator,
+				Expression: substituteColumnRefsWithDepth(expr.UnaryExpression.Expression, aliasMap, tableAlias, depth+1),
+			},
+			Collation: expr.Collation,
+		}
+
+	case ExpressionTypeList:
+		if expr.ListExpression == nil {
+			return expr
+		}
+		// Recursively substitute in list elements
+		newExpressions := make([]*SQLExpression, len(expr.ListExpression.Expressions))
+		for i, listExpr := range expr.ListExpression.Expressions {
+			newExpressions[i] = substituteColumnRefsWithDepth(listExpr, aliasMap, tableAlias, depth+1)
+		}
+		return &SQLExpression{
+			Type: ExpressionTypeList,
+			ListExpression: &ListExpression{
+				Expressions: newExpressions,
 			},
 			Collation: expr.Collation,
 		}
@@ -330,16 +446,16 @@ func substituteColumnRefs(expr *SQLExpression, aliasMap map[string]*SQLExpressio
 		newWhenClauses := make([]*WhenClause, len(expr.CaseExpression.WhenClauses))
 		for i, when := range expr.CaseExpression.WhenClauses {
 			newWhenClauses[i] = &WhenClause{
-				Condition: substituteColumnRefs(when.Condition, aliasMap, tableAlias),
-				Result:    substituteColumnRefs(when.Result, aliasMap, tableAlias),
+				Condition: substituteColumnRefsWithDepth(when.Condition, aliasMap, tableAlias, depth+1),
+				Result:    substituteColumnRefsWithDepth(when.Result, aliasMap, tableAlias, depth+1),
 			}
 		}
 		return &SQLExpression{
 			Type: ExpressionTypeCase,
 			CaseExpression: &CaseExpression{
-				CaseExpr:    substituteColumnRefs(expr.CaseExpression.CaseExpr, aliasMap, tableAlias),
+				CaseExpr:    substituteColumnRefsWithDepth(expr.CaseExpression.CaseExpr, aliasMap, tableAlias, depth+1),
 				WhenClauses: newWhenClauses,
-				ElseExpr:    substituteColumnRefs(expr.CaseExpression.ElseExpr, aliasMap, tableAlias),
+				ElseExpr:    substituteColumnRefsWithDepth(expr.CaseExpression.ElseExpr, aliasMap, tableAlias, depth+1),
 			},
 			Collation: expr.Collation,
 		}
@@ -394,6 +510,23 @@ func copyExpression(expr *SQLExpression) *SQLExpression {
 			Arguments:  copiedArgs,
 			IsDistinct: expr.FunctionCall.IsDistinct,
 			WindowSpec: expr.FunctionCall.WindowSpec,
+		}
+	}
+
+	if expr.UnaryExpression != nil {
+		copied.UnaryExpression = &UnaryExpression{
+			Operator:   expr.UnaryExpression.Operator,
+			Expression: copyExpression(expr.UnaryExpression.Expression),
+		}
+	}
+
+	if expr.ListExpression != nil {
+		copiedExpressions := make([]*SQLExpression, len(expr.ListExpression.Expressions))
+		for i, listExpr := range expr.ListExpression.Expressions {
+			copiedExpressions[i] = copyExpression(listExpr)
+		}
+		copied.ListExpression = &ListExpression{
+			Expressions: copiedExpressions,
 		}
 	}
 
