@@ -403,6 +403,9 @@ func MAKE_STRUCT(args ...Value) (Value, error) {
 		if err != nil {
 			return nil, err
 		}
+		if k == "" {
+			k = fmt.Sprintf("_field_%d", i+1)
+		}
 		keys[i] = k
 		values[i] = value
 		fieldMap[k] = value

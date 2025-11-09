@@ -482,8 +482,8 @@ func CastValue(t types.Type, v Value) (Value, error) {
 			return s, nil
 		}
 		ret := &StructValue{m: s.m}
-		for i := 0; i < typ.NumFields(); i++ {
-			key := typ.Field(i).Name()
+		for i := 0; i < len(s.keys); i++ {
+			key := s.keys[i]
 			value, exists := s.m[key]
 			if !exists {
 				ret.keys = append(ret.keys, key)
