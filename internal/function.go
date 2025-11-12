@@ -158,6 +158,12 @@ func STRUCT_FIELD(v Value, idx int) (Value, error) {
 	if err != nil {
 		return nil, err
 	}
+	if sv == nil {
+		return nil, nil
+	}
+	if idx < 0 || idx >= len(sv.values) {
+		return nil, fmt.Errorf("struct field index %d out of range (struct has %d fields)", idx, len(sv.values))
+	}
 	return sv.values[idx], nil
 }
 
