@@ -2188,7 +2188,7 @@ SELECT * FROM Employees`,
 		{
 			name:         "date struct to json",
 			query:        `SELECT TO_JSON_STRING(STRUCT (DATE(2024, 1, 1) AS d))`,
-			expectedRows: [][]interface{}{{`{"d": 2024-01-01"}`}},
+			expectedRows: [][]interface{}{{`{"d":"2024-01-01"}`}},
 		},
 		{
 			name: "window rank",
