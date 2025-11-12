@@ -6734,6 +6734,16 @@ SELECT id, name FROM T1 ORDER BY id`,
 				{int64(2), "root_child"},
 			},
 		},
+		{
+			name: "struct field integration",
+			query: `CREATE TABLE conductors (conductor STRUCT<length FLOAT64>);
+INSERT INTO conductors (conductor) VALUES (?);
+SELECT conductor.length FROM conductors;`,
+			expectedRows: [][]interface{}{
+				{nil},
+			},
+			args: []interface{}{map[string]float64{}},
+		},
 	} {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
