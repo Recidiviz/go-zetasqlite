@@ -2776,6 +2776,40 @@ ORDER BY offset DESC;`,
 			expectedRows: [][]interface{}{{"baz", int64(2)}, {"bar", int64(1)}, {"foo", int64(0)}},
 		},
 		{
+			name: "unnest struct",
+			query: `-- Create the table with nested struct schema
+  CREATE TABLE events_1 (
+    event_params ARRAY<STRUCT<
+      key STRING,
+      value STRUCT<string_value STRING, int_value INT64>
+    >>
+  );
+
+  -- Insert test data
+  INSERT INTO events_1 (event_params)
+  VALUES (
+    [
+      STRUCT(
+        'param1' AS key,
+        STRUCT('value1' AS string_value, CAST(NULL AS INT64) as int_value) AS value
+      ),
+      STRUCT(
+        'param2' AS key,
+        STRUCT(CAST(NULL AS STRING) as string_value, 123 AS int_value) AS value
+      )
+    ]
+  );
+
+  -- Query with UNNEST
+  SELECT
+    event_param.key AS param_key,
+    event_param.value.string_value AS param_value_string,
+    event_param.value.int_value AS param_value_int
+  FROM
+    events_1, UNNEST(event_params) AS event_param;`,
+			expectedRows: [][]interface{}{{"param1", "value1", nil}, {"param2", nil, int64(123)}},
+		},
+		{
 			name:  "array function",
 			query: `SELECT ARRAY (SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) AS new_array`,
 			expectedRows: [][]interface{}{
