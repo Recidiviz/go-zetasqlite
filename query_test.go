@@ -2912,7 +2912,7 @@ ORDER BY offset DESC;`,
     ] AS orders
   )
   SELECT
-    order.order_id,
+    o.order_id,
     item.item_name,
     qty
   FROM test_data,
