@@ -3,7 +3,6 @@ package internal
 import (
 	"database/sql/driver"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/goccy/go-json"

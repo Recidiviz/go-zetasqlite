@@ -1070,6 +1070,54 @@ FROM Items`,
 			},
 		},
 		{
+			name: "min_by basic",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 50 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					MIN_BY(sold, sold) AS min_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(20)},
+				{"bananas", int64(10)},
+				{"oranges", int64(50)},
+				{"pears", int64(40)},
+			},
+		},
+		{
+			name: "max_by basic",
+			query: `
+				WITH Store AS (
+					SELECT 20 AS sold, "apples" AS fruit
+					UNION ALL SELECT 40 AS sold, "pears" AS fruit
+					UNION ALL SELECT 50 AS sold, "oranges" AS fruit
+					UNION ALL SELECT 30 AS sold, "bananas" AS fruit
+					UNION ALL SELECT 10 AS sold, "bananas" AS fruit
+				)
+				SELECT
+					fruit,
+					MAX_BY(sold, sold) AS max_sales
+				FROM Store
+				GROUP BY fruit
+				ORDER BY fruit
+			`,
+			expectedRows: [][]interface{}{
+				{"apples", int64(20)},
+				{"bananas", int64(30)},
+				{"oranges", int64(50)},
+				{"pears", int64(40)},
+			},
+		},
+		{
 			name:  "array_agg",
 			query: `SELECT ARRAY_AGG(x) AS array_agg FROM UNNEST([2, 1,-2, 3, -2, 1, 2]) AS x`,
 			expectedRows: [][]interface{}{{
