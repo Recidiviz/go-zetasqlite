@@ -1374,21 +1374,13 @@ FROM (
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "pear",
-							},
-							map[string]interface{}{
-								"count": int64(3),
-							},
+						map[string]interface{}{
+							"value": "pear",
+							"count": int64(3),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "apple",
-							},
-							map[string]interface{}{
-								"count": int64(2),
-							},
+						map[string]interface{}{
+							"value": "apple",
+							"count": int64(2),
 						},
 					},
 				},
@@ -1400,21 +1392,13 @@ FROM (
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "pear",
-							},
-							map[string]interface{}{
-								"count": int64(3),
-							},
+						map[string]interface{}{
+							"value": "pear",
+							"count": int64(3),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": nil,
-							},
-							map[string]interface{}{
-								"count": int64(2),
-							},
+						map[string]interface{}{
+							"value": nil,
+							"count": int64(2),
 						},
 					},
 				},
@@ -1433,21 +1417,13 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "pear",
-							},
-							map[string]interface{}{
-								"sum": int64(6),
-							},
+						map[string]interface{}{
+							"value": "pear",
+							"sum":   int64(6),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "banana",
-							},
-							map[string]interface{}{
-								"sum": int64(5),
-							},
+						map[string]interface{}{
+							"value": "banana",
+							"sum":   int64(5),
 						},
 					},
 				},
@@ -1459,21 +1435,13 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "pear",
-							},
-							map[string]interface{}{
-								"sum": int64(0),
-							},
+						map[string]interface{}{
+							"value": "pear",
+							"sum":   int64(0),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "apple",
-							},
-							map[string]interface{}{
-								"sum": nil,
-							},
+						map[string]interface{}{
+							"value": "apple",
+							"sum":   nil,
 						},
 					},
 				},
@@ -1485,21 +1453,13 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": nil,
-							},
-							map[string]interface{}{
-								"sum": int64(2),
-							},
+						map[string]interface{}{
+							"value": nil,
+							"sum":   int64(2),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "apple",
-							},
-							map[string]interface{}{
-								"sum": int64(0),
-							},
+						map[string]interface{}{
+							"value": "apple",
+							"sum":   int64(0),
 						},
 					},
 				},
@@ -1511,21 +1471,13 @@ SELECT APPROX_TOP_SUM(x, weight, 2) FROM UNNEST([
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": "apple",
-							},
-							map[string]interface{}{
-								"sum": int64(0),
-							},
+						map[string]interface{}{
+							"value": "apple",
+							"sum":   int64(0),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"value": nil,
-							},
-							map[string]interface{}{
-								"sum": nil,
-							},
+						map[string]interface{}{
+							"value": nil,
+							"sum":   nil,
 						},
 					},
 				},
@@ -2228,6 +2180,17 @@ SELECT * FROM Employees`,
 			},
 		},
 		{
+			name:         "date to json",
+			query:        `SELECT TO_JSON_STRING(DATE(2024, 1, 1))`,
+			expectedRows: [][]interface{}{{`"2024-01-01"`}},
+		},
+
+		{
+			name:         "date struct to json",
+			query:        `SELECT TO_JSON_STRING(STRUCT (DATE(2024, 1, 1) AS d))`,
+			expectedRows: [][]interface{}{{`{"d":"2024-01-01"}`}},
+		},
+		{
 			name: "window rank",
 			query: `
 WITH Employees AS
@@ -2762,6 +2725,14 @@ FROM UNNEST([
 
 		// array functions
 		{
+			name:  "array formatting",
+			query: `SELECT [0, 1, 1, 2, 3, 5] AS some_numbers;`,
+			expectedRows: [][]interface{}{
+				{[]interface{}{int64(0), int64(1), int64(1), int64(2), int64(3), int64(5)}},
+			},
+		},
+
+		{
 			name:         "make_array",
 			query:        `SELECT a, b FROM UNNEST([STRUCT(DATE(2022, 1, 1) AS a, 1 AS b)])`,
 			expectedRows: [][]interface{}{{"2022-01-01", int64(1)}},
@@ -2774,6 +2745,185 @@ FROM UNNEST(['foo', 'bar', 'baz'])
 WITH OFFSET AS offset
 ORDER BY offset DESC;`,
 			expectedRows: [][]interface{}{{"baz", int64(2)}, {"bar", int64(1)}, {"foo", int64(0)}},
+		},
+		{
+			name: "unnest struct",
+			query: `-- Create the table with nested struct schema
+  CREATE TABLE events_1 (
+    event_params ARRAY<STRUCT<
+      key STRING,
+      value STRUCT<string_value STRING, int_value INT64>
+    >>
+  );
+
+  -- Insert test data
+  INSERT INTO events_1 (event_params)
+  VALUES (
+    [
+      STRUCT(
+        'param1' AS key,
+        STRUCT('value1' AS string_value, CAST(NULL AS INT64) as int_value) AS value
+      ),
+      STRUCT(
+        'param2' AS key,
+        STRUCT(CAST(NULL AS STRING) as string_value, 123 AS int_value) AS value
+      )
+    ]
+  );
+
+  -- Query with UNNEST
+  SELECT
+    event_param.key AS param_key,
+    event_param.value.string_value AS param_value_string,
+    event_param.value.int_value AS param_value_int
+  FROM
+    events_1, UNNEST(event_params) AS event_param;`,
+			expectedRows: [][]interface{}{{"param1", "value1", nil}, {"param2", nil, int64(123)}},
+		},
+		{
+			name: "unnest struct with offset and filter",
+			query: `SELECT
+    person.name,
+    person.age,
+    pos
+  FROM UNNEST([
+    STRUCT('Alice' AS name, 30 AS age),
+    STRUCT('Bob' AS name, 25 AS age),
+    STRUCT('Charlie' AS name, 35 AS age)
+  ]) AS person WITH OFFSET AS pos
+  WHERE person.age >= 30
+  ORDER BY pos;`,
+			expectedRows: [][]interface{}{
+				{"Alice", int64(30), int64(0)},
+				{"Charlie", int64(35), int64(2)},
+			},
+		},
+		{
+			name: "unnest struct array with aggregation",
+			query: `WITH products AS (
+    SELECT 'order1' AS order_id, [
+      STRUCT('apple' AS product, 2 AS quantity, 1.5 AS price),
+      STRUCT('banana' AS product, 3 AS quantity, 0.5 AS price)
+    ] AS items
+    UNION ALL
+    SELECT 'order2' AS order_id, [
+      STRUCT('apple' AS product, 1 AS quantity, 1.5 AS price),
+      STRUCT('orange' AS product, 5 AS quantity, 0.8 AS price)
+    ] AS items
+  )
+  SELECT
+    order_id,
+    SUM(item.quantity) AS total_items,
+    SUM(item.quantity * item.price) AS total_cost
+  FROM products, UNNEST(items) AS item
+  GROUP BY order_id
+  ORDER BY order_id;`,
+			expectedRows: [][]interface{}{
+				{"order1", int64(5), float64(4.5)},
+				{"order2", int64(6), float64(5.5)},
+			},
+		},
+		{
+			name: "unnest simple struct inline",
+			query: `SELECT
+    coord.x,
+    coord.y,
+    coord.x + coord.y AS sum
+  FROM UNNEST([
+    STRUCT(1 AS x, 2 AS y),
+    STRUCT(3 AS x, 4 AS y),
+    STRUCT(5 AS x, 6 AS y)
+  ]) AS coord
+  WHERE coord.x > 1;`,
+			expectedRows: [][]interface{}{
+				{int64(3), int64(4), int64(7)},
+				{int64(5), int64(6), int64(11)},
+			},
+		},
+		{
+			name: "unnest struct with multiple tables",
+			query: `CREATE TABLE users (
+    user_id INT64,
+    tags ARRAY<STRUCT<tag_name STRING, tag_value STRING>>
+  );
+
+  INSERT INTO users (user_id, tags) VALUES
+    (1, [STRUCT('level' AS tag_name, 'gold' AS tag_value), STRUCT('region' AS tag_name, 'west' AS tag_value)]),
+    (2, [STRUCT('level' AS tag_name, 'silver' AS tag_value)]);
+
+  SELECT
+    user_id,
+    tag.tag_name,
+    tag.tag_value
+  FROM users, UNNEST(tags) AS tag
+  WHERE tag.tag_name = 'level'
+  ORDER BY user_id;`,
+			expectedRows: [][]interface{}{
+				{int64(1), "level", "gold"},
+				{int64(2), "level", "silver"},
+			},
+		},
+		{
+			name: "unnest struct with nested arrays",
+			query: `WITH test_data AS (
+    SELECT [
+      STRUCT(
+        'order1' AS order_id,
+        [
+          STRUCT('item1' AS item_name, [10, 20, 30] AS quantities),
+          STRUCT('item2' AS item_name, [5, 15] AS quantities)
+        ] AS items
+      ),
+      STRUCT(
+        'order2' AS order_id,
+        [
+          STRUCT('item3' AS item_name, [25] AS quantities)
+        ] AS items
+      )
+    ] AS orders
+  )
+  SELECT
+    o.order_id,
+    item.item_name,
+    qty
+  FROM test_data,
+    UNNEST(orders) AS o,
+    UNNEST(o.items) AS item,
+    UNNEST(item.quantities) AS qty
+  WHERE qty > 10
+  ORDER BY o.order_id, item.item_name, qty;`,
+			expectedRows: [][]interface{}{
+				{"order1", "item1", int64(20)},
+				{"order1", "item1", int64(30)},
+				{"order1", "item2", int64(15)},
+				{"order2", "item3", int64(25)},
+			},
+		},
+		{
+			name: "unnest struct with cross join",
+			query: `WITH departments AS (
+    SELECT [
+      STRUCT('Engineering' AS dept, 'Alice' AS manager),
+      STRUCT('Sales' AS dept, 'Bob' AS manager)
+    ] AS dept_list
+  ), employees AS (
+    SELECT [
+      STRUCT('Charlie' AS name, 'Engineering' AS dept),
+      STRUCT('Diana' AS name, 'Sales' AS dept)
+    ] AS emp_list
+  )
+  SELECT
+    d.dept,
+    d.manager,
+    e.name AS employee
+  FROM departments, UNNEST(dept_list) AS d
+  CROSS JOIN employees, UNNEST(emp_list) AS e
+  WHERE d.dept = e.dept
+  ORDER BY d.dept, e.name;`,
+			expectedRows: [][]interface{}{
+				{"Engineering", "Alice", "Charlie"},
+				{"Sales", "Bob", "Diana"},
+			},
 		},
 		{
 			name:  "array function",
@@ -2808,27 +2958,15 @@ INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"": float64(1),
-							},
-							map[string]interface{}{
-								"": float64(2),
-							},
-							map[string]interface{}{
-								"": float64(3),
-							},
+						map[string]interface{}{
+							"_field_1": int64(1),
+							"_field_2": int64(2),
+							"_field_3": int64(3),
 						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"": float64(4),
-							},
-							map[string]interface{}{
-								"": float64(5),
-							},
-							map[string]interface{}{
-								"": float64(6),
-							},
+						map[string]interface{}{
+							"_field_1": int64(4),
+							"_field_2": int64(5),
+							"_field_3": int64(6),
 						},
 					},
 				},
@@ -2840,24 +2978,8 @@ INNER JOIN unnest(['lettuce']) in_stock_items ON in_stock_items = item;`,
 			expectedRows: [][]interface{}{
 				{
 					[]interface{}{
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"": []interface{}{
-									float64(1),
-									float64(2),
-									float64(3),
-								},
-							},
-						},
-						[]map[string]interface{}{
-							map[string]interface{}{
-								"": []interface{}{
-									float64(4),
-									float64(5),
-									float64(6),
-								},
-							},
-						},
+						map[string]any{"_field_1": []any{int64(1), int64(2), int64(3)}},
+						map[string]any{"_field_1": []any{int64(4), int64(5), int64(6)}},
 					},
 				},
 			},
@@ -2878,7 +3000,8 @@ SELECT ARRAY (
 					int64(1),
 				},
 			},
-		}, {
+		},
+		{
 			name:  "array_concat function",
 			query: `SELECT ARRAY_CONCAT([1, 2], [3, 4], [5, 6]) as count_to_six`,
 			expectedRows: [][]interface{}{
@@ -4503,7 +4626,8 @@ WITH letters AS (
 				{[]interface{}{"b", "c", "d"}},
 				{[]interface{}{}},
 			},
-		}, {
+		},
+		{
 			name:         "split null delimiter",
 			query:        `SELECT SPLIT('abc', NULL), SPLIT(b'\xab\xcd\xef\xaa\xbb', NULL)`,
 			expectedRows: [][]interface{}{{[]interface{}{}, []interface{}{}}},
@@ -4850,6 +4974,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{int64(1302)}},
 		},
 		{
+			name:         "date_diff with month",
+			query:        `SELECT DATE_DIFF(DATE '2018-01-01', DATE '2017-10-30', MONTH) AS months_diff`,
+			expectedRows: [][]interface{}{{int64(3)}},
+		},
+		{
+			name:         "date_diff with day",
+			query:        `SELECT DATE_DIFF(DATE '2021-06-06', DATE '2017-11-12', DAY) AS days_diff`,
+			expectedRows: [][]interface{}{{int64(1302)}},
+		},
+		{
 			name:         "date_from_unix_date",
 			query:        `SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch`,
 			expectedRows: [][]interface{}{{"2008-12-25"}},
@@ -4898,6 +5032,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "format_date with %E4Y",
 			query:        `SELECT FORMAT_DATE("%E4Y", DATE "2008-12-25")`,
 			expectedRows: [][]interface{}{{"2008"}},
+		},
+		{
+			name:         "cast date as string",
+			query:        `SELECT CAST(DATE("2022-08-01 06:47:51.123456-07:00") AS STRING)`,
+			expectedRows: [][]interface{}{{"2022-08-01"}},
+		},
+		{
+			name:         "cast date as string",
+			query:        `SELECT CAST(DATE("2022-08-01 06:47:51.123456-07:00") AS STRING)`,
+			expectedRows: [][]interface{}{{"2022-08-01"}},
 		},
 
 		{
@@ -5168,6 +5312,16 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2008"}},
 		},
 		{
+			name:         "datetime literal",
+			query:        `SELECT DATETIME '2023-01-01 12:01:00'`,
+			expectedRows: [][]interface{}{{"2023-01-01T12:01:00"}},
+		},
+		{
+			name:         "datetime to json",
+			query:        `SELECT TO_JSON_STRING(STRUCT(DATETIME "2006-01-02T15:04:05.999999" AS DT))`,
+			expectedRows: [][]interface{}{{`{"DT":"2006-01-02T15:04:05.999999"}`}},
+		},
+		{
 			name:         "cast datetime as string",
 			query:        `SELECT CAST(DATETIME(TIMESTAMP("2022-08-01 06:47:51.123456-07:00")) AS STRING)`,
 			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456"}},
@@ -5285,6 +5439,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"10:47:51.123456"}},
 		},
 		{
+			name:         "time to json string",
+			query:        `SELECT TO_JSON_STRING(TIME("2022-08-01 06:47:51.123456-04:00"))`,
+			expectedRows: [][]interface{}{{`"10:47:51.123456"`}},
+		},
+		{
 			name:         "cast time with timezone as string",
 			query:        `SELECT CAST(TIME("2022-08-01 06:47:51.123456-04:00", "America/Los_Angeles") AS STRING)`,
 			expectedRows: [][]interface{}{{"03:47:51.123456"}},
@@ -5372,6 +5531,17 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			name:         "timestamp from date",
 			query:        `SELECT TIMESTAMP(DATE "2008-12-25")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 00:00:00+00")}},
+		},
+		{
+			name:         "timestamp to json",
+			query:        `SELECT TO_JSON_STRING(STRUCT(TIMESTAMP "2006-01-02T15:04:05.999999-07" AS TIMESTAMP))`,
+			expectedRows: [][]interface{}{{`{"TIMESTAMP":"2006-01-02T22:04:05.999999Z"}`}},
+		},
+
+		{
+			name:         "timestamp to string",
+			query:        `WITH tmp AS ( SELECT TIMESTAMP "2006-01-02T15:04:05-07" AS TS ) SELECT ts, CAST(ts AS STRING) FROM tmp`,
+			expectedRows: [][]interface{}{{createTimestampFormatFromString(`2006-01-02 22:04:05+00`), `2006-01-02 22:04:05+00`}},
 		},
 		{
 			name:         "timestamp_add",
@@ -5462,6 +5632,11 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456+00"}},
 		},
 		{
+			name:         "timestamp parses with T value",
+			query:        `SELECT CAST(TIMESTAMP("2022-08-01T06:47:51.123456-07:00") AS STRING);`,
+			expectedRows: [][]interface{}{{"2022-08-01 13:47:51.123456+00"}},
+		},
+		{
 			name:         "parse timestamp with %a %b %e %I:%M:%S %Y",
 			query:        `SELECT PARSE_TIMESTAMP("%a %b %e %I:%M:%S %Y", "Thu Dec 25 07:30:00 2008")`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("2008-12-25 07:30:00+00")}},
@@ -5481,7 +5656,8 @@ SELECT date, EXTRACT(ISOYEAR FROM date), EXTRACT(YEAR FROM date), EXTRACT(MONTH 
 			query:        `SELECT PARSE_TIMESTAMP("%k", " 9");`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("1970-01-01 09:00:00+00")}},
 		},
-		{name: "parse_timestamp with %D",
+		{
+			name:         "parse_timestamp with %D",
 			query:        `SELECT PARSE_TIMESTAMP("%D", "02/02/99");`,
 			expectedRows: [][]interface{}{{createTimestampFormatFromString("1999-02-02 00:00:00+00")}},
 		},
@@ -5570,6 +5746,7 @@ FROM Input`,
 			query:        `SELECT DATE "2020-09-22" + val FROM UNNEST([INTERVAL 1 DAY,INTERVAL -1 DAY,INTERVAL 2 YEAR,CAST('1-2 3 18:1:55' AS INTERVAL)]) as val`,
 			expectedRows: [][]interface{}{{"2020-09-23T00:00:00"}, {"2020-09-21T00:00:00"}, {"2022-09-22T00:00:00"}, {"2021-11-25T18:01:55"}},
 		},
+
 		{
 			name: "interval from sub operator",
 			query: `
@@ -5633,6 +5810,13 @@ SELECT
 			name:         "cast numeric and bignumeric to string",
 			query:        `SELECT cast(PARSE_NUMERIC("123.456") as STRING), cast(PARSE_BIGNUMERIC("123.456") as STRING)`,
 			expectedRows: [][]interface{}{{"123.456", "123.456"}},
+		},
+
+		// bytes formatting
+		{
+			name:         "bytes_formatting",
+			query:        `SELECT b"abc", CAST(b"abc" AS STRING)`,
+			expectedRows: [][]interface{}{{"YWJj", "abc"}},
 		},
 
 		// security functions
