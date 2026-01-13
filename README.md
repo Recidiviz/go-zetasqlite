@@ -476,7 +476,7 @@ A list of ZetaSQL ( Google Standard SQL ) specifications and features supported 
 - [x] CODE_POINTS_TO_STRING
 - [ ] COLLATE
 - [x] CONCAT
-- [ ] CONTAINS_SUBSTR
+- [X] CONTAINS_SUBSTR
 - [x] ENDS_WITH
 - [x] FORMAT
 - [x] FROM_BASE32
