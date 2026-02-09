@@ -213,6 +213,10 @@ func (a *Analyzer) configureQueryParameters(options *zetasql.AnalyzerOptions) er
 		return nil
 	}
 
+	// When we have explicit query parameters, we must disable undeclared parameters
+	// otherwise AddPositionalQueryParameter will fail
+	options.SetAllowUndeclaredParameters(false)
+
 	for _, parameter := range parameters {
 		parameterType, err := ZetaSQLTypeFromBigQueryType(parameter.ParameterType)
 		if err != nil {

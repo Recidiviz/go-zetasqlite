@@ -630,3 +630,167 @@ CREATE TABLE IF NOT EXISTS Singers (
 		}
 	})
 }
+
+func TestQueryParametersWithAllowUndeclaredReset(t *testing.T) {
+	// This test verifies that SetAllowUndeclaredParameters is properly managed:
+	// - When explicit parameters are provided, undeclared params must be disabled
+	// - When no parameters are provided, undeclared params should be allowed again
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	// Create test table
+	if _, err := db.Exec(`
+CREATE TABLE TestTable (
+  id INT64,
+  name STRING(100),
+  value INT64
+)`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert test data
+	if _, err := db.Exec(`INSERT TestTable (id, name, value) VALUES (1, 'Alice', 100), (2, 'Bob', 200)`); err != nil {
+		t.Fatal(err)
+	}
+
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	t.Run("positional parameters with explicit types", func(t *testing.T) {
+		// Configure positional parameters via BigQuery API
+		err := configureParameters(conn, []*bigquery.QueryParameter{
+			{
+				Name: "", // Empty name means positional
+				ParameterType: &bigquery.QueryParameterType{
+					Type: "INT64",
+				},
+				ParameterValue: &bigquery.QueryParameterValue{
+					Value: "1",
+				},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Execute query with positional parameter
+		var name string
+		row := conn.QueryRowContext(ctx, "SELECT name FROM TestTable WHERE id = ?", 1)
+		if err := row.Scan(&name); err != nil {
+			t.Fatalf("failed to query with positional parameter: %v", err)
+		}
+		if name != "Alice" {
+			t.Fatalf("expected 'Alice', got '%s'", name)
+		}
+	})
+
+	t.Run("undeclared parameters work after explicit parameters", func(t *testing.T) {
+		// This should work because each query gets a fresh AnalyzerOptions
+		// with SetAllowUndeclaredParameters(true) by default
+		var name string
+		row := conn.QueryRowContext(ctx, "SELECT name FROM TestTable WHERE id = @id", sql.Named("id", 2))
+		if err := row.Scan(&name); err != nil {
+			t.Fatalf("failed to query with undeclared parameter after explicit parameters: %v", err)
+		}
+		if name != "Bob" {
+			t.Fatalf("expected 'Bob', got '%s'", name)
+		}
+	})
+
+	t.Run("named parameters with explicit types", func(t *testing.T) {
+		// Configure named parameters via BigQuery API
+		err := configureParameters(conn, []*bigquery.QueryParameter{
+			{
+				Name: "searchId",
+				ParameterType: &bigquery.QueryParameterType{
+					Type: "INT64",
+				},
+				ParameterValue: &bigquery.QueryParameterValue{
+					Value: "1",
+				},
+			},
+			{
+				Name: "searchName",
+				ParameterType: &bigquery.QueryParameterType{
+					Type: "STRING",
+				},
+				ParameterValue: &bigquery.QueryParameterValue{
+					Value: "Alice",
+				},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Execute query with named parameters
+		var value int64
+		row := conn.QueryRowContext(ctx,
+			"SELECT value FROM TestTable WHERE id = @searchId AND name = @searchName",
+			sql.Named("searchId", 1),
+			sql.Named("searchName", "Alice"),
+		)
+		if err := row.Scan(&value); err != nil {
+			t.Fatalf("failed to query with named parameters: %v", err)
+		}
+		if value != 100 {
+			t.Fatalf("expected value 100, got %d", value)
+		}
+	})
+
+	t.Run("undeclared parameters work again after named parameters", func(t *testing.T) {
+		// Verify that undeclared parameters still work after using explicit named parameters
+		var count int64
+		row := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM TestTable WHERE value > @minValue", sql.Named("minValue", 50))
+		if err := row.Scan(&count); err != nil {
+			t.Fatalf("failed to query with undeclared parameter after named parameters: %v", err)
+		}
+		if count != 2 {
+			t.Fatalf("expected count 2, got %d", count)
+		}
+	})
+
+	t.Run("multiple positional parameters", func(t *testing.T) {
+		// Configure multiple positional parameters
+		err := configureParameters(conn, []*bigquery.QueryParameter{
+			{
+				Name: "",
+				ParameterType: &bigquery.QueryParameterType{
+					Type: "INT64",
+				},
+				ParameterValue: &bigquery.QueryParameterValue{
+					Value: "1",
+				},
+			},
+			{
+				Name: "",
+				ParameterType: &bigquery.QueryParameterType{
+					Type: "INT64",
+				},
+				ParameterValue: &bigquery.QueryParameterValue{
+					Value: "2",
+				},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Execute query with multiple positional parameters
+		var count int64
+		row := conn.QueryRowContext(ctx, "SELECT COUNT(*) FROM TestTable WHERE id IN (?, ?)", 1, 2)
+		if err := row.Scan(&count); err != nil {
+			t.Fatalf("failed to query with multiple positional parameters: %v", err)
+		}
+		if count != 2 {
+			t.Fatalf("expected count 2, got %d", count)
+		}
+	})
+}
