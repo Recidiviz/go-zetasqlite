@@ -129,7 +129,7 @@ func (t *ArrayScanTransformer) Transform(data ScanData, ctx TransformContext) (*
 	} else {
 		// If there is no join expression, use CROSS JOIN for inner joins
 		// For outer joins (LEFT JOIN UNNEST), we need an explicit ON condition
-		// to preserve rows with empty arrays - use ON 1 (always true)
+		// to preserve rows with empty arrays
 		if arrayData.IsOuter {
 			joinCondition = NewLiteralExpression("true")
 		} else {
