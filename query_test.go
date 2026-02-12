@@ -4,13 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	zetasqlite "github.com/goccy/go-zetasqlite"
-	"github.com/google/go-cmp/cmp"
 	"math"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	zetasqlite "github.com/goccy/go-zetasqlite"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestQuery(t *testing.T) {
@@ -7254,6 +7255,26 @@ ORDER BY count DESC`,
 				{map[string]interface{}{"tags": []interface{}{"tag1", "tag2"}, "user_id": "user1"}, int64(2)},
 				{map[string]interface{}{"tags": []interface{}{"tag3"}, "user_id": "user2"}, int64(1)},
 			},
+		},
+		// Regression test for https://github.com/goccy/bigquery-emulator/issues/436
+		{
+			name: "left join unnest with aggregate functions",
+			query: `
+WITH data AS (
+  SELECT '1' AS id, 'abc' AS location_id, [STRUCT('a' AS name)] AS fields
+  UNION ALL SELECT '2', 'abc', [STRUCT('b' AS name)]
+  UNION ALL SELECT '3', 'def', ARRAY<STRUCT<name STRING>>[]
+  UNION ALL SELECT '4', 'def', ARRAY<STRUCT<name STRING>>[]
+  UNION ALL SELECT '5', 'ghi', ARRAY<STRUCT<name STRING>>[]
+  UNION ALL SELECT '6', 'ghi', [STRUCT('b' AS name)]
+)
+SELECT
+  COUNT(DISTINCT data.location_id) AS distinct_locations,
+  COUNT(DISTINCT field.name) AS distinct_field_names
+FROM data
+LEFT JOIN UNNEST(data.fields) AS field
+`,
+			expectedRows: [][]interface{}{{int64(3), int64(2)}},
 		},
 		{
 			name: "group by array of structs",
