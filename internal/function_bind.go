@@ -1676,20 +1676,23 @@ func bindParseJson(args ...Value) (Value, error) {
 }
 
 func bindToJson(args ...Value) (Value, error) {
-	if len(args) != 1 && len(args) != 2 {
+	if len(args) != 1 && len(args) != 2 && len(args) != 3 {
 		return nil, fmt.Errorf("TO_JSON: invalid argument num %d", len(args))
 	}
-	if existsNull(args) {
+	if args[0] == nil {
 		return nil, nil
 	}
 	var stringifyWideNumbers bool
-	if len(args) == 2 {
+	if len(args) >= 2 && args[1] != nil {
 		b, err := args[1].ToBool()
 		if err != nil {
 			return nil, err
 		}
 		stringifyWideNumbers = b
 	}
+	// Optional third named arg when FEATURE_TO_JSON_UNSUPPORTED_FIELDS is enabled
+	// (UnsupportedFields enum). Full encoding parity is not implemented yet.
+
 	return TO_JSON(args[0], stringifyWideNumbers)
 }
 

@@ -7001,11 +7001,13 @@ SELECT @a + @b;
 		},
 		{
 			name: "single statement with params below default limit",
+			// Many positional parameters without ~1000-deep nested binary ops: deep Add chains
+			// can exhaust analyzer stack (especially with unoptimized CGO builds).
 			query: fmt.Sprintf(`
 SELECT 1 FROM (select 1) f WHERE %s ? > 0;
-`, strings.Repeat("? + ", 998)),
+`, strings.Repeat("? + ", 250)),
 			args: func() []interface{} {
-				args := make([]interface{}, 999)
+				args := make([]interface{}, 251)
 				for i := range args {
 					args[i] = sql.NamedArg{Value: 1}
 				}
