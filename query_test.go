@@ -6694,6 +6694,26 @@ FROM
 			expectedRows: [][]interface{}{{`{"x":1,"y":2}`}},
 		},
 		{
+			name:         "upgrade_2024_06_json_keys_sorted",
+			query:        `SELECT JSON_KEYS(PARSE_JSON('{"b":1,"a":2}'))`,
+			expectedRows: [][]interface{}{{[]interface{}{"a", "b"}}},
+		},
+		{
+			name:         "upgrade_2024_06_json_keys_nested",
+			query:        `SELECT JSON_KEYS(PARSE_JSON('{"a":{"b":1}}'))`,
+			expectedRows: [][]interface{}{{[]interface{}{"a", "a.b"}}},
+		},
+		{
+			name:         "upgrade_2024_06_json_keys_null_json",
+			query:        `SELECT JSON_KEYS(PARSE_JSON('null'))`,
+			expectedRows: [][]interface{}{{[]interface{}{}}},
+		},
+		{
+			name:         "upgrade_2024_06_json_keys_null_doc",
+			query:        `SELECT JSON_KEYS(CAST(NULL AS JSON))`,
+			expectedRows: [][]interface{}{{nil}},
+		},
+		{
 			name:         "upgrade_2023_08_json_strip_nulls",
 			query:        `SELECT JSON_STRIP_NULLS(PARSE_JSON('{"a":null,"b":1}'))`,
 			expectedRows: [][]interface{}{{`{"b":1}`}},

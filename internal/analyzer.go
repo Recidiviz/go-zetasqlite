@@ -66,6 +66,7 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		zetasql.FeatureJsonArrayFunctions,
 		zetasql.FeatureJsonConstructorFunctions,
 		zetasql.FeatureJsonMutatorFunctions,
+		zetasql.FeatureJsonKeysFunction,
 		zetasql.FeatureJsonLaxValueExtractionFunctions,
 		zetasql.FeatureJsonStrictNumberParsing,
 		zetasql.FeatureV13IsDistinct,

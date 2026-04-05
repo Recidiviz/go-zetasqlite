@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -186,6 +187,121 @@ func valueToJSONNative(val Value) (interface{}, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+// jsonKeysMode mirrors ZetaSQL JsonPathOptions for JSON_KEYS.
+type jsonKeysMode int
+
+const (
+	jsonKeysModeStrict jsonKeysMode = iota
+	jsonKeysModeLax
+	jsonKeysModeLaxRecursive
+)
+
+// JSON_KEYS returns lexicographically sorted JSON path key strings (object keys and nested paths).
+// Semantics follow zetasql::functions::JsonKeys (strict / lax / lax recursive).
+func JSON_KEYS(j JsonValue, maxDepth int64, mode jsonKeysMode) (Value, error) {
+	var root interface{}
+	if err := json.Unmarshal([]byte(j), &root); err != nil {
+		return nil, fmt.Errorf("JSON_KEYS: %w", err)
+	}
+	keys := jsonKeysWalk(root, maxDepth, mode)
+	vals := make([]Value, len(keys))
+	for i, k := range keys {
+		vals[i] = StringValue(k)
+	}
+	return &ArrayValue{values: vals}, nil
+}
+
+type jsonKeysStackElem struct {
+	subtree        interface{}
+	remainingDepth int64
+	keyPrefix      string
+}
+
+func jsonKeysEscapeSegment(key string) string {
+	if jsonKeysSegmentUnquoted(key) {
+		return key
+	}
+	b, _ := json.Marshal(key)
+	return string(b)
+}
+
+func jsonKeysSegmentUnquoted(key string) bool {
+	if key == "" {
+		return false
+	}
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		if c == '.' {
+			return false
+		}
+		if i == 0 {
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+				return false
+			}
+		} else if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+func jsonKeysWalk(root interface{}, maxDepth int64, mode jsonKeysMode) []string {
+	keys := make(map[string]struct{})
+	stack := []jsonKeysStackElem{{subtree: root, remainingDepth: maxDepth, keyPrefix: ""}}
+	for len(stack) > 0 {
+		el := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		switch v := el.subtree.(type) {
+		case map[string]interface{}:
+			remainingDepth := el.remainingDepth - 1
+			for key, value := range v {
+				var newKey string
+				if el.keyPrefix == "" {
+					newKey = jsonKeysEscapeSegment(key)
+				} else {
+					newKey = el.keyPrefix + "." + jsonKeysEscapeSegment(key)
+				}
+				keys[newKey] = struct{}{}
+				if remainingDepth > 0 {
+					stack = append(stack, jsonKeysStackElem{
+						subtree:        value,
+						remainingDepth: remainingDepth,
+						keyPrefix:      newKey,
+					})
+				}
+			}
+		case []interface{}:
+			if mode == jsonKeysModeStrict {
+				continue
+			}
+			for _, elem := range v {
+				switch elem.(type) {
+				case map[string]interface{}:
+					stack = append(stack, jsonKeysStackElem{
+						subtree:        elem,
+						remainingDepth: el.remainingDepth,
+						keyPrefix:      el.keyPrefix,
+					})
+				case []interface{}:
+					if mode == jsonKeysModeLaxRecursive {
+						stack = append(stack, jsonKeysStackElem{
+							subtree:        elem,
+							remainingDepth: el.remainingDepth,
+							keyPrefix:      el.keyPrefix,
+						})
+					}
+				}
+			}
+		}
+	}
+	out := make([]string, 0, len(keys))
+	for k := range keys {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func jsonStripNullsWalk(v interface{}) interface{} {

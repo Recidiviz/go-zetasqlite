@@ -4,6 +4,9 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"math"
+	"strings"
+
 	"github.com/goccy/go-json"
 	"modernc.org/sqlite"
 )
@@ -1771,6 +1774,60 @@ func bindJsonStripNulls(args ...Value) (Value, error) {
 		return nil, fmt.Errorf("JSON_STRIP_NULLS: expected JSON")
 	}
 	return JSON_STRIP_NULLS(jv)
+}
+
+func bindJsonKeys(args ...Value) (Value, error) {
+	// JSON_KEYS(JSON[, INT64 max_depth][, STRING mode])
+	if len(args) < 1 || len(args) > 3 {
+		return nil, fmt.Errorf("JSON_KEYS: invalid argument num %d", len(args))
+	}
+	if existsNull(args[:1]) {
+		return nil, nil
+	}
+	jv, ok := args[0].(JsonValue)
+	if !ok {
+		return nil, fmt.Errorf("JSON_KEYS: expected JSON")
+	}
+	maxDepth := int64(math.MaxInt64)
+	if len(args) >= 2 && args[1] != nil {
+		var err error
+		maxDepth, err = args[1].ToInt64()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if maxDepth <= 0 {
+		return nil, fmt.Errorf("max_depth must be positive")
+	}
+	if len(args) >= 3 && args[2] == nil {
+		return nil, nil
+	}
+	modeStr := "strict"
+	if len(args) >= 3 {
+		var err error
+		modeStr, err = args[2].ToString()
+		if err != nil {
+			return nil, err
+		}
+	}
+	mode, err := parseJsonKeysMode(modeStr)
+	if err != nil {
+		return nil, err
+	}
+	return JSON_KEYS(jv, maxDepth, mode)
+}
+
+func parseJsonKeysMode(s string) (jsonKeysMode, error) {
+	switch {
+	case strings.EqualFold(s, "strict"):
+		return jsonKeysModeStrict, nil
+	case strings.EqualFold(s, "lax"):
+		return jsonKeysModeLax, nil
+	case strings.EqualFold(s, "lax recursive"):
+		return jsonKeysModeLaxRecursive, nil
+	default:
+		return 0, fmt.Errorf("Invalid JSON mode specified")
+	}
 }
 
 func bindToJsonString(args ...Value) (Value, error) {
