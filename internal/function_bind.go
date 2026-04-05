@@ -1724,8 +1724,9 @@ func bindJsonRemove(args ...Value) (Value, error) {
 }
 
 func bindJsonSet(args ...Value) (Value, error) {
-	// JSON_SET(JSON, path, value[, path, value]..., create_if_missing => BOOL)
-	if len(args) < 4 || (len(args)-4)%2 != 0 {
+	// JSON_SET(JSON, path, value[, path, value]... [, create_if_missing BOOL])
+	// ZetaSQL: json_set(json, string, any[, string, any, ...]); optional trailing BOOL.
+	if len(args) < 3 {
 		return nil, fmt.Errorf("JSON_SET: invalid argument num %d", len(args))
 	}
 	if existsNull(args[:1]) {
@@ -1735,15 +1736,27 @@ func bindJsonSet(args ...Value) (Value, error) {
 	if !ok {
 		return nil, fmt.Errorf("JSON_SET: expected JSON")
 	}
-	last := args[len(args)-1]
-	if last == nil {
-		return jv, nil
+	var pairs []Value
+	createIfMissing := true
+	if len(args)%2 == 0 {
+		// Even total count: trailing create_if_missing BOOL after path/value pairs.
+		last := args[len(args)-1]
+		if last == nil {
+			return jv, nil
+		}
+		var err error
+		createIfMissing, err = last.ToBool()
+		if err != nil {
+			return nil, err
+		}
+		pairs = args[1 : len(args)-1]
+	} else {
+		pairs = args[1:]
 	}
-	createIfMissing, err := last.ToBool()
-	if err != nil {
-		return nil, err
+	if len(pairs)%2 != 0 {
+		return nil, fmt.Errorf("JSON_SET: invalid argument num %d", len(args))
 	}
-	return JSON_SET(jv, args[1:len(args)-1], createIfMissing)
+	return JSON_SET(jv, pairs, createIfMissing)
 }
 
 func bindJsonStripNulls(args ...Value) (Value, error) {
