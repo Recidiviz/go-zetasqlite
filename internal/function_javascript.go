@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 func EVAL_JAVASCRIPT(code string, retType *Type, argNames []string, args []Value) (Value, error) {
@@ -30,20 +30,20 @@ func EVAL_JAVASCRIPT(code string, retType *Type, argNames []string, args []Value
 		}
 	}
 	evalCode := fmt.Sprintf(`
-function zetasqlite_javascript_func() { %s }
-zetasqlite_javascript_func();
+function googlesqlite_javascript_func() { %s }
+googlesqlite_javascript_func();
 `, code)
 	ret, err := vm.RunString(evalCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate javascript code %s: %w", code, err)
 	}
-	typ, err := retType.ToZetaSQLType()
+	typ, err := retType.ToGoogleSQLType()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get return type: %w", err)
 	}
 	value, err := castJavaScriptValue(typ, ret)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert zetasqlite value from %v: %w", ret, err)
+		return nil, fmt.Errorf("failed to convert googlesqlite value from %v: %w", ret, err)
 	}
 	return value, nil
 }

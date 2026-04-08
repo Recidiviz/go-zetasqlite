@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
 // JoinScanTransformer handles JOIN scan transformations from ZetaSQL to SQLite.

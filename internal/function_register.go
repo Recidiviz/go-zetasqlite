@@ -418,10 +418,10 @@ var (
 		"current_time":      struct{}{},
 		"current_timestamp": struct{}{},
 
-		"zetasqlite_current_date":      struct{}{},
-		"zetasqlite_current_datetime":  struct{}{},
-		"zetasqlite_current_time":      struct{}{},
-		"zetasqlite_current_timestamp": struct{}{},
+		"googlesqlite_current_date":      struct{}{},
+		"googlesqlite_current_datetime":  struct{}{},
+		"googlesqlite_current_time":      struct{}{},
+		"googlesqlite_current_timestamp": struct{}{},
 	}
 )
 
@@ -454,7 +454,7 @@ func RegisterFunctions() error {
 		return onceErr
 	}
 
-	if err := sqlite.RegisterFunction("zetasqlite_decode_array",
+	if err := sqlite.RegisterFunction("googlesqlite_decode_array",
 		&sqlite.FunctionImpl{
 			Deterministic: true,
 			NArgs:         -1,
@@ -489,7 +489,7 @@ func RegisterFunctions() error {
 		return fmt.Errorf("failed to register decode_array function: %w", err)
 	}
 
-	if err := sqlite.RegisterFunction("zetasqlite_group_by", &sqlite.FunctionImpl{
+	if err := sqlite.RegisterFunction("googlesqlite_group_by", &sqlite.FunctionImpl{
 		Deterministic: true,
 		NArgs:         -1,
 		Scalar: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
@@ -521,10 +521,10 @@ func RegisterFunctions() error {
 			return strings.Join(elems, "||"), nil
 		},
 	}); err != nil {
-		return fmt.Errorf("failed to register function zetasqlite_group_by: %w", err)
+		return fmt.Errorf("failed to register function googlesqlite_group_by: %w", err)
 	}
 
-	sqlite.MustRegisterCollationUtf8("zetasqlite_collate", func(a, b string) int {
+	sqlite.MustRegisterCollationUtf8("googlesqlite_collate", func(a, b string) int {
 		va, _ := DecodeValue(a)
 		vb, _ := DecodeValue(b)
 		eq, _ := va.EQ(vb)
@@ -574,7 +574,7 @@ func RegisterFunctions() error {
 
 func setupNormalFuncMap(info *FuncInfo) error {
 	normalFuncMap[info.Name] = &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_%s", info.Name),
+		Name: fmt.Sprintf("googlesqlite_%s", info.Name),
 		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 			values, err := convertArgs(args)
 			if err != nil {
@@ -590,7 +590,7 @@ func setupNormalFuncMap(info *FuncInfo) error {
 
 	safeName := fmt.Sprintf("safe_%s", info.Name)
 	normalFuncMap[safeName] = &NameAndFunc{
-		Name: fmt.Sprintf("zetasqlite_%s", safeName),
+		Name: fmt.Sprintf("googlesqlite_%s", safeName),
 		Func: func(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
 			values, err := convertArgs(args)
 			if err != nil {
@@ -616,7 +616,7 @@ func setupNormalFuncMap(info *FuncInfo) error {
 
 func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 	aggregateFuncMap[info.Name] = append(aggregateFuncMap[info.Name], &AggregateNameAndFunc{
-		Name:          fmt.Sprintf("zetasqlite_%s", info.Name),
+		Name:          fmt.Sprintf("googlesqlite_%s", info.Name),
 		MakeAggregate: info.BindFunc(),
 	})
 	return nil
@@ -624,7 +624,7 @@ func setupAggregateFuncMap(info *AggregateFuncInfo) error {
 
 func setupWindowFuncMap(info *WindowFuncInfo) error {
 	windowFuncMap[info.Name] = append(windowFuncMap[info.Name], &AggregateNameAndFunc{
-		Name:          fmt.Sprintf("zetasqlite_window_%s", info.Name),
+		Name:          fmt.Sprintf("googlesqlite_window_%s", info.Name),
 		MakeAggregate: info.BindFunc(),
 	})
 	return nil

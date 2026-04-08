@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
 // MergeStmtTransformer handles transformation of MERGE statement nodes from ZetaSQL to SQLite.
@@ -70,7 +70,7 @@ func (t *MergeStmtTransformer) Transform(data StatementData, ctx TransformContex
 	}
 
 	// Create temporary merged table with FULL OUTER JOIN
-	createTableStmt, columnMapping, err := t.createMergedTableStatement("zetasqlite_merged_table", sourceTable, targetTable, mergeData.SourceScan, mergeData.TargetScan, mergeExpr, ctx)
+	createTableStmt, columnMapping, err := t.createMergedTableStatement("googlesqlite_merged_table", sourceTable, targetTable, mergeData.SourceScan, mergeData.TargetScan, mergeExpr, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create merged table statement: %w", err)
 	}
@@ -110,7 +110,7 @@ func (t *MergeStmtTransformer) Transform(data StatementData, ctx TransformContex
 	}
 
 	// 3. Drop temporary table
-	statements = append(statements, "DROP TABLE zetasqlite_merged_table")
+	statements = append(statements, "DROP TABLE googlesqlite_merged_table")
 
 	// Create a compound statement fragment that represents all the statements
 	return NewCompoundSQLFragment(statements), nil
@@ -123,7 +123,7 @@ func (t *MergeStmtTransformer) validateMergeExpression(mergeExpr ExpressionData)
 	}
 
 	// Check if it's an equality function
-	if mergeExpr.Function.Name != "zetasqlite_equal" {
+	if mergeExpr.Function.Name != "googlesqlite_equal" {
 		return fmt.Errorf("currently MERGE expression is supported equal expression only")
 	}
 
@@ -219,7 +219,7 @@ func (t *MergeStmtTransformer) transformWhenClause(
 
 	// Create WHERE clause with existence check
 	subq := NewSelectStatement()
-	subq.FromClause = &FromItem{Type: FromItemTypeTable, TableName: "zetasqlite_merged_table"}
+	subq.FromClause = &FromItem{Type: FromItemTypeTable, TableName: "googlesqlite_merged_table"}
 	subq.SelectList = []*SelectListItem{{Expression: NewColumnExpression(mergedTableSourceColumnName)}, {Expression: NewColumnExpression(mergedTableTargetColumnName)}}
 	subq.WhereClause = fromFilter
 	existsStmt := NewExistsExpression(subq)
@@ -301,7 +301,7 @@ func (t *MergeStmtTransformer) transformUpdateAction(whenClause *MergeWhenClause
 
 	// Build UPDATE statement
 	return fmt.Sprintf(
-		"UPDATE `%s` SET %s FROM zetasqlite_merged_table WHERE %s",
+		"UPDATE `%s` SET %s FROM googlesqlite_merged_table WHERE %s",
 		targetTableName,
 		strings.Join(setItems, ","),
 		whereStmt,

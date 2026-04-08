@@ -1,9 +1,9 @@
-PKG := github.com/goccy/go-zetasqlite
+PKG := github.com/vantaboard/go-googlesqlite
 
 # Same dev image and GO_CACHE_ROOT as go-zetasql (see ../go-zetasql/Makefile).
 GO_ZETASQL_ROOT ?= $(abspath $(CURDIR)/../go-zetasql)
-DOCKER_DEV_IMAGE ?= go-zetasql:dev
-GO_CACHE_ROOT ?= $(HOME)/.cache/go-zetasql
+DOCKER_DEV_IMAGE ?= go-googlesql:dev
+GO_CACHE_ROOT ?= $(HOME)/.cache/go-googlesql
 
 GOBIN := $(CURDIR)/bin
 PKGS := $(shell go list ./... | grep -v cmd | grep -v benchmarks )
@@ -19,7 +19,7 @@ $(GOBIN):
 
 .PHONY: build
 build:
-	cd ./cmd/zetasqlite-cli && go build .
+	cd ./cmd/googlesqlite-cli && go build .
 
 .PHONY: cover
 cover:
@@ -47,11 +47,11 @@ test/linux: docker/build-dev-zetasql
 	docker run --rm \
 		-e CGO_ENABLED=1 -e CC=clang -e CXX=clang++ \
 		-e CCACHE_DIR=/root/.ccache -e CCACHE_COMPRESS=1 \
-		-v "$(CURDIR)":/work/go-zetasqlite \
+		-v "$(CURDIR)":/work/go-googlesqlite \
 		-v "$(GO_ZETASQL_ROOT)":/work/go-zetasql \
 		-v "$(GO_CACHE_ROOT)/gocache":/root/.cache/go-build \
 		-v "$(GO_CACHE_ROOT)/gomodcache":/go/pkg/mod \
 		-v "$(GO_CACHE_ROOT)/ccache":/root/.ccache \
-		-w /work/go-zetasqlite \
+		-w /work/go-googlesqlite \
 		$(DOCKER_DEV_IMAGE) \
 		bash -c "go test -race -v ./... -count=1"

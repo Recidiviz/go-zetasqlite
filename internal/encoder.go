@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 func EncodeNamedValues(v []driver.NamedValue, params []*ast.ParameterNode) ([]sql.NamedArg, error) {
@@ -132,15 +132,15 @@ func LiteralFromValue(v Value) (string, error) {
 	return fmt.Sprintf(`"%s"`, base64.StdEncoding.EncodeToString(b)), nil
 }
 
-func LiteralFromZetaSQLValue(v types.Value) (string, error) {
-	value, err := ValueFromZetaSQLValue(v)
+func LiteralFromGoogleSQLValue(v types.Value) (string, error) {
+	value, err := ValueFromGoogleSQLValue(v)
 	if err != nil {
 		return "", err
 	}
 	return LiteralFromValue(value)
 }
 
-func ValueFromZetaSQLValue(v types.Value) (Value, error) {
+func ValueFromGoogleSQLValue(v types.Value) (Value, error) {
 	if v.IsNull() {
 		return nil, nil
 	}
@@ -325,7 +325,7 @@ func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
 	ret := &ArrayValue{}
 	for i := 0; i < v.NumElements(); i++ {
 		elem := v.Element(i)
-		value, err := ValueFromZetaSQLValue(elem)
+		value, err := ValueFromGoogleSQLValue(elem)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert from zetasql value: %w", err)
 		}
@@ -342,7 +342,7 @@ func structValueFromLiteral(v types.Value) (*StructValue, error) {
 	for i := 0; i < v.NumFields(); i++ {
 		field := v.Field(i)
 		name := structType.Field(i).Name()
-		value, err := ValueFromZetaSQLValue(field)
+		value, err := ValueFromGoogleSQLValue(field)
 		if err != nil {
 			return nil, err
 		}
@@ -606,7 +606,7 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 		}
 		return valueFromGoReflectValue(reflect.ValueOf(vv))
 	}
-	return nil, fmt.Errorf("cannot convert %s type to zetasqlite value type", kind)
+	return nil, fmt.Errorf("cannot convert %s type to googlesqlite value type", kind)
 }
 
 func encodeNamedValue(v driver.NamedValue, param *ast.ParameterNode) (sql.NamedArg, error) {

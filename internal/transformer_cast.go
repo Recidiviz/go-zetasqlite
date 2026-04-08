@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/goccy/go-json"
 
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 // CastTransformer handles transformation of type casting operations from ZetaSQL to SQLite.
@@ -16,10 +16,10 @@ import (
 // The transformer converts ZetaSQL cast operations by:
 // - Recursively transforming the expression being cast
 // - Encoding source and target type information as JSON
-// - Using the zetasqlite_cast runtime function for complex type conversions
+// - Using the googlesqlite_cast runtime function for complex type conversions
 // - Handling safe cast semantics (SAFE_CAST returns NULL on conversion failure)
 //
-// The zetasqlite_cast function bridges the type system gap by implementing ZetaSQL's
+// The googlesqlite_cast function bridges the type system gap by implementing ZetaSQL's
 // casting semantics in the SQLite runtime, preserving behavior for complex types
 // and edge cases that SQLite's native CAST cannot handle.
 type CastTransformer struct {
@@ -47,12 +47,12 @@ func (t *CastTransformer) Transform(data ExpressionData, ctx TransformContext) (
 		return nil, fmt.Errorf("failed to transform cast expression: %w", err)
 	}
 
-	// Use zetasqlite_cast function for complex type conversions
-	return t.createZetaSQLiteCast(innerExpr, cast)
+	// Use googlesqlite_cast function for complex type conversions
+	return t.createGoogleSQLiteCast(innerExpr, cast)
 }
 
-// createZetaSQLiteCast creates a zetasqlite_cast function call for complex casts
-func (t *CastTransformer) createZetaSQLiteCast(expr *SQLExpression, cast *CastData) (*SQLExpression, error) {
+// createGoogleSQLiteCast creates a googlesqlite_cast function call for complex casts
+func (t *CastTransformer) createGoogleSQLiteCast(expr *SQLExpression, cast *CastData) (*SQLExpression, error) {
 	jsonFromType, err := json.Marshal(newType(cast.FromType))
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal source type: %w", err)
@@ -74,11 +74,11 @@ func (t *CastTransformer) createZetaSQLiteCast(expr *SQLExpression, cast *CastDa
 		return nil, fmt.Errorf("failed to encode target type: %w", err)
 	}
 
-	// Create the zetasqlite_cast function call
+	// Create the googlesqlite_cast function call
 	return &SQLExpression{
 		Type: ExpressionTypeFunction,
 		FunctionCall: &FunctionCall{
-			Name: "zetasqlite_cast",
+			Name: "googlesqlite_cast",
 			Arguments: []*SQLExpression{
 				expr,            // Expression to cast
 				encodedFromType, // Source type

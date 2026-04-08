@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 type NameWithType struct {
@@ -24,7 +24,7 @@ func (t *NameWithType) FunctionArgumentType() (*types.FunctionArgumentType, erro
 			types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality),
 		), nil
 	}
-	typ, err := t.Type.ToZetaSQLType()
+	typ, err := t.Type.ToGoogleSQLType()
 	if err != nil {
 		return nil, err
 	}
@@ -53,10 +53,10 @@ func (s *FunctionSpec) FuncName() string {
 func (s *FunctionSpec) SQL() string {
 	args := []string{}
 	for _, arg := range s.Args {
-		t, _ := arg.Type.ToZetaSQLType()
+		t, _ := arg.Type.ToGoogleSQLType()
 		args = append(args, fmt.Sprintf("%s %s", arg.Name, t.Kind()))
 	}
-	retType, _ := s.Return.ToZetaSQLType()
+	retType, _ := s.Return.ToGoogleSQLType()
 	return fmt.Sprintf(
 		"CREATE FUNCTION `%s`(%s) RETURNS %s AS (%s)",
 		s.FuncName(),
@@ -143,7 +143,7 @@ func (s *TableSpec) SQLiteSchema() string {
 		primaryKeys := make([]string, len(s.PrimaryKey))
 
 		for i, key := range s.PrimaryKey {
-			primaryKeys[i] = fmt.Sprintf("%s COLLATE zetasqlite_collate", key)
+			primaryKeys[i] = fmt.Sprintf("%s COLLATE googlesqlite_collate", key)
 		}
 
 		columns = append(
@@ -203,7 +203,7 @@ func (t *Type) FunctionArgumentType() (*types.FunctionArgumentType, error) {
 			types.NewFunctionArgumentTypeOptions(types.RequiredArgumentCardinality),
 		), nil
 	}
-	typ, err := t.ToZetaSQLType()
+	typ, err := t.ToGoogleSQLType()
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +251,10 @@ func (t *Type) GoReflectType() (reflect.Type, error) {
 	return nil, fmt.Errorf("cannot convert %s to reflect.Type", t.Name)
 }
 
-func (t *Type) ToZetaSQLType() (types.Type, error) {
+func (t *Type) ToGoogleSQLType() (types.Type, error) {
 	switch types.TypeKind(t.Kind) {
 	case types.ARRAY:
-		typ, err := t.ElementType.ToZetaSQLType()
+		typ, err := t.ElementType.ToGoogleSQLType()
 		if err != nil {
 			return nil, err
 		}
@@ -262,7 +262,7 @@ func (t *Type) ToZetaSQLType() (types.Type, error) {
 	case types.STRUCT:
 		var fields []*types.StructField
 		for _, field := range t.FieldTypes {
-			typ, err := field.Type.ToZetaSQLType()
+			typ, err := field.Type.ToGoogleSQLType()
 			if err != nil {
 				return nil, err
 			}
@@ -384,7 +384,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFu
 		}
 		if len(argParams) == 0 {
 			body = NewFunctionExpression(
-				"zetasqlite_eval_javascript",
+				"googlesqlite_eval_javascript",
 				code,
 				retType,
 			)
@@ -402,7 +402,7 @@ func newFunctionSpec(ctx context.Context, namePath *NamePath, stmt *ast.CreateFu
 			varArgs = append(varArgs, argParams...)
 
 			body = NewFunctionExpression(
-				"zetasqlite_eval_javascript",
+				"googlesqlite_eval_javascript",
 				varArgs...,
 			)
 		}

@@ -1,49 +1,49 @@
-# go-zetasqlite
+# go-googlesqlite
 
-![Go](https://github.com/goccy/go-zetasqlite/workflows/Go/badge.svg)
-[![GoDoc](https://godoc.org/github.com/goccy/go-zetasqlite?status.svg)](https://pkg.go.dev/github.com/goccy/go-zetasqlite?tab=doc)
-[![codecov](https://codecov.io/gh/goccy/go-zetasqlite/branch/main/graph/badge.svg)](https://codecov.io/gh/goccy/go-zetasqlite)
+![Go](https://github.com/vantaboard/go-googlesqlite/workflows/Go/badge.svg)
+[![GoDoc](https://godoc.org/github.com/vantaboard/go-googlesqlite?status.svg)](https://pkg.go.dev/github.com/vantaboard/go-googlesqlite?tab=doc)
+[![codecov](https://codecov.io/gh/vantaboard/go-googlesqlite/branch/main/graph/badge.svg)](https://codecov.io/gh/vantaboard/go-googlesqlite)
 
-A database driver library that interprets ZetaSQL queries and runs them using SQLite3
+A database driver library that interprets GoogleSQL queries and runs them using SQLite3
 
 # Features
 
-`go-zetasqlite` supports `database/sql` driver interface.
-So, you can use ZetaSQL queries just by importing `github.com/goccy/go-zetasqlite`.
-Also, go-zetasqlite uses SQLite3 as the database engine.
+`go-googlesqlite` supports `database/sql` driver interface.
+So, you can use GoogleSQL queries just by importing `github.com/vantaboard/go-googlesqlite`.
+Also, go-googlesqlite uses SQLite3 as the database engine.
 Since we are using [modernc.org/sqlite](https://modernc.org/sqlite), we can use the options ( like `:memory:` ) supported by `sqlite` ( see [details](https://pkg.go.dev/modernc.org/sqlite#Driver.Open) ).
-ZetaSQL functionality is provided by [go-zetasql](https://github.com/goccy/go-zetasql)
+GoogleSQL functionality is provided by [go-googlesql](https://github.com/vantaboard/go-googlesql)
 
 # Installation
 
 ```
-go get github.com/goccy/go-zetasqlite
+go get github.com/vantaboard/go-googlesqlite
 ```
 
 ## **NOTE**
 
-Since this library uses go-zetasql, the following environment variables must be enabled in order to build. See [here](https://github.com/goccy/go-zetasql#prerequisites) for details.
+Since this library uses go-googlesql, the following environment variables must be enabled in order to build. See [here](https://github.com/vantaboard/go-googlesql#prerequisites) for details.
 
 ```
 CGO_ENABLED=1
 CXX=clang++
 ```
 
-For a full local stack (`go-zetasql`, `go-zetasqlite`, `bigquery-emulator` as sibling repos), add `replace` lines in `go.mod` (for example `replace github.com/goccy/go-zetasql => ../go-zetasql`). Emulator Docker builds use only that module’s tree, so they rely on published versions unless you change the build context.
+For a full local stack (`go-googlesql`, `go-googlesqlite`, `bigquery-emulator` as sibling repos), add `replace` lines in `go.mod` (for example `replace github.com/vantaboard/go-googlesql => ../go-zetasql`). Emulator Docker builds use only that module’s tree, so they rely on published versions unless you change the build context.
 
-When exercising the whole stack, run **`go test` in each repo one at a time** (not in parallel) to avoid OOM from overlapping CGO builds, and set a **shared `GOCACHE`** (and optionally `GOMODCACHE`) as described in the [go-zetasql README](https://github.com/goccy/go-zetasql#development) so `go-zetasql` compile artifacts are reused.
+When exercising the whole stack, run **`go test` in each repo one at a time** (not in parallel) to avoid OOM from overlapping CGO builds, and set a **shared `GOCACHE`** (and optionally `GOMODCACHE`) as described in the [go-googlesql README](https://github.com/vantaboard/go-googlesql#development) so `go-googlesql` compile artifacts are reused.
 
-**Shared cache directory (`GO_CACHE_ROOT`):** The [Makefile](Makefile) target **`make test/linux`** bind-mounts the same tree as `go-zetasql`: **`GO_CACHE_ROOT`** (default **`$HOME/.cache/go-zetasql`**) into **`gocache`**, **`gomodcache`**, and **`ccache`** inside the **`go-zetasql:dev`** container. Override **`GO_CACHE_ROOT`** if you need a different path; keep it identical across **`go-zetasql`**, **`go-zetasqlite`**, and **`bigquery-emulator`** so the stack shares one warm cache.
+**Shared cache directory (`GO_CACHE_ROOT`):** The [Makefile](Makefile) target **`make test/linux`** bind-mounts the same tree as `go-googlesql`: **`GO_CACHE_ROOT`** (default **`$HOME/.cache/go-googlesql`**) into **`gocache`**, **`gomodcache`**, and **`ccache`** inside the **`go-googlesql:dev`** container. Override **`GO_CACHE_ROOT`** if you need a different path; keep it identical across **`go-googlesql`**, **`go-googlesqlite`**, and **`bigquery-emulator`** so the stack shares one warm cache.
 
-**Host-native builds and tests:** For incremental C++ compiles on the host, mirror [go-zetasql](https://github.com/goccy/go-zetasql#development): use **`CC="ccache clang"`** and **`CXX="ccache clang++"`**, point **`GOCACHE`**, **`GOMODCACHE`**, and **`CCACHE_DIR`** at the same tree (for example under **`GO_CACHE_ROOT`**), or run tests from **`go-zetasql`** with **`make -C ../go-zetasql local/test`** and **`TESTPKG=./...`** (or a narrower package path). On **Linux**, install **`mold`** and keep it on **`PATH`** so **`make local/build`** / **`local/test`** in `go-zetasql` can pass **`CGO_LDFLAGS=-fuse-ld=mold`**; the **`go-zetasql:dev`** image already sets **`mold`** for Docker-based **`make test/linux`** here.
+**Host-native builds and tests:** For incremental C++ compiles on the host, mirror [go-googlesql](https://github.com/vantaboard/go-googlesql#development): use **`CC="ccache clang"`** and **`CXX="ccache clang++"`**, point **`GOCACHE`**, **`GOMODCACHE`**, and **`CCACHE_DIR`** at the same tree (for example under **`GO_CACHE_ROOT`**), or run tests from **`go-googlesql`** with **`make -C ../go-zetasql local/test`** and **`TESTPKG=./...`** (or a narrower package path). On **Linux**, install **`mold`** and keep it on **`PATH`** so **`make local/build`** / **`local/test`** in `go-googlesql` can pass **`CGO_LDFLAGS=-fuse-ld=mold`**; the **`go-googlesql:dev`** image already sets **`mold`** for Docker-based **`make test/linux`** here.
 
 **Optional warm-up:** After a cold toolchain or before a long test run, **`make -C ../go-zetasql docker/warm-cache`** pre-compiles the same **`-race`** graph as tests without executing them, so the next **`make test/linux`** in this repo is faster.
 
-To match the **`go-zetasql:dev` Docker cache** used in `go-zetasql`, run **`make test/linux`** here after **`make docker/build-dev`** in `../go-zetasql` (same **`GO_CACHE_ROOT`** as `go-zetasql`).
+To match the **`go-googlesql:dev` Docker cache** used in `go-googlesql`, run **`make test/linux`** here after **`make docker/build-dev`** in `../go-zetasql` (same **`GO_CACHE_ROOT`** as `go-googlesql`).
 
 # Synopsis
 
-You can pass ZetaSQL queries to Query/Exec function of database/sql package.
+You can pass GoogleSQL queries to Query/Exec function of database/sql package.
 
 ```go
 package main
@@ -52,11 +52,11 @@ import (
   "database/sql"
   "fmt"
 
-  _ "github.com/goccy/go-zetasqlite"
+  _ "github.com/vantaboard/go-googlesqlite"
 )
 
 func main() {
-  db, err := sql.Open("zetasqlite", ":memory:")
+  db, err := sql.Open("googlesqlite", ":memory:")
   if err != nil {
     panic(err)
   }
@@ -80,13 +80,13 @@ func main() {
 
 # Tools
 
-## ZetaSQLite CLI
+## GoogleSQLite CLI
 
-You can execute ZetaSQL queries interactively by using the tools provided by `cmd/zetasqlite-cli`. See [here](https://github.com/goccy/go-zetasqlite/tree/main/cmd/zetasqlite-cli#readme) for details
+You can execute GoogleSQL queries interactively by using the tools provided by `cmd/googlesqlite-cli`. See [here](https://github.com/vantaboard/go-googlesqlite/tree/main/cmd/googlesqlite-cli#readme) for details
 
 # Status
 
-A list of ZetaSQL ( Google Standard SQL ) specifications and features supported by go-zetasqlite.
+A list of GoogleSQL ( Google Standard SQL ) specifications and features supported by go-googlesqlite.
 
 ## Types
 

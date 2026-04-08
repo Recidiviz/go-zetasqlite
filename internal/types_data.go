@@ -1,8 +1,8 @@
 package internal
 
 import (
-	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 // Data structures for pure transformation inputs
@@ -43,7 +43,7 @@ func (e *ExpressionData) Value() interface{} {
 
 // LiteralData represents literal value data
 type LiteralData struct {
-	Value    Value          `json:"value,omitempty"`     // Use zetasqlite Value which handles both Go literals and ZetaSQL values
+	Value    Value          `json:"value,omitempty"`     // Use googlesqlite Value which handles both Go literals and GoogleSQL values
 	TypeName string         `json:"type_name,omitempty"` // String representation of type for reference
 	Location *ParseLocation `json:"location,omitempty"`
 }

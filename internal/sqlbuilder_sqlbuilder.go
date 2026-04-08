@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 	"strings"
 )
 

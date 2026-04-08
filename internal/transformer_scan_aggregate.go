@@ -12,7 +12,7 @@ import (
 //
 // The transformer converts ZetaSQL AggregateScan nodes by:
 // - Transforming the input scan that provides data for aggregation
-// - Converting aggregate expressions (SUM, COUNT, etc.) with zetasqlite function wrappers
+// - Converting aggregate expressions (SUM, COUNT, etc.) with googlesqlite function wrappers
 // - Processing GROUP BY expressions with proper ZetaSQL semantics
 // - Handling ROLLUP and GROUPING SETS via UNION ALL of different grouping levels
 // - Managing NULL values for rollup totals and subtotals
@@ -74,8 +74,8 @@ func (t *AggregateScanTransformer) Transform(data ScanData, ctx TransformContext
 			return nil, fmt.Errorf("failed to transform GROUP BY expression: %w", err)
 		}
 
-		// Wrap with zetasqlite_group_by for proper ZetaSQL semantics
-		wrappedExpr := NewFunctionExpression("zetasqlite_group_by", sqlExpr)
+		// Wrap with googlesqlite_group_by for proper ZetaSQL semantics
+		wrappedExpr := NewFunctionExpression("googlesqlite_group_by", sqlExpr)
 		groupByExprs = append(groupByExprs, wrappedExpr)
 		groupByMap[groupByExpr.Column.ColumnID()] = sqlExpr
 	}
@@ -159,8 +159,8 @@ func (t *AggregateScanTransformer) buildGroupingSetsQuery(
 		groupBySetColumnMap := make(map[int]struct{})
 
 		for _, col := range groupingSet.GroupByColumns {
-			// Wrap with zetasqlite_group_by
-			wrappedExpr := NewFunctionExpression("zetasqlite_group_by", groupByMap[col.Column.ColumnID()])
+			// Wrap with googlesqlite_group_by
+			wrappedExpr := NewFunctionExpression("googlesqlite_group_by", groupByMap[col.Column.ColumnID()])
 			groupBySetColumns = append(groupBySetColumns, wrappedExpr)
 			groupBySetColumnMap[col.Column.ColumnID()] = struct{}{}
 		}
@@ -226,7 +226,7 @@ func (t *AggregateScanTransformer) buildGroupingSetsQuery(
 			orderExpr := &SQLExpression{
 				Type:      groupByCol.Type,
 				Value:     groupByCol.Value,
-				Collation: "zetasqlite_collate",
+				Collation: "googlesqlite_collate",
 			}
 
 			orderByItems = append(orderByItems, &OrderByItem{

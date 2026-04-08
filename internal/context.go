@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/goccy/go-zetasql"
+	"github.com/vantaboard/go-googlesql"
 )
 
 type (
@@ -39,16 +39,16 @@ func withNamePath(ctx context.Context, namePath *NamePath) context.Context {
 	return context.WithValue(ctx, namePathKey{}, namePath)
 }
 
-func withNodeMap(ctx context.Context, m *zetasql.NodeMap) context.Context {
+func withNodeMap(ctx context.Context, m *googlesql.NodeMap) context.Context {
 	return context.WithValue(ctx, nodeMapKey{}, m)
 }
 
-func nodeMapFromContext(ctx context.Context) *zetasql.NodeMap {
+func nodeMapFromContext(ctx context.Context) *googlesql.NodeMap {
 	value := ctx.Value(nodeMapKey{})
 	if value == nil {
 		return nil
 	}
-	return value.(*zetasql.NodeMap)
+	return value.(*googlesql.NodeMap)
 }
 
 func withFuncMap(ctx context.Context, m map[string]*FunctionSpec) context.Context {

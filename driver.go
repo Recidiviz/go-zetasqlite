@@ -1,4 +1,4 @@
-package zetasqlite
+package googlesqlite
 
 import (
 	"context"
@@ -6,15 +6,15 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"google.golang.org/api/bigquery/v2"
-	internal "github.com/goccy/go-zetasqlite/internal"
+	internal "github.com/vantaboard/go-googlesqlite/internal"
 	_ "modernc.org/sqlite"
 	"sync"
 )
 
 var (
-	_ driver.Driver = &ZetaSQLiteDriver{}
-	_ driver.Conn   = &ZetaSQLiteConn{}
-	_ driver.Tx     = &ZetaSQLiteTx{}
+	_ driver.Driver = &GoogleSQLiteDriver{}
+	_ driver.Conn   = &GoogleSQLiteConn{}
+	_ driver.Tx     = &GoogleSQLiteTx{}
 )
 
 var (
@@ -28,7 +28,7 @@ func init() {
 		fmt.Printf("failed to register functions: %s", err)
 	}
 
-	sql.Register("zetasqlite", &ZetaSQLiteDriver{})
+	sql.Register("googlesqlite", &GoogleSQLiteDriver{})
 }
 
 func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
@@ -51,16 +51,16 @@ func newDBAndCatalog(name string) (*sql.DB, *internal.Catalog, error) {
 	return db, catalog, nil
 }
 
-type ZetaSQLiteDriver struct {
-	ConnectHook func(*ZetaSQLiteConn) error
+type GoogleSQLiteDriver struct {
+	ConnectHook func(*GoogleSQLiteConn) error
 }
 
-func (d *ZetaSQLiteDriver) Open(name string) (driver.Conn, error) {
+func (d *GoogleSQLiteDriver) Open(name string) (driver.Conn, error) {
 	db, catalog, err := newDBAndCatalog(name)
 	if err != nil {
 		return nil, err
 	}
-	conn, err := newZetaSQLiteConn(db, catalog)
+	conn, err := newGoogleSQLiteConn(db, catalog)
 	if err != nil {
 		return nil, err
 	}
@@ -72,13 +72,13 @@ func (d *ZetaSQLiteDriver) Open(name string) (driver.Conn, error) {
 	return conn, nil
 }
 
-type ZetaSQLiteConn struct {
+type GoogleSQLiteConn struct {
 	conn     *sql.Conn
 	tx       *sql.Tx
 	analyzer *internal.Analyzer
 }
 
-func newZetaSQLiteConn(db *sql.DB, catalog *internal.Catalog) (*ZetaSQLiteConn, error) {
+func newGoogleSQLiteConn(db *sql.DB, catalog *internal.Catalog) (*GoogleSQLiteConn, error) {
 	conn, err := db.Conn(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sqlite3 connection: %w", err)
@@ -87,63 +87,63 @@ func newZetaSQLiteConn(db *sql.DB, catalog *internal.Catalog) (*ZetaSQLiteConn, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create analyzer: %w", err)
 	}
-	return &ZetaSQLiteConn{
+	return &GoogleSQLiteConn{
 		conn:     conn,
 		analyzer: analyzer,
 	}, nil
 }
 
-func (c *ZetaSQLiteConn) SetAutoIndexMode(enabled bool) {
+func (c *GoogleSQLiteConn) SetAutoIndexMode(enabled bool) {
 	c.analyzer.SetAutoIndexMode(enabled)
 }
 
-func (c *ZetaSQLiteConn) SetExplainMode(enabled bool) {
+func (c *GoogleSQLiteConn) SetExplainMode(enabled bool) {
 	c.analyzer.SetExplainMode(enabled)
 }
 
 // SetMaxNamePath specifies the maximum value of name path.
 // If the name path in the query is the maximum value, the name path set as prefix is not used.
 // Effective only when a value greater than zero is specified ( default zero ).
-func (c *ZetaSQLiteConn) SetMaxNamePath(num int) {
+func (c *GoogleSQLiteConn) SetMaxNamePath(num int) {
 	c.analyzer.SetMaxNamePath(num)
 }
 
 // MaxNamePath returns maximum value of name path.
-func (c *ZetaSQLiteConn) MaxNamePath() int {
+func (c *GoogleSQLiteConn) MaxNamePath() int {
 	return c.analyzer.MaxNamePath()
 }
 
 // SetNamePath set path to name path to be set as prefix.
 // If max name path is specified, an error is returned if the number is exceeded.
-func (c *ZetaSQLiteConn) SetNamePath(path []string) error {
+func (c *GoogleSQLiteConn) SetNamePath(path []string) error {
 	return c.analyzer.SetNamePath(path)
 }
 
 // NamePath returns path to name path to be set as prefix.
-func (c *ZetaSQLiteConn) NamePath() []string {
+func (c *GoogleSQLiteConn) NamePath() []string {
 	return c.analyzer.NamePath()
 }
 
 // AddNamePath add path to name path to be set as prefix.
 // If max name path is specified, an error is returned if the number is exceeded.
-func (c *ZetaSQLiteConn) AddNamePath(path string) error {
+func (c *GoogleSQLiteConn) AddNamePath(path string) error {
 	return c.analyzer.AddNamePath(path)
 }
 
-func (c *ZetaSQLiteConn) SetQueryParameters(parameters []*bigquery.QueryParameter) {
+func (c *GoogleSQLiteConn) SetQueryParameters(parameters []*bigquery.QueryParameter) {
 	c.analyzer.SetQueryParameters(parameters)
 }
 
-func (s *ZetaSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
+func (s *GoogleSQLiteConn) CheckNamedValue(value *driver.NamedValue) error {
 	return nil
 }
 
-func (c *ZetaSQLiteConn) Prepare(query string) (driver.Stmt, error) {
+func (c *GoogleSQLiteConn) Prepare(query string) (driver.Stmt, error) {
 	stmt, err := c.PrepareContext(context.Background(), query)
 	return stmt, err
 }
 
-func (c *ZetaSQLiteConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
+func (c *GoogleSQLiteConn) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	conn := internal.NewConn(c.conn, c.tx)
 	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, nil)
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *ZetaSQLiteConn) PrepareContext(ctx context.Context, query string) (driv
 	return stmt, nil
 }
 
-func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, e error) {
+func (c *GoogleSQLiteConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Result, e error) {
 	conn := internal.NewConn(c.conn, c.tx)
 	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, args)
 	if err != nil {
@@ -198,7 +198,7 @@ func (c *ZetaSQLiteConn) ExecContext(ctx context.Context, query string, args []d
 	return result, nil
 }
 
-func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Rows, e error) {
+func (c *GoogleSQLiteConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (r driver.Rows, e error) {
 	conn := internal.NewConn(c.conn, c.tx)
 	actionFuncs, err := c.analyzer.Analyze(ctx, conn, query, args)
 	if err != nil {
@@ -232,11 +232,11 @@ func (c *ZetaSQLiteConn) QueryContext(ctx context.Context, query string, args []
 	return rows, nil
 }
 
-func (c *ZetaSQLiteConn) Close() error {
+func (c *GoogleSQLiteConn) Close() error {
 	return c.conn.Close()
 }
 
-func (c *ZetaSQLiteConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
+func (c *GoogleSQLiteConn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	tx, err := c.conn.BeginTx(ctx, &sql.TxOptions{
 		Isolation: sql.IsolationLevel(opts.Isolation),
 		ReadOnly:  opts.ReadOnly,
@@ -245,37 +245,37 @@ func (c *ZetaSQLiteConn) BeginTx(ctx context.Context, opts driver.TxOptions) (dr
 		return nil, err
 	}
 	c.tx = tx
-	return &ZetaSQLiteTx{
+	return &GoogleSQLiteTx{
 		tx:   tx,
 		conn: c,
 	}, nil
 }
 
-func (c *ZetaSQLiteConn) Begin() (driver.Tx, error) {
+func (c *GoogleSQLiteConn) Begin() (driver.Tx, error) {
 	tx, err := c.conn.BeginTx(context.Background(), nil)
 	if err != nil {
 		return nil, err
 	}
 	c.tx = tx
-	return &ZetaSQLiteTx{
+	return &GoogleSQLiteTx{
 		tx:   tx,
 		conn: c,
 	}, nil
 }
 
-type ZetaSQLiteTx struct {
+type GoogleSQLiteTx struct {
 	tx   *sql.Tx
-	conn *ZetaSQLiteConn
+	conn *GoogleSQLiteConn
 }
 
-func (tx *ZetaSQLiteTx) Commit() error {
+func (tx *GoogleSQLiteTx) Commit() error {
 	defer func() {
 		tx.conn.tx = nil
 	}()
 	return tx.tx.Commit()
 }
 
-func (tx *ZetaSQLiteTx) Rollback() error {
+func (tx *GoogleSQLiteTx) Rollback() error {
 	defer func() {
 		tx.conn.tx = nil
 	}()

@@ -101,11 +101,11 @@ func (t *AnalyticScanTransformer) Transform(data ScanData, ctx TransformContext)
 		if funcData.Expression.Type == ExpressionTypeFunction && funcData.Expression.Function != nil && funcData.Expression.Function.WindowSpec != nil {
 			windowSpec := funcData.Expression.Function.WindowSpec
 
-			// Add PARTITION BY expressions first (use unqualified column names with zetasqlite_collate)
+			// Add PARTITION BY expressions first (use unqualified column names with googlesqlite_collate)
 			for _, partData := range windowSpec.PartitionBy {
 				if partData.Type == ExpressionTypeColumn && partData.Column != nil {
 					expr := ctx.FragmentContext().GetQualifiedColumnExpression(partData.Column.ColumnID)
-					expr.Collation = "zetasqlite_collate"
+					expr.Collation = "googlesqlite_collate"
 					orderByItems = append(orderByItems, &OrderByItem{
 						Expression: expr,
 						Direction:  "ASC",
@@ -113,7 +113,7 @@ func (t *AnalyticScanTransformer) Transform(data ScanData, ctx TransformContext)
 				}
 			}
 
-			// Add ORDER BY expressions (use unqualified column names with zetasqlite_collate)
+			// Add ORDER BY expressions (use unqualified column names with googlesqlite_collate)
 			for _, orderData := range windowSpec.OrderBy {
 				if orderData.Expression.Type == ExpressionTypeColumn && orderData.Expression.Column != nil {
 					expr := ctx.FragmentContext().GetQualifiedColumnExpression(orderData.Expression.Column.ColumnID)
@@ -121,7 +121,7 @@ func (t *AnalyticScanTransformer) Transform(data ScanData, ctx TransformContext)
 					if orderData.IsDescending {
 						direction = "DESC"
 					}
-					expr.Collation = "zetasqlite_collate"
+					expr.Collation = "googlesqlite_collate"
 					orderByItems = append(orderByItems, &OrderByItem{
 						Expression: expr,
 						Direction:  direction,

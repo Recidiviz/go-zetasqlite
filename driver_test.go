@@ -1,4 +1,4 @@
-package zetasqlite_test
+package googlesqlite_test
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 
 	"google.golang.org/api/bigquery/v2"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
+	googlesqlite "github.com/vantaboard/go-googlesqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
 func TestDriver(t *testing.T) {
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,11 +87,11 @@ CREATE VIEW IF NOT EXISTS SingerNames AS SELECT FirstName || ' ' || LastName AS 
 
 func configureParameters(conn *sql.Conn, parameters []*bigquery.QueryParameter) error {
 	if err := conn.Raw(func(c interface{}) error {
-		zetasqliteConn, ok := c.(*zetasqlite.ZetaSQLiteConn)
+		googlesqliteConn, ok := c.(*googlesqlite.GoogleSQLiteConn)
 		if !ok {
-			return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
+			return fmt.Errorf("failed to get GoogleSQLiteConn from %T", c)
 		}
-		zetasqliteConn.SetQueryParameters(parameters)
+		googlesqliteConn.SetQueryParameters(parameters)
 		return nil
 	}); err != nil {
 		return fmt.Errorf("failed to setup query parameters: %s", err)
@@ -101,7 +101,7 @@ func configureParameters(conn *sql.Conn, parameters []*bigquery.QueryParameter) 
 
 func TestNamedParameters(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,12 +304,12 @@ CREATE TABLE IF NOT EXISTS Singers (
 }
 
 func TestRegisterCustomDriver(t *testing.T) {
-	sql.Register("zetasqlite-custom", &zetasqlite.ZetaSQLiteDriver{
-		ConnectHook: func(conn *zetasqlite.ZetaSQLiteConn) error {
+	sql.Register("googlesqlite-custom", &googlesqlite.GoogleSQLiteDriver{
+		ConnectHook: func(conn *googlesqlite.GoogleSQLiteConn) error {
 			return conn.SetNamePath([]string{"project-id", "datasetID"})
 		},
 	})
-	db, err := sql.Open("zetasqlite-custom", ":memory:")
+	db, err := sql.Open("googlesqlite-custom", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +334,7 @@ func TestRegisterCustomDriver(t *testing.T) {
 
 func TestChangedCatalog(t *testing.T) {
 	t.Run("table", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -352,7 +352,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if err != nil {
 			t.Fatal(err)
 		}
-		resultCatalog, err := zetasqlite.ChangedCatalogFromResult(result)
+		resultCatalog, err := googlesqlite.ChangedCatalogFromResult(result)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -365,7 +365,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if diff := cmp.Diff(resultCatalog.Table.Added[0].NamePath, []string{"Singers"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
-		rowsCatalog, err := zetasqlite.ChangedCatalogFromRows(rows)
+		rowsCatalog, err := googlesqlite.ChangedCatalogFromRows(rows)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -380,7 +380,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		}
 	})
 	t.Run("function", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -392,7 +392,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if err != nil {
 			t.Fatal(err)
 		}
-		resultCatalog, err := zetasqlite.ChangedCatalogFromResult(result)
+		resultCatalog, err := googlesqlite.ChangedCatalogFromResult(result)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -405,7 +405,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		if diff := cmp.Diff(resultCatalog.Function.Added[0].NamePath, []string{"ANY_ADD"}); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
-		rowsCatalog, err := zetasqlite.ChangedCatalogFromRows(rows)
+		rowsCatalog, err := googlesqlite.ChangedCatalogFromRows(rows)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -423,7 +423,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 
 func TestCreateTable(t *testing.T) {
 	t.Run("primary keys", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -451,7 +451,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 	})
 
 	t.Run("create table/view in dataset (with hyphens)", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -461,15 +461,15 @@ CREATE TABLE IF NOT EXISTS Singers (
 			t.Fatal(err)
 		}
 		if err := conn.Raw(func(c interface{}) error {
-			zetasqliteConn, ok := c.(*zetasqlite.ZetaSQLiteConn)
+			googlesqliteConn, ok := c.(*googlesqlite.GoogleSQLiteConn)
 			if !ok {
-				return fmt.Errorf("failed to get ZetaSQLiteConn from %T", c)
+				return fmt.Errorf("failed to get GoogleSQLiteConn from %T", c)
 			}
-			if err := zetasqliteConn.SetNamePath([]string{"project-hyphens", "dataset-with-hyphens"}); err != nil {
+			if err := googlesqliteConn.SetNamePath([]string{"project-hyphens", "dataset-with-hyphens"}); err != nil {
 				return err
 			}
 			const maxNamePath = 3 // projectID and datasetID and tableID
-			zetasqliteConn.SetMaxNamePath(maxNamePath)
+			googlesqliteConn.SetMaxNamePath(maxNamePath)
 			return nil
 		}); err != nil {
 			t.Fatal(err)
@@ -497,7 +497,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 
 func TestPreparedStatements(t *testing.T) {
 	t.Run("prepared select", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -523,7 +523,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 		}
 	})
 	t.Run("prepared insert with named values", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -566,8 +566,8 @@ CREATE TABLE IF NOT EXISTS Singers (
 	})
 
 	t.Run("prepared select with named values, formatting disabled, uppercased parameter", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
-		ctx := zetasqlite.WithQueryFormattingDisabled(context.Background())
+		db, err := sql.Open("googlesqlite", ":memory:")
+		ctx := googlesqlite.WithQueryFormattingDisabled(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -591,7 +591,7 @@ CREATE TABLE IF NOT EXISTS Singers (
 	})
 
 	t.Run("update from", func(t *testing.T) {
-		db, err := sql.Open("zetasqlite", ":memory:")
+		db, err := sql.Open("googlesqlite", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -636,7 +636,7 @@ func TestQueryParametersWithAllowUndeclaredReset(t *testing.T) {
 	// - When explicit parameters are provided, undeclared params must be disabled
 	// - When no parameters are provided, undeclared params should be allowed again
 	ctx := context.Background()
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

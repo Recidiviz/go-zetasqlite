@@ -1,4 +1,4 @@
-package zetasqlite_test
+package googlesqlite_test
 
 import (
 	"context"
@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
+	googlesqlite "github.com/vantaboard/go-googlesqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
 func TestExec(t *testing.T) {
 	now := time.Now()
 	ctx := context.Background()
-	ctx = zetasqlite.WithCurrentTime(ctx, now)
-	db, err := sql.Open("zetasqlite", ":memory:")
+	ctx = googlesqlite.WithCurrentTime(ctx, now)
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,8 +147,8 @@ COMMIT TRANSACTION;
 func TestNestedStructFieldAccess(t *testing.T) {
 	now := time.Now()
 	ctx := context.Background()
-	ctx = zetasqlite.WithCurrentTime(ctx, now)
-	db, err := sql.Open("zetasqlite", ":memory:")
+	ctx = googlesqlite.WithCurrentTime(ctx, now)
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,8 +212,8 @@ CREATE TABLE table (
 func TestCreateTempTable(t *testing.T) {
 	now := time.Now()
 	ctx := context.Background()
-	ctx = zetasqlite.WithCurrentTime(ctx, now)
-	db, err := sql.Open("zetasqlite", ":memory:")
+	ctx = googlesqlite.WithCurrentTime(ctx, now)
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestCreateTempTable(t *testing.T) {
 
 func TestWildcardTable(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +341,7 @@ func TestWildcardTable(t *testing.T) {
 
 func TestTemplatedArgFunc(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -438,7 +438,7 @@ func TestTemplatedArgFunc(t *testing.T) {
 
 func TestJavaScriptUDF(t *testing.T) {
 	ctx := context.Background()
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}

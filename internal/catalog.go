@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 var (
 	createCatalogTableQuery = `
-CREATE TABLE IF NOT EXISTS zetasqlite_catalog(
+CREATE TABLE IF NOT EXISTS googlesqlite_catalog(
   name STRING NOT NULL PRIMARY KEY,
   kind STRING NOT NULL,
   spec STRING NOT NULL,
@@ -24,11 +24,11 @@ CREATE TABLE IF NOT EXISTS zetasqlite_catalog(
 )
 `
 	indexCatalogTableQuery = `
-CREATE INDEX IF NOT EXISTS catalog_last_updated_index ON zetasqlite_catalog(updatedAt DESC);
+CREATE INDEX IF NOT EXISTS catalog_last_updated_index ON googlesqlite_catalog(updatedAt DESC);
 `
 
 	upsertCatalogQuery = `
-INSERT INTO zetasqlite_catalog (
+INSERT INTO googlesqlite_catalog (
   name,
   kind,
   spec,
@@ -45,7 +45,7 @@ INSERT INTO zetasqlite_catalog (
   updatedAt = @updatedAt
 `
 	deleteCatalogQuery = `
-DELETE FROM zetasqlite_catalog WHERE name = @name
+DELETE FROM googlesqlite_catalog WHERE name = @name
 `
 )
 
@@ -55,7 +55,7 @@ const (
 	TableSpecKind    CatalogSpecKind = "table"
 	ViewSpecKind     CatalogSpecKind = "view"
 	FunctionSpecKind CatalogSpecKind = "function"
-	catalogName                      = "zetasqlite"
+	catalogName                      = "googlesqlite"
 )
 
 type Catalog struct {
@@ -71,7 +71,7 @@ type Catalog struct {
 
 func newSimpleCatalog(name string) *types.SimpleCatalog {
 	catalog := types.NewSimpleCatalog(name)
-	catalog.AddZetaSQLBuiltinFunctions(nil)
+	catalog.AddGoogleSQLBuiltinFunctions(nil)
 	return catalog
 }
 
@@ -267,7 +267,7 @@ func (c *Catalog) Sync(ctx context.Context, conn *Conn) error {
 	now := time.Now()
 	rows, err := conn.QueryContext(
 		ctx,
-		`SELECT name, kind, spec FROM zetasqlite_catalog WHERE updatedAt >= @lastUpdatedAt`,
+		`SELECT name, kind, spec FROM googlesqlite_catalog WHERE updatedAt >= @lastUpdatedAt`,
 		sql.Named("lastUpdatedAt", c.lastSyncedAt),
 	)
 	if err != nil {
@@ -570,7 +570,7 @@ func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpe
 func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.SimpleTable, error) {
 	columns := []types.Column{}
 	for _, column := range spec.Columns {
-		typ, err := column.Type.ToZetaSQLType()
+		typ, err := column.Type.ToGoogleSQLType()
 		if err != nil {
 			return nil, err
 		}

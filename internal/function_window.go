@@ -625,7 +625,7 @@ func (f *WINDOW_PERCENTILE_DISC) Done(agg *WindowFuncAggregatedStatus) (Value, e
 }
 
 // WINDOW_RANK is implemented by deferring windowing to SQLite
-// See windowFuncFixedRanges["zetasqlite_window_rank"]
+// See windowFuncFixedRanges["googlesqlite_window_rank"]
 type WINDOW_RANK struct {
 }
 
@@ -639,7 +639,7 @@ func (f *WINDOW_RANK) Done(agg *WindowFuncAggregatedStatus) (Value, error) {
 }
 
 // WINDOW_DENSE_RANK is implemented by deferring windowing to SQLite
-// See windowFuncFixedRanges["zetasqlite_window_dense_rank"]
+// See windowFuncFixedRanges["googlesqlite_window_dense_rank"]
 type WINDOW_DENSE_RANK struct {
 	nStep  int
 	nTotal int

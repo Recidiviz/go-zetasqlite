@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	ast "github.com/goccy/go-zetasql/resolved_ast"
-	"github.com/goccy/go-zetasql/types"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 type StmtAction interface {
@@ -78,7 +78,7 @@ func (a *CreateTableStmtAction) createIndexAutomatically(ctx context.Context, co
 		if !col.Type.AvailableAutoIndex() {
 			continue
 		}
-		indexName := fmt.Sprintf("zetasqlite_autoindex_%s_%s", col.Name, strings.Join(a.spec.NamePath, "_"))
+		indexName := fmt.Sprintf("googlesqlite_autoindex_%s_%s", col.Name, strings.Join(a.spec.NamePath, "_"))
 		createIndexQuery := fmt.Sprintf(
 			"CREATE INDEX IF NOT EXISTS %s ON `%s`(`%s`)",
 			indexName,

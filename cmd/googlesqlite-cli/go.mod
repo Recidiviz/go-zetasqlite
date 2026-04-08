@@ -1,4 +1,4 @@
-module github.com/goccy/go-zetasqlite/cmd/zetasqlite-cli
+module github.com/vantaboard/go-googlesqlite/cmd/googlesqlite-cli
 
 go 1.24.0
 
@@ -7,10 +7,10 @@ toolchain go1.24.2
 require (
 	github.com/chzyer/readline v1.5.1
 	github.com/fatih/color v1.15.0
-	github.com/goccy/go-zetasql v0.5.5
-	github.com/goccy/go-zetasqlite v0.4.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/olekukonko/tablewriter v0.0.5
+	github.com/vantaboard/go-googlesql v0.5.5
+	github.com/vantaboard/go-googlesqlite v0.4.0
 	golang.org/x/crypto v0.36.0
 )
 
@@ -75,5 +75,6 @@ require (
 	modernc.org/sqlite v1.37.0 // indirect
 )
 
-replace github.com/goccy/go-zetasqlite => ../../
-replace github.com/goccy/go-zetasql => ../../../go-zetasql
+replace github.com/vantaboard/go-googlesqlite => ../../
+
+replace github.com/vantaboard/go-googlesql => ../../../go-zetasql

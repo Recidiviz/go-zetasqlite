@@ -1,4 +1,4 @@
-package zetasqlite
+package googlesqlite
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// TimeFromTimestampValue zetasqlite returns string values ​​by default for timestamp values.
+// TimeFromTimestampValue googlesqlite returns string values ​​by default for timestamp values.
 // This function is a helper function to convert that value to time.Time type.
 func TimeFromTimestampValue(v string) (time.Time, error) {
 	// ParseFloat is too imprecise to use, instead split into seconds and fractional seconds

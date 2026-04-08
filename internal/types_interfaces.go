@@ -2,7 +2,7 @@ package internal
 
 import (
 	"context"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
 // Core transformation interfaces

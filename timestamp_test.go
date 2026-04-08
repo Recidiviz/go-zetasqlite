@@ -1,7 +1,7 @@
-package zetasqlite_test
+package googlesqlite_test
 
 import (
-	"github.com/goccy/go-zetasqlite"
+	"github.com/vantaboard/go-googlesqlite"
 	"os"
 	"testing"
 	"time"
@@ -19,7 +19,7 @@ func TestTimestamp(t *testing.T) {
 	} {
 		os.Setenv("TZ", "UTC")
 		t.Run(test.name, func(t *testing.T) {
-			ti, err := zetasqlite.TimeFromTimestampValue(test.timestamp)
+			ti, err := googlesqlite.TimeFromTimestampValue(test.timestamp)
 			if err != nil {
 				t.Fatalf("%s", err)
 			}

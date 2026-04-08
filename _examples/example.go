@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "github.com/goccy/go-zetasqlite"
+	_ "github.com/vantaboard/go-googlesqlite"
 )
 
 func main() {
-	db, err := sql.Open("zetasqlite", ":memory:")
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		panic(err)
 	}

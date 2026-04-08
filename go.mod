@@ -1,15 +1,15 @@
-module github.com/goccy/go-zetasqlite
+module github.com/vantaboard/go-googlesqlite
 
 go 1.24.0
 
 toolchain go1.24.2
 
 require (
-	github.com/goccy/go-zetasql v0.5.5
+	github.com/vantaboard/go-googlesql v0.5.5
 	modernc.org/sqlite v1.37.0
 )
 
-replace github.com/goccy/go-zetasql => ../go-zetasql
+replace github.com/vantaboard/go-googlesql => ../go-zetasql
 
 require github.com/google/go-cmp v0.6.0
 
@@ -28,6 +28,7 @@ require (
 	github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72
 	golang.org/x/net v0.37.0
 	golang.org/x/text v0.23.0
+	google.golang.org/api v0.114.0
 )
 
 require (
@@ -66,7 +67,6 @@ require (
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/api v0.114.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230330154414-c0448cd141ea // indirect
 	google.golang.org/grpc v1.54.0 // indirect

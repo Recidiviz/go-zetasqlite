@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	ast "github.com/goccy/go-zetasql/resolved_ast"
+	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
 // OrderByScanTransformer handles ORDER BY scan transformations from ZetaSQL to SQLite.
@@ -15,7 +15,7 @@ import (
 // - Recursively transforming the input scan to get the data source
 // - Transforming each ORDER BY expression through the coordinator
 // - Handling ZetaSQL's NULL ordering semantics (NULLS FIRST/LAST) via additional sort keys
-// - Applying zetasqlite_collate for consistent string ordering behavior
+// - Applying googlesqlite_collate for consistent string ordering behavior
 // - Creating SELECT * FROM (...) ORDER BY structure for complex queries
 //
 // ZetaSQL's NULL ordering is more sophisticated than SQLite's default behavior,
@@ -94,8 +94,8 @@ func (t *OrderByScanTransformer) transformOrderByItems(items []*OrderByItemData,
 
 // createOrderByItems handles NULL ordering by potentially creating multiple ORDER BY items
 func (t *OrderByScanTransformer) createOrderByItems(expr *SQLExpression, itemData *OrderByItemData) ([]*OrderByItem, error) {
-	// Apply zetasqlite_collate collation to the expression
-	expr.Collation = "zetasqlite_collate"
+	// Apply googlesqlite_collate collation to the expression
+	expr.Collation = "googlesqlite_collate"
 
 	items := make([]*OrderByItem, 0)
 
@@ -107,7 +107,7 @@ func (t *OrderByScanTransformer) createOrderByItems(expr *SQLExpression, itemDat
 			"IS NOT",
 			NewLiteralExpression("NULL"),
 		)
-		nullExpr.Collation = "zetasqlite_collate"
+		nullExpr.Collation = "googlesqlite_collate"
 
 		switch itemData.NullOrder {
 		case ast.NullOrderModeNullsFirst:
@@ -154,7 +154,7 @@ func createOrderByItems(expr *SQLExpression, orderData *OrderByItemData) ([]*Ord
 				Right:    NewLiteralExpression("NULL"),
 			},
 		}
-		nullExpr.Collation = "zetasqlite_collate"
+		nullExpr.Collation = "googlesqlite_collate"
 
 		// Add null handling ORDER BY item first
 		direction := "ASC"
@@ -174,7 +174,7 @@ func createOrderByItems(expr *SQLExpression, orderData *OrderByItemData) ([]*Ord
 		direction = "DESC"
 	}
 
-	expr.Collation = "zetasqlite_collate"
+	expr.Collation = "googlesqlite_collate"
 	items = append(items, &OrderByItem{
 		Expression: expr,
 		Direction:  direction,

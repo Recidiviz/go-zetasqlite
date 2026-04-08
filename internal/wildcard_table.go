@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 const tableSuffixColumnName = "_TABLE_SUFFIX"
@@ -53,7 +53,7 @@ func (t *WildcardTable) NumColumns() int {
 
 func (t *WildcardTable) Column(idx int) types.Column {
 	column := t.spec.Columns[idx]
-	typ, err := column.Type.ToZetaSQLType()
+	typ, err := column.Type.ToGoogleSQLType()
 	if err != nil {
 		return nil
 	}
@@ -69,7 +69,7 @@ func (t *WildcardTable) PrimaryKey() []int {
 func (t *WildcardTable) FindColumnByName(name string) types.Column {
 	for _, col := range t.spec.Columns {
 		if col.Name == name {
-			typ, err := col.Type.ToZetaSQLType()
+			typ, err := col.Type.ToGoogleSQLType()
 			if err != nil {
 				return nil
 			}

@@ -1,9 +1,9 @@
-package zetasqlite
+package googlesqlite
 
 import (
 	"github.com/goccy/go-json"
 
-	internal "github.com/goccy/go-zetasqlite/internal"
+	internal "github.com/vantaboard/go-googlesqlite/internal"
 )
 
 type ColumnType = internal.Type

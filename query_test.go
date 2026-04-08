@@ -1,4 +1,4 @@
-package zetasqlite_test
+package googlesqlite_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	zetasqlite "github.com/goccy/go-zetasqlite"
+	googlesqlite "github.com/vantaboard/go-googlesqlite"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -19,8 +19,8 @@ func TestQuery(t *testing.T) {
 	// Align with default UTC semantics; TZ=UTC alone does not always reset time.Local early enough.
 	now := time.Now().UTC()
 	ctx := context.Background()
-	ctx = zetasqlite.WithCurrentTime(ctx, now)
-	db, err := sql.Open("zetasqlite", ":memory:")
+	ctx = googlesqlite.WithCurrentTime(ctx, now)
+	db, err := sql.Open("googlesqlite", ":memory:")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestQuery(t *testing.T) {
 		expectedRows [][]interface{}
 		expectedErr  string
 	}{
-		// Regression test for https://github.com/goccy/go-zetasqlite/issues/191
+		// Regression test for https://github.com/vantaboard/go-googlesqlite/issues/191
 		{
 			name: "distinct union",
 			query: `WITH toks AS (SELECT true AS x, 1 AS y)
@@ -2775,7 +2775,7 @@ FROM finishers`,
 				{"Suzy Slane", createTimestampFormatFromString("2016-10-18 03:06:24+00"), "F35-39", "Desiree Berry"},
 			},
 		},
-		// Regression test for https://github.com/goccy/go-zetasqlite/issues/160
+		// Regression test for https://github.com/vantaboard/go-googlesqlite/issues/160
 		{
 			name: "window partitions are distinct from each other",
 			query: `

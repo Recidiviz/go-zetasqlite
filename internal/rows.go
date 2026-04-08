@@ -9,7 +9,7 @@ import (
 	"reflect"
 
 	"github.com/goccy/go-json"
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 type Rows struct {
@@ -108,7 +108,7 @@ func (r *Rows) assignValue(src interface{}, dst reflect.Value, typ *Type) error 
 	if err != nil {
 		return err
 	}
-	t, err := typ.ToZetaSQLType()
+	t, err := typ.ToGoogleSQLType()
 	if err != nil {
 		return err
 	}

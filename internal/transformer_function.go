@@ -2,7 +2,7 @@ package internal
 
 import (
 	"fmt"
-	"github.com/goccy/go-zetasql/types"
+	"github.com/vantaboard/go-googlesql/types"
 )
 
 // FunctionCallTransformer handles transformation of function calls from ZetaSQL to SQLite.
@@ -10,15 +10,15 @@ import (
 // BigQuery/ZetaSQL supports a rich set of built-in functions with different semantics than SQLite.
 // This transformer bridges the gap by:
 // - Converting ZetaSQL function calls to SQLite equivalents
-// - Handling special ZetaSQL functions (IFNULL, IF, CASE) via custom zetasqlite_* functions
+// - Handling special ZetaSQL functions (IFNULL, IF, CASE) via custom googlesqlite_* functions
 // - Managing window functions with proper OVER clause transformation
 // - Processing function arguments recursively through the coordinator
 // - Injecting current time for time-dependent functions when needed
 //
 // Key ZetaSQL -> SQLite transformations handled:
-// - zetasqlite_ifnull -> CASE WHEN...IS NULL pattern
-// - zetasqlite_if -> CASE WHEN...THEN...ELSE pattern
-// - zetasqlite_case_* -> CASE expressions with proper value/condition handling
+// - googlesqlite_ifnull -> CASE WHEN...IS NULL pattern
+// - googlesqlite_if -> CASE WHEN...THEN...ELSE pattern
+// - googlesqlite_case_* -> CASE expressions with proper value/condition handling
 // - Window functions with PARTITION BY, ORDER BY, and frame specifications
 // - Built-in function mapping through the function registry
 //
@@ -66,10 +66,10 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 
 	// Handle special ZetaSQL functions that need transformation
 	switch function.Name {
-	case "zetasqlite_ifnull":
+	case "googlesqlite_ifnull":
 		// Convert to CASE expression: IFNULL(a, b) => CASE WHEN a IS NULL THEN b ELSE a END
 		if len(args) != 2 {
-			return nil, fmt.Errorf("zetasqlite_ifnull requires exactly 2 arguments")
+			return nil, fmt.Errorf("googlesqlite_ifnull requires exactly 2 arguments")
 		}
 		return NewCaseExpression(
 			[]*WhenClause{
@@ -81,14 +81,14 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 			args[0],
 		), nil
 
-	case "zetasqlite_if":
+	case "googlesqlite_if":
 		// Convert to CASE expression: IF(condition, then_result, else_result) => CASE WHEN condition THEN then_result ELSE else_result END
 		if len(args) != 3 {
-			return nil, fmt.Errorf("zetasqlite_if requires exactly 3 arguments")
+			return nil, fmt.Errorf("googlesqlite_if requires exactly 3 arguments")
 		}
 		return NewCaseExpression([]*WhenClause{{Condition: args[0], Result: args[1]}}, args[2]), nil
 
-	case "zetasqlite_case_no_value":
+	case "googlesqlite_case_no_value":
 		// Convert to CASE expression: arguments are condition, result, condition, result, ..., [else]
 		whenClauses := make([]*WhenClause, 0, len(args)/2)
 		for i := 0; i < len(args)-1; i += 2 {
@@ -104,10 +104,10 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 		}
 		return NewCaseExpression(whenClauses, elseExpr), nil
 
-	case "zetasqlite_case_with_value":
+	case "googlesqlite_case_with_value":
 		// Convert to CASE expression with value: first arg is value, then condition, result, condition, result, ..., [else]
 		if len(args) < 3 {
-			return nil, fmt.Errorf("zetasqlite_case_with_value requires at least 3 arguments")
+			return nil, fmt.Errorf("googlesqlite_case_with_value requires at least 3 arguments")
 		}
 
 		valueExpr := args[0]
@@ -138,8 +138,8 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 					return nil, fmt.Errorf("failed to transform partition by expression: %w", err)
 				}
 
-				// Apply collation so SQLite will partition the rows based on zetasqlite_collate return value
-				expr.Collation = "zetasqlite_collate"
+				// Apply collation so SQLite will partition the rows based on googlesqlite_collate return value
+				expr.Collation = "googlesqlite_collate"
 
 				partitionBy = append(partitionBy, expr)
 			}
@@ -208,7 +208,7 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 
 		// Fast path optimization: bypass function calls for primitive type operations
 		// Function calls incur huge overheads: as each call's args must be decoded/encoded, as well as
-		// allocated within both the modernc.org/sqlite driver and the go-zetasqlite driver
+		// allocated within both the modernc.org/sqlite driver and the go-googlesqlite driver
 		// This could happen potentially hundreds of thousands of times per query in the case of complex JOINs
 		if canOptimizeFunction(function) {
 			return optimizeFunctionToSQL(function.Name, args)
@@ -246,11 +246,11 @@ func canOptimizeFunction(function *FunctionCallData) bool {
 
 	// Check argument count requirements
 	switch function.Name {
-	case "zetasqlite_not":
+	case "googlesqlite_not":
 		if len(function.Arguments) != 1 {
 			return false
 		}
-	case "zetasqlite_and", "zetasqlite_or":
+	case "googlesqlite_and", "googlesqlite_or":
 		if len(function.Arguments) < 2 {
 			return false
 		}
@@ -272,17 +272,17 @@ func canOptimizeFunction(function *FunctionCallData) bool {
 
 var functionToOperator = map[string]string{
 	// Comparison operators
-	"zetasqlite_equal":            "=",
-	"zetasqlite_not_equal":        "!=",
-	"zetasqlite_less":             "<",
-	"zetasqlite_greater":          ">",
-	"zetasqlite_less_or_equal":    "<=",
-	"zetasqlite_greater_or_equal": ">=",
-	"zetasqlite_in":               "IN",
+	"googlesqlite_equal":            "=",
+	"googlesqlite_not_equal":        "!=",
+	"googlesqlite_less":             "<",
+	"googlesqlite_greater":          ">",
+	"googlesqlite_less_or_equal":    "<=",
+	"googlesqlite_greater_or_equal": ">=",
+	"googlesqlite_in":               "IN",
 	// Logical operators
-	"zetasqlite_and": "AND",
-	"zetasqlite_or":  "OR",
-	"zetasqlite_not": "NOT",
+	"googlesqlite_and": "AND",
+	"googlesqlite_or":  "OR",
+	"googlesqlite_not": "NOT",
 }
 
 // optimizeFunctionToSQL converts functions to direct SQL operators
@@ -293,7 +293,7 @@ func optimizeFunctionToSQL(functionName string, args []*SQLExpression) (*SQLExpr
 	}
 
 	switch functionName {
-	case "zetasqlite_and", "zetasqlite_or":
+	case "googlesqlite_and", "googlesqlite_or":
 		if len(args) < 2 {
 			return nil, fmt.Errorf("%s expected at least 2 arguments, got %d", functionName, len(args))
 		}
@@ -304,12 +304,12 @@ func optimizeFunctionToSQL(functionName string, args []*SQLExpression) (*SQLExpr
 		}
 		return result, nil
 
-	case "zetasqlite_not":
+	case "googlesqlite_not":
 		if len(args) != 1 {
 			return nil, fmt.Errorf("%s expected only 1 argument, got %d", functionName, len(args))
 		}
 		return NewNotExpression(args[0]), nil
-	case "zetasqlite_in":
+	case "googlesqlite_in":
 		return NewBinaryExpression(args[0], operator, NewListExpression(args[1:])), nil
 	default: // comparison operators
 		if len(args) != 2 {
