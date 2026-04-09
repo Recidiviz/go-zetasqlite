@@ -5,19 +5,19 @@ import (
 	"strings"
 )
 
-// DMLStmtTransformer handles transformation of DML statement nodes (INSERT, UPDATE, DELETE) from ZetaSQL to SQLite.
+// DMLStmtTransformer handles transformation of DML statement nodes (INSERT, UPDATE, DELETE) from  to SQLite.
 //
-// In BigQuery/ZetaSQL, DML statements include INSERT, UPDATE, and DELETE operations that modify table data.
+// In BigQuery/, DML statements include INSERT, UPDATE, and DELETE operations that modify table data.
 // These operations have specific semantics and syntax that need to be converted to SQLite equivalents.
 //
-// The transformer converts ZetaSQL DML statements by:
+// The transformer converts  DML statements by:
 // - Handling INSERT ... VALUES vs INSERT ... SELECT patterns
 // - Converting UPDATE statements with SET clauses and optional WHERE conditions
 // - Transforming DELETE statements with WHERE clauses
 // - Properly formatting table names and column references for SQLite
 // - Ensuring expression transformations work correctly within DML contexts
 //
-// This transformer bridges the gap between ZetaSQL's resolved DML AST structure and
+// This transformer bridges the gap between 's resolved DML AST structure and
 // the SQLite DML statement representation, ensuring all components are properly
 // transformed and SQL generation produces valid SQLite syntax.
 type DMLStmtTransformer struct {

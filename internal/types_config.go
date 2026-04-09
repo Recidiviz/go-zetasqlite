@@ -9,7 +9,7 @@ type TransformConfig struct {
 
 // DefaultTransformConfig returns a default configuration
 func DefaultTransformConfig() *TransformConfig {
-	debug := os.Getenv("ZETASQLITE_DEBUG") == "true"
+	debug := os.Getenv("GOOGLESQLITE_DEBUG") == "true"
 	return &TransformConfig{
 		Debug: debug,
 	}

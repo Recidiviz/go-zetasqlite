@@ -5,15 +5,15 @@ import (
 	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
-// JoinScanTransformer handles JOIN scan transformations from ZetaSQL to SQLite.
+// JoinScanTransformer handles JOIN scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a JoinScan represents SQL JOIN operations that combine rows from
+// In BigQuery/GoogleSQL, a JoinScan represents SQL JOIN operations that combine rows from
 // two input scans based on join conditions and join types. This includes INNER JOIN,
 // LEFT JOIN, RIGHT JOIN, FULL OUTER JOIN, and CROSS JOIN operations.
 //
-// The transformer converts ZetaSQL JoinScan nodes into SQLite JOIN clauses by:
+// The transformer converts GoogleSQL JoinScan nodes into SQLite JOIN clauses by:
 // - Recursively transforming left and right input scans
-// - Converting ZetaSQL join types to SQLite equivalents
+// - Converting GoogleSQL join types to SQLite equivalents
 // - Transforming join conditions through the coordinator
 // - Wrapping the result in a SELECT * subquery for consistent output structure
 //
@@ -59,7 +59,7 @@ func (t *JoinScanTransformer) Transform(data ScanData, ctx TransformContext) (*F
 		joinCondition = conditionExpr
 	}
 
-	// Convert ZetaSQL join type to internal join type
+	// Convert GoogleSQL join type to internal join type
 	joinType := convertJoinType(joinScanData.JoinType)
 
 	// Create the SELECT statement with JOIN clause

@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// WithRefScanTransformer handles WITH reference scan transformations from ZetaSQL to SQLite.
+// WithRefScanTransformer handles WITH reference scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a WithRefScan represents a reference to a previously defined
+// In BigQuery/GoogleSQL, a WithRefScan represents a reference to a previously defined
 // Common Table Expression (CTE) within a WITH clause. This allows queries to reference
 // named temporary result sets by name, following SQL's lexical scoping rules.
 //
-// The transformer converts ZetaSQL WithRefScan nodes by:
+// The transformer converts GoogleSQL WithRefScan nodes by:
 // - Creating a table reference to the CTE by its name
 // - Retrieving stored column mappings from the transform context
 // - Building a SELECT statement that maps CTE columns to output columns with proper aliases

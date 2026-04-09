@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// SetOperationScanTransformer handles set operation transformations from ZetaSQL to SQLite.
+// SetOperationScanTransformer handles set operation transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, set operations combine multiple SELECT statements using UNION,
+// In BigQuery/GoogleSQL, set operations combine multiple SELECT statements using UNION,
 // INTERSECT, or EXCEPT operators. These operations can have ALL or DISTINCT modifiers
 // and require compatible column schemas across all operands.
 //
-// The transformer converts ZetaSQL SetOperationScan nodes by:
+// The transformer converts GoogleSQL SetOperationScan nodes by:
 // - Recursively transforming each operand statement through the coordinator
 // - Creating a SetOperation structure with proper type and modifier
 // - Moving WITH clauses from operands to the top level for proper scoping

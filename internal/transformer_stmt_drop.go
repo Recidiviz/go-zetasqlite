@@ -6,7 +6,7 @@ import (
 
 // DropStmtTransformer handles transformation of DROP statement data to DropStatement fragments.
 //
-// In BigQuery/ZetaSQL, DROP statements are used to remove database objects like tables, views,
+// In BigQuery/, DROP statements are used to remove database objects like tables, views,
 // indexes, schemas, and functions. These statements are typically simple and don't require
 // complex recursive transformation.
 //

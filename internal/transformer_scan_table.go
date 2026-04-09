@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// TableScanTransformer handles table scan transformations from ZetaSQL to SQLite.
+// TableScanTransformer handles table scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a TableScan represents the foundational scan operation that reads
+// In BigQuery/GoogleSQL, a TableScan represents the foundational scan operation that reads
 // directly from a table. This is the base case in the recursive scan transformation tree -
 // it has no input scans and corresponds to a table reference in the FROM clause.
 //
-// The transformer converts ZetaSQL TableScan nodes into SQLite table references with:
+// The transformer converts GoogleSQL TableScan nodes into SQLite table references with:
 // - Direct table name mapping
 // - Optional table aliasing for disambiguation
 // - Proper FROM clause item generation

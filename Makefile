@@ -1,7 +1,7 @@
 PKG := github.com/vantaboard/go-googlesqlite
 
-# Same dev image and GO_CACHE_ROOT as go-zetasql (see ../go-zetasql/Makefile).
-GO_ZETASQL_ROOT ?= $(abspath $(CURDIR)/../go-zetasql)
+# Same dev image and GO_CACHE_ROOT as go-googlesql (see ../go-googlesql/Makefile).
+GO_GOOGLESQL_ROOT ?= $(abspath $(CURDIR)/../go-googlesql)
 DOCKER_DEV_IMAGE ?= go-googlesql:dev
 GO_CACHE_ROOT ?= $(HOME)/.cache/go-googlesql
 
@@ -37,18 +37,18 @@ lint/install: | $(GOBIN)
 	# binary will be $(go env GOPATH)/bin/golangci-lint
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(GOBIN) v2.4.0
 
-# Run tests in the same go-zetasql:dev toolchain + shared GO_CACHE_ROOT as ../go-zetasql.
-.PHONY: docker/build-dev-zetasql test/linux
-docker/build-dev-zetasql:
-	$(MAKE) -C "$(GO_ZETASQL_ROOT)" docker/build-dev
+# Run tests in the same go-googlesql:dev toolchain + shared GO_CACHE_ROOT as ../go-googlesql.
+.PHONY: docker/build-dev-googlesql test/linux
+docker/build-dev-googlesql:
+	$(MAKE) -C "$(GO_GOOGLESQL_ROOT)" docker/build-dev
 
-# test/linux depends on docker/build-dev-zetasql so the local go-zetasql:dev image exists (Docker otherwise tries to pull it).
-test/linux: docker/build-dev-zetasql
+# test/linux depends on docker/build-dev-googlesql so the local go-googlesql:dev image exists (Docker otherwise tries to pull it).
+test/linux: docker/build-dev-googlesql
 	docker run --rm \
 		-e CGO_ENABLED=1 -e CC=clang -e CXX=clang++ \
 		-e CCACHE_DIR=/root/.ccache -e CCACHE_COMPRESS=1 \
 		-v "$(CURDIR)":/work/go-googlesqlite \
-		-v "$(GO_ZETASQL_ROOT)":/work/go-zetasql \
+		-v "$(GO_GOOGLESQL_ROOT)":/work/go-googlesql \
 		-v "$(GO_CACHE_ROOT)/gocache":/root/.cache/go-build \
 		-v "$(GO_CACHE_ROOT)/gomodcache":/go/pkg/mod \
 		-v "$(GO_CACHE_ROOT)/ccache":/root/.ccache \

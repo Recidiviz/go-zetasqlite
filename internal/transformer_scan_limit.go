@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// LimitScanTransformer handles LIMIT/OFFSET scan transformations from ZetaSQL to SQLite.
+// LimitScanTransformer handles LIMIT/OFFSET scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, LIMIT scans control the number of rows returned from a query,
+// In BigQuery/GoogleSQL, LIMIT scans control the number of rows returned from a query,
 // optionally with an OFFSET to skip rows. This corresponds to SQL's LIMIT and OFFSET
 // clauses that restrict result set size for pagination and performance.
 //
-// The transformer converts ZetaSQL LimitScan nodes into SQLite LIMIT clauses by:
+// The transformer converts GoogleSQL LimitScan nodes into SQLite LIMIT clauses by:
 // - Recursively transforming the input scan to get the data source
 // - Transforming count and offset expressions through the coordinator
 // - Wrapping the result in SELECT * FROM (...) LIMIT count OFFSET offset

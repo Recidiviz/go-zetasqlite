@@ -4,19 +4,19 @@ import (
 	"fmt"
 )
 
-// QueryStmtTransformer handles transformation of QueryStmt nodes from ZetaSQL to SQLite.
+// QueryStmtTransformer handles transformation of QueryStmt nodes from  to SQLite.
 //
-// In BigQuery/ZetaSQL, a QueryStmt represents the outermost SELECT statement in a query,
+// In BigQuery/, a QueryStmt represents the outermost SELECT statement in a query,
 // containing the final SELECT list that defines the output columns and their aliases.
 // This is the top-level entry point for transforming complete SQL queries.
 //
-// The transformer converts ZetaSQL QueryStmt nodes by:
+// The transformer converts  QueryStmt nodes by:
 // - Recursively transforming the main query scan (FROM clause) through the coordinator
 // - Transforming each output column expression in the SELECT list
 // - Preserving column aliases as specified in the original query
 // - Creating the final SelectStatement structure for SQL generation
 //
-// This transformer bridges the gap between ZetaSQL's resolved AST structure and
+// This transformer bridges the gap between 's resolved AST structure and
 // the SQLite SELECT statement representation, ensuring all query components are
 // properly transformed and integrated.
 type QueryStmtTransformer struct {

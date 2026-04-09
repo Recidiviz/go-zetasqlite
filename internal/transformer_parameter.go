@@ -1,12 +1,12 @@
 package internal
 
-// ParameterTransformer handles transformation of parameters/argument identifiers from ZetaSQL to SQLite.
+// ParameterTransformer handles transformation of parameters/argument identifiers from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, parameters represent named or positional placeholders in SQL queries
+// In BigQuery/GoogleSQL, parameters represent named or positional placeholders in SQL queries
 // that are substituted with actual values at execution time. These can be query parameters
 // like @param_name (named) or ? (positional) that allow dynamic query execution.
 //
-// The transformer converts ZetaSQL Parameter nodes by:
+// The transformer converts GoogleSQL Parameter nodes by:
 // - Extracting the parameter identifier (name or position)
 // - Creating a literal SQLite expression with the identifier
 // - Preserving the parameter reference for runtime substitution

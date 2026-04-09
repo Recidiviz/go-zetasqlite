@@ -564,11 +564,11 @@ func GENERATE_UUID() (Value, error) {
 func CAST(expr Value, fromType, toType *Type, isSafeCast bool) (Value, error) {
 	from, err := fromType.ToGoogleSQLType()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get zetasql type from cast base type: %w", err)
+		return nil, fmt.Errorf("failed to get GoogleSQL type from cast base type: %w", err)
 	}
 	to, err := toType.ToGoogleSQLType()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get zetasql type from cast target type: %w", err)
+		return nil, fmt.Errorf("failed to get GoogleSQL type from cast target type: %w", err)
 	}
 	fromValue, err := CastValue(from, expr)
 	if err != nil {

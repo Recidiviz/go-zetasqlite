@@ -4,16 +4,16 @@ import (
 	"fmt"
 )
 
-// ProjectScanTransformer handles projection scan transformations from ZetaSQL to SQLite.
+// ProjectScanTransformer handles projection scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a ProjectScan represents the SQL SELECT list operation that applies
+// In BigQuery/GoogleSQL, a ProjectScan represents the SQL SELECT list operation that applies
 // projections (computed expressions) to columns from an input scan. This corresponds to the
 // "SELECT <expr_list>" part of a SQL query where expressions can be:
 // - Simple column references (pass-through columns)
 // - Computed expressions (functions, arithmetic, etc.)
 // - Mix of both
 //
-// The transformer converts ZetaSQL ProjectScan nodes into SQLite SELECT statements with proper:
+// The transformer converts GoogleSQL ProjectScan nodes into SQLite SELECT statements with proper:
 // - Column aliasing using ID-based naming for disambiguation
 // - Expression transformation through the coordinator pattern
 // - Fragment context management for column resolution

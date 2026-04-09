@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// WithScanTransformer handles WITH scan transformations from ZetaSQL to SQLite.
+// WithScanTransformer handles WITH scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a WithScan represents a complete WITH statement (Common Table Expression)
+// In BigQuery/GoogleSQL, a WithScan represents a complete WITH statement (Common Table Expression)
 // that defines one or more named temporary result sets that can be referenced in the main query.
 // This enables recursive queries, query organization, and performance optimization.
 //
-// The transformer converts ZetaSQL WithScan nodes into SQLite WITH clauses by:
+// The transformer converts GoogleSQL WithScan nodes into SQLite WITH clauses by:
 // - Processing all WITH entry definitions into CTE declarations
 // - Recursively transforming each WITH entry's subquery
 // - Transforming the main query that references the CTEs

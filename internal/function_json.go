@@ -353,7 +353,7 @@ func jsonObjectFromArrays(keysArr, valsArr *ArrayValue) (Value, error) {
 	return jsonObjectFromPairs(pairs)
 }
 
-// jsonObjectFromPairs builds a JSON object. Duplicate keys keep the first value (ZetaSQL / BigQuery semantics).
+// jsonObjectFromPairs builds a JSON object. Duplicate keys keep the first value (GoogleSQL / BigQuery semantics).
 func jsonObjectFromPairs(pairs []Value) (Value, error) {
 	var b strings.Builder
 	b.WriteByte('{')

@@ -4,23 +4,23 @@ import (
 	"fmt"
 )
 
-// AggregateScanTransformer handles aggregate operation transformations from ZetaSQL to SQLite.
+// AggregateScanTransformer handles aggregate operation transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, aggregate scans represent GROUP BY operations with aggregate functions
+// In BigQuery/GoogleSQL, aggregate scans represent GROUP BY operations with aggregate functions
 // like SUM, COUNT, AVG, etc. This includes complex features like ROLLUP, CUBE, and GROUPING SETS
 // that create multiple levels of aggregation in a single query.
 //
-// The transformer converts ZetaSQL AggregateScan nodes by:
+// The transformer converts GoogleSQL AggregateScan nodes by:
 // - Transforming the input scan that provides data for aggregation
 // - Converting aggregate expressions (SUM, COUNT, etc.) with googlesqlite function wrappers
-// - Processing GROUP BY expressions with proper ZetaSQL semantics
+// - Processing GROUP BY expressions with proper GoogleSQL semantics
 // - Handling ROLLUP and GROUPING SETS via UNION ALL of different grouping levels
 // - Managing NULL values for rollup totals and subtotals
 //
 // Key challenges:
 // - ROLLUP generates multiple grouping levels (detail, subtotals, grand total)
 // - Grouping columns become NULL in higher aggregation levels
-// - Preserving ZetaSQL's grouping and aggregation semantics in SQLite
+// - Preserving GoogleSQL's grouping and aggregation semantics in SQLite
 type AggregateScanTransformer struct {
 	coordinator Coordinator
 }
@@ -74,7 +74,7 @@ func (t *AggregateScanTransformer) Transform(data ScanData, ctx TransformContext
 			return nil, fmt.Errorf("failed to transform GROUP BY expression: %w", err)
 		}
 
-		// Wrap with googlesqlite_group_by for proper ZetaSQL semantics
+		// Wrap with googlesqlite_group_by for proper GoogleSQL semantics
 		wrappedExpr := NewFunctionExpression("googlesqlite_group_by", sqlExpr)
 		groupByExprs = append(groupByExprs, wrappedExpr)
 		groupByMap[groupByExpr.Column.ColumnID()] = sqlExpr
@@ -126,7 +126,7 @@ func (t *AggregateScanTransformer) Transform(data ScanData, ctx TransformContext
 // - Subtotals: GROUP BY a (intermediate aggregation)
 // - Grand total: no GROUP BY (overall aggregation with NULL for all grouping columns)
 //
-// In ZetaSQL AST, ROLLUP is represented as multiple GroupingSets where:
+// In GoogleSQL AST, ROLLUP is represented as multiple GroupingSets where:
 // - Non-empty GroupingSets contain actual grouping columns (normal GROUP BY)
 // - Empty GroupingSets represent the grand total row (NULL for all grouping columns)
 //
@@ -137,7 +137,7 @@ func (t *AggregateScanTransformer) Transform(data ScanData, ctx TransformContext
 //
 // Example transformation:
 //
-//	ZetaSQL: SELECT day, SUM(price) FROM sales GROUP BY ROLLUP(day)
+//	GoogleSQL: SELECT day, SUM(price) FROM sales GROUP BY ROLLUP(day)
 //
 //	Becomes:
 //	  SELECT day, SUM(price) FROM sales GROUP BY day

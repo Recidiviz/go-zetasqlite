@@ -2657,7 +2657,6 @@ SELECT COVAR_POP(y, x) OVER () FROM
       (9.0, 3.0)])
 `,
 			expectedRows: [][]interface{}{
-				// TODO(goccy/go-zetasqlite#168): Use population covariance instead of sample covariance
 				// expected rows should actually be {-1.6800000000000002},
 				{-2.1},
 				{-2.1},
@@ -3118,7 +3117,6 @@ ORDER BY offset DESC;`,
 				{[]interface{}{int64(1), int64(2), int64(3)}},
 			},
 		},
-		// Regression tests for goccy/go-zetasqlite#176
 		{
 			name: "array scan left outer join",
 			query: `WITH produce AS (select 'lettuce' AS item UNION ALL SELECT 'banana')
@@ -3589,7 +3587,6 @@ FROM
 				},
 			},
 		},
-		// Regression test for goccy/go-zetasqlite#179
 		{
 			name: "null array scan",
 			query: `
@@ -3878,7 +3875,6 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 				{"cabbage", int64(3)},
 			},
 		},
-		// Regression test goccy/go-zetasqlite#123
 		{
 			name: "qualify without group by / where / having",
 			query: `WITH toks AS (SELECT 1 AS x UNION ALL SELECT 2 AS x)
@@ -3887,7 +3883,6 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 				{int64(2)},
 			},
 		},
-		// Regression test goccy/go-zetasqlite#150
 		{
 			name: "qualify group",
 			query: `
@@ -3901,7 +3896,6 @@ FROM Produce WHERE Produce.category = 'vegetable' QUALIFY rank <= 3`,
 			`,
 			expectedRows: [][]interface{}{{"kale", int64(23)}},
 		},
-		// Regression test goccy/go-zetasqlite#147
 		{
 			name: "subselect qualifier",
 			query: `
@@ -3938,7 +3932,6 @@ SELECT item FROM Produce WHERE Produce.category = 'vegetable' QUALIFY RANK() OVE
 			query:       `SELECT CAST("apple" AS INT64) AS not_a_number`,
 			expectedErr: `failed to analyze: INVALID_ARGUMENT: Could not cast literal "apple" to type INT64 [at 1:13]`,
 		},
-		// Regression test for goccy/go-zetasqlite#175
 		{
 			name:        "cast integer to datetime",
 			query:       `WITH toks AS (SELECT "20100317" AS dt) SELECT CAST(dt AS DATETIME) FROM toks;`,
@@ -4203,7 +4196,7 @@ SELECT characters, CHARACTER_LENGTH(characters) FROM example`,
 			query:        `SELECT FORMAT('%t', timestamp '2015-09-01 12:34:56 America/Los_Angeles')`,
 			expectedRows: [][]interface{}{{"2015-09-01 19:34:56+00"}},
 		},
-		// This fails in ZetaSQL base code.
+		// This fails in GoogleSQL base code.
 		// {
 		// 	name:         "format null",
 		// 	query:        `SELECT FORMAT(NULL, 'abc')`,
@@ -4586,7 +4579,6 @@ WITH markdown AS (
 				{"<h1>Another heading</h1>"},
 			},
 		},
-		// Regression tests for goccy/go-zetasqlite#178
 		{
 			name:  "regexp_replace quoted",
 			query: `SELECT REGEXP_REPLACE('"quote123"', r'["\d]', '')`,
@@ -4954,7 +4946,6 @@ SELECT
 			expectedRows: [][]interface{}{{"FOO", "BAR", "BAZ", nil}},
 		},
 
-		// Regression tests for goccy/go-zetasqlite#177
 		{
 			name:         "least greatest between string",
 			query:        `SELECT LEAST("a", "b"), GREATEST("a", "b"), "b" BETWEEN "a" AND "c";`,
@@ -5972,13 +5963,13 @@ FROM Input`,
 			query:        `SELECT DATE "2020-09-22" + val FROM UNNEST([INTERVAL 1 DAY,INTERVAL -1 DAY,INTERVAL 2 YEAR,CAST('1-2 3 18:1:55' AS INTERVAL)]) as val`,
 			expectedRows: [][]interface{}{{"2020-09-23T00:00:00"}, {"2020-09-21T00:00:00"}, {"2022-09-22T00:00:00"}, {"2021-11-25T18:01:55"}},
 		},
-		// Invalid STRING to INTERVAL (ZetaSQL 2022.02.1+ improves analyzer messaging upstream; runtime still rejects bad literals.)
+		// Invalid STRING to INTERVAL
 		{
 			name:        "invalid_string_to_interval_cast",
 			query:       `SELECT CAST('totally-not-interval' AS INTERVAL)`,
 			expectedErr: "no value parsed",
 		},
-		// COTH / SECH / CSCH added in ZetaSQL 2022.02.1 export.
+		// COTH / SECH / CSCH.
 		// FLATTEN / ResolveArrayElement (same release): analyzer-only upstream fix; SQL FLATTEN is not implemented in this runtime.
 		{
 			name:  "hyperbolic_coth_sech_csch",

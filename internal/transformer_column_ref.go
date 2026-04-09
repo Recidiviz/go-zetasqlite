@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// ColumnRefTransformer handles transformation of column reference expressions from ZetaSQL to SQLite.
+// ColumnRefTransformer handles transformation of column reference expressions from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, column references can appear in various contexts (SELECT lists, WHERE clauses,
+// In BigQuery/GoogleSQL, column references can appear in various contexts (SELECT lists, WHERE clauses,
 // ORDER BY, etc.) and may need qualified names to resolve ambiguity in complex queries with joins,
-// subqueries, or CTEs. The ZetaSQL analyzer resolves these references to specific column IDs.
+// subqueries, or CTEs. The GoogleSQL analyzer resolves these references to specific column IDs.
 //
-// The transformer converts ZetaSQL ColumnRef nodes into SQLite column references with:
+// The transformer converts GoogleSQL ColumnRef nodes into SQLite column references with:
 // - Proper qualification using table aliases when needed
 // - Column name resolution through fragment context
 // - ID-based lookup for disambiguation in complex nested queries

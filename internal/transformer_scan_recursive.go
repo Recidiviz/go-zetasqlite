@@ -6,7 +6,7 @@ import (
 
 // RecursiveScanTransformer handles recursive CTE scan transformations.
 //
-// In BigQuery/ZetaSQL, a RecursiveScanNode represents the definition of a recursive
+// In BigQuery/GoogleSQL, a RecursiveScanNode represents the definition of a recursive
 // CTE, consisting of:
 // - A non-recursive term (base case) - the initial rows
 // - A recursive term (recursive case) - rows computed by referencing the CTE itself

@@ -67,4 +67,4 @@ require (
 
 replace github.com/vantaboard/go-googlesqlite => ../
 
-replace github.com/vantaboard/go-googlesql => ../../go-zetasql
+replace github.com/vantaboard/go-googlesql => ../../go-googlesql

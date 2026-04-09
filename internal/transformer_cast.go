@@ -7,19 +7,19 @@ import (
 	"github.com/vantaboard/go-googlesql/types"
 )
 
-// CastTransformer handles transformation of type casting operations from ZetaSQL to SQLite.
+// CastTransformer handles transformation of type casting operations from GoogleSQL to SQLite.
 //
-// BigQuery/ZetaSQL has a rich type system with complex types (STRUCT, ARRAY, etc.) and
+// BigQuery/GoogleSQL has a rich type system with complex types (STRUCT, ARRAY, etc.) and
 // sophisticated casting rules that differ significantly from SQLite's simpler type system.
-// ZetaSQL supports both explicit CAST() operations and implicit type coercion.
+// GoogleSQL supports both explicit CAST() operations and implicit type coercion.
 //
-// The transformer converts ZetaSQL cast operations by:
+// The transformer converts GoogleSQL cast operations by:
 // - Recursively transforming the expression being cast
 // - Encoding source and target type information as JSON
 // - Using the googlesqlite_cast runtime function for complex type conversions
 // - Handling safe cast semantics (SAFE_CAST returns NULL on conversion failure)
 //
-// The googlesqlite_cast function bridges the type system gap by implementing ZetaSQL's
+// The googlesqlite_cast function bridges the type system gap by implementing GoogleSQL's
 // casting semantics in the SQLite runtime, preserving behavior for complex types
 // and edge cases that SQLite's native CAST cannot handle.
 type CastTransformer struct {

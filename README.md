@@ -29,17 +29,17 @@ CGO_ENABLED=1
 CXX=clang++
 ```
 
-For a full local stack (`go-googlesql`, `go-googlesqlite`, `bigquery-emulator` as sibling repos), add `replace` lines in `go.mod` (for example `replace github.com/vantaboard/go-googlesql => ../go-zetasql`). Emulator Docker builds use only that module’s tree, so they rely on published versions unless you change the build context.
+For a full local stack (`go-googlesql`, `go-googlesqlite`, `bigquery-emulator` as sibling repos), add `replace` lines in `go.mod` (for example `replace github.com/vantaboard/go-googlesql => ../go-googlesql`). Emulator Docker builds use only that module’s tree, so they rely on published versions unless you change the build context.
 
 When exercising the whole stack, run **`go test` in each repo one at a time** (not in parallel) to avoid OOM from overlapping CGO builds, and set a **shared `GOCACHE`** (and optionally `GOMODCACHE`) as described in the [go-googlesql README](https://github.com/vantaboard/go-googlesql#development) so `go-googlesql` compile artifacts are reused.
 
 **Shared cache directory (`GO_CACHE_ROOT`):** The [Makefile](Makefile) target **`make test/linux`** bind-mounts the same tree as `go-googlesql`: **`GO_CACHE_ROOT`** (default **`$HOME/.cache/go-googlesql`**) into **`gocache`**, **`gomodcache`**, and **`ccache`** inside the **`go-googlesql:dev`** container. Override **`GO_CACHE_ROOT`** if you need a different path; keep it identical across **`go-googlesql`**, **`go-googlesqlite`**, and **`bigquery-emulator`** so the stack shares one warm cache.
 
-**Host-native builds and tests:** For incremental C++ compiles on the host, mirror [go-googlesql](https://github.com/vantaboard/go-googlesql#development): use **`CC="ccache clang"`** and **`CXX="ccache clang++"`**, point **`GOCACHE`**, **`GOMODCACHE`**, and **`CCACHE_DIR`** at the same tree (for example under **`GO_CACHE_ROOT`**), or run tests from **`go-googlesql`** with **`make -C ../go-zetasql local/test`** and **`TESTPKG=./...`** (or a narrower package path). On **Linux**, install **`mold`** and keep it on **`PATH`** so **`make local/build`** / **`local/test`** in `go-googlesql` can pass **`CGO_LDFLAGS=-fuse-ld=mold`**; the **`go-googlesql:dev`** image already sets **`mold`** for Docker-based **`make test/linux`** here.
+**Host-native builds and tests:** For incremental C++ compiles on the host, mirror [go-googlesql](https://github.com/vantaboard/go-googlesql#development): use **`CC="ccache clang"`** and **`CXX="ccache clang++"`**, point **`GOCACHE`**, **`GOMODCACHE`**, and **`CCACHE_DIR`** at the same tree (for example under **`GO_CACHE_ROOT`**), or run tests from **`go-googlesql`** with **`make -C ../go-googlesql local/test`** and **`TESTPKG=./...`** (or a narrower package path). On **Linux**, install **`mold`** and keep it on **`PATH`** so **`make local/build`** / **`local/test`** in `go-googlesql` can pass **`CGO_LDFLAGS=-fuse-ld=mold`**; the **`go-googlesql:dev`** image already sets **`mold`** for Docker-based **`make test/linux`** here.
 
-**Optional warm-up:** After a cold toolchain or before a long test run, **`make -C ../go-zetasql docker/warm-cache`** pre-compiles the same **`-race`** graph as tests without executing them, so the next **`make test/linux`** in this repo is faster.
+**Optional warm-up:** After a cold toolchain or before a long test run, **`make -C ../go-googlesql docker/warm-cache`** pre-compiles the same **`-race`** graph as tests without executing them, so the next **`make test/linux`** in this repo is faster.
 
-To match the **`go-googlesql:dev` Docker cache** used in `go-googlesql`, run **`make test/linux`** here after **`make docker/build-dev`** in `../go-zetasql` (same **`GO_CACHE_ROOT`** as `go-googlesql`).
+To match the **`go-googlesql:dev` Docker cache** used in `go-googlesql`, run **`make test/linux`** here after **`make docker/build-dev`** in `../go-googlesql` (same **`GO_CACHE_ROOT`** as `go-googlesql`).
 
 # Synopsis
 

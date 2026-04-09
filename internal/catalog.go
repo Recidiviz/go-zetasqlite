@@ -75,11 +75,11 @@ func newSimpleCatalog(name string) *types.SimpleCatalog {
 	return catalog
 }
 
-// These function definitions are missing from go-zetasql, either due to being on an older version
-// or upstream issues (i.e. google/zetasql#135)
+// These function definitions are missing from go-googlesql, either due to being on an older version
+// or upstream issues (i.e. google/googlesql#135)
 var MISSING_FUNCTIONS = []*FunctionSpec{
 	// Add missing CONTAINS_SUBSTR function to the catalog
-	// https://github.com/google/zetasql/issues/135#issuecomment-1490908494
+	// https://github.com/google/googlesql/issues/135#issuecomment-1490908494
 	{
 		IsTemp:   false,
 		NamePath: []string{"contains_substr"},

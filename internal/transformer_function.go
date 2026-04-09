@@ -5,17 +5,17 @@ import (
 	"github.com/vantaboard/go-googlesql/types"
 )
 
-// FunctionCallTransformer handles transformation of function calls from ZetaSQL to SQLite.
+// FunctionCallTransformer handles transformation of function calls from GoogleSQL to SQLite.
 //
-// BigQuery/ZetaSQL supports a rich set of built-in functions with different semantics than SQLite.
+// BigQuery/GoogleSQL supports a rich set of built-in functions with different semantics than SQLite.
 // This transformer bridges the gap by:
-// - Converting ZetaSQL function calls to SQLite equivalents
-// - Handling special ZetaSQL functions (IFNULL, IF, CASE) via custom googlesqlite_* functions
+// - Converting GoogleSQL function calls to SQLite equivalents
+// - Handling special GoogleSQL functions (IFNULL, IF, CASE) via custom googlesqlite_* functions
 // - Managing window functions with proper OVER clause transformation
 // - Processing function arguments recursively through the coordinator
 // - Injecting current time for time-dependent functions when needed
 //
-// Key ZetaSQL -> SQLite transformations handled:
+// Key GoogleSQL -> SQLite transformations handled:
 // - googlesqlite_ifnull -> CASE WHEN...IS NULL pattern
 // - googlesqlite_if -> CASE WHEN...THEN...ELSE pattern
 // - googlesqlite_case_* -> CASE expressions with proper value/condition handling
@@ -64,7 +64,7 @@ func (t *FunctionCallTransformer) Transform(data ExpressionData, ctx TransformCo
 		}
 	}
 
-	// Handle special ZetaSQL functions that need transformation
+	// Handle special GoogleSQL functions that need transformation
 	switch function.Name {
 	case "googlesqlite_ifnull":
 		// Convert to CASE expression: IFNULL(a, b) => CASE WHEN a IS NULL THEN b ELSE a END

@@ -30,7 +30,7 @@ func JSON_REMOVE(j JsonValue, paths ...string) (Value, error) {
 }
 
 // JSON_SET sets values at path/value pairs. createIfMissing controls whether
-// missing path segments are created (matches ZetaSQL JSON_SET semantics).
+// missing path segments are created (matches GoogleSQL JSON_SET semantics).
 func JSON_SET(j JsonValue, pairs []Value, createIfMissing bool) (Value, error) {
 	if len(pairs)%2 != 0 {
 		return nil, fmt.Errorf("JSON_SET: expected path/value pairs")
@@ -189,7 +189,7 @@ func valueToJSONNative(val Value) (interface{}, error) {
 	return out, nil
 }
 
-// jsonKeysMode mirrors ZetaSQL JsonPathOptions for JSON_KEYS.
+// jsonKeysMode mirrors GoogleSQL JsonPathOptions for JSON_KEYS.
 type jsonKeysMode int
 
 const (
@@ -199,7 +199,7 @@ const (
 )
 
 // JSON_KEYS returns lexicographically sorted JSON path key strings (object keys and nested paths).
-// Semantics follow zetasql::functions::JsonKeys (strict / lax / lax recursive).
+// Semantics follow googlesql::functions::JsonKeys (strict / lax / lax recursive).
 func JSON_KEYS(j JsonValue, maxDepth int64, mode jsonKeysMode) (Value, error) {
 	var root interface{}
 	if err := json.Unmarshal([]byte(j), &root); err != nil {

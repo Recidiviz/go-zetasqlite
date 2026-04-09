@@ -349,11 +349,11 @@ func (cli *CLI) printRowsWithTable(ctx context.Context, rows *sql.Rows) error {
 		if err != nil {
 			return err
 		}
-		zetasqlType, err := typ.ToGoogleSQLType()
+		googlesqlType, err := typ.ToGoogleSQLType()
 		if err != nil {
 			return err
 		}
-		columnColors[i] = cli.columnKindToColor(zetasqlType.Kind())
+		columnColors[i] = cli.columnKindToColor(googlesqlType.Kind())
 	}
 
 	for rows.Next() {
@@ -394,11 +394,11 @@ func (cli *CLI) printRowsWithGroup(ctx context.Context, rows *sql.Rows) error {
 		if err != nil {
 			return err
 		}
-		zetasqlType, err := typ.ToGoogleSQLType()
+		googlesqlType, err := typ.ToGoogleSQLType()
 		if err != nil {
 			return err
 		}
-		columnColors[i] = cli.columnKindToColor(zetasqlType.Kind())
+		columnColors[i] = cli.columnKindToColor(googlesqlType.Kind())
 		var v interface{}
 		queryArgs[i] = &v
 	}

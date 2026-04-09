@@ -5,13 +5,13 @@ import (
 	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
-// SubqueryTransformer handles transformation of subquery expressions from ZetaSQL to SQLite.
+// SubqueryTransformer handles transformation of subquery expressions from  to SQLite.
 //
-// In BigQuery/ZetaSQL, subqueries can appear in various expression contexts with different
+// In BigQuery/, subqueries can appear in various expression contexts with different
 // semantics: scalar subqueries (single value), array subqueries, EXISTS checks, and IN checks.
 // Each type has specific behavior and return value expectations.
 //
-// The transformer converts ZetaSQL subquery expressions by:
+// The transformer converts  subquery expressions by:
 // - Recursively transforming the subquery's scan structure
 // - Wrapping the result in appropriate SQL constructs based on subquery type:
 //   - Scalar: Returns single value, wrapped in parentheses

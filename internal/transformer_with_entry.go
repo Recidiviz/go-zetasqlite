@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// WithEntryTransformer handles WITH entry transformations (CTE definitions) from ZetaSQL to SQLite.
+// WithEntryTransformer handles WITH entry transformations (CTE definitions) from  to SQLite.
 //
-// In BigQuery/ZetaSQL, a WithEntry represents a single Common Table Expression (CTE) definition
+// In BigQuery/, a WithEntry represents a single Common Table Expression (CTE) definition
 // within a WITH clause. Each entry defines a named temporary result set with a specific
 // column list that can be referenced by name in subsequent CTEs or the main query.
 //
-// The transformer converts ZetaSQL WithEntry nodes into SQLite WITH clause definitions by:
+// The transformer converts  WithEntry nodes into SQLite WITH clause definitions by:
 // - Transforming the subquery that defines the CTE's content
 // - Registering the CTE name and column mappings in the transform context
 // - Creating a WithClause structure for inclusion in the parent WITH statement

@@ -5,11 +5,11 @@ import (
 	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
-// CreateTableAsSelectStmtTransformer handles transformation of CreateTableAsSelectStmt nodes from ZetaSQL to SQLite.
+// CreateTableAsSelectStmtTransformer handles transformation of CreateTableAsSelectStmt nodes from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a CreateTableAsSelectStmt represents a CREATE TABLE AS SELECT statement,
+// In BigQuery/GoogleSQL, a CreateTableAsSelectStmt represents a CREATE TABLE AS SELECT statement,
 // which creates a new table based on the result of a SELECT query. This transformer converts
-// ZetaSQL CREATE TABLE AS SELECT statements to SQLite-compatible CREATE TABLE AS SELECT syntax.
+// GoogleSQL CREATE TABLE AS SELECT statements to SQLite-compatible CREATE TABLE AS SELECT syntax.
 //
 // The transformer handles:
 // - Extracting table name and creation options (IF NOT EXISTS)
@@ -17,7 +17,7 @@ import (
 // - Transforming each output column expression in the SELECT list
 // - Creating the final CreateTableStatement structure for SQL generation
 //
-// This transformer bridges the gap between ZetaSQL's resolved AST structure and
+// This transformer bridges the gap between GoogleSQL's resolved AST structure and
 // the SQLite CREATE TABLE AS SELECT statement representation.
 type CreateTableAsSelectStmtTransformer struct {
 	coordinator Coordinator // For recursive transformation of the inner SELECT query

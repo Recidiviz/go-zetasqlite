@@ -605,7 +605,7 @@ func setupNormalFuncMap(info *FuncInfo) error {
 			if err != nil {
 				// Note, this should only suppress semantic errors based on the
 				// input data. See
-				// https://github.com/google/zetasql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
+				// https://github.com/google/googlesql/blob/master/docs/resolved_ast.md#resolvedfunctioncallbase
 				return nil, nil
 			}
 			return EncodeValue(ret)

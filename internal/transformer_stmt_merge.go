@@ -7,9 +7,9 @@ import (
 	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
-// MergeStmtTransformer handles transformation of MERGE statement nodes from ZetaSQL to SQLite.
+// MergeStmtTransformer handles transformation of MERGE statement nodes from  to SQLite.
 //
-// In BigQuery/ZetaSQL, MERGE statements provide a way to conditionally INSERT, UPDATE, or DELETE
+// In BigQuery/, MERGE statements provide a way to conditionally INSERT, UPDATE, or DELETE
 // rows based on whether they match between a target table and a source table/query. Since SQLite
 // doesn't have native MERGE support, this transformer converts MERGE statements into a series of
 // SQLite statements that achieve equivalent behavior.

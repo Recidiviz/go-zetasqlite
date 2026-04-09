@@ -94,7 +94,7 @@ func newAnalyzerOptions() (*googlesql.AnalyzerOptions, error) {
 		googlesql.FeatureV13WithRecursive,
 		googlesql.FeatureV12GroupByArray,
 		googlesql.FeatureV12GroupByStruct,
-		// v1.4 builtins (numeric ids until named in go-zetasql enum): FIRST/LAST N, NULLIFZERO/ZEROIFNULL, PI
+		// v1.4 builtins (numeric ids until named in go-googlesql enum): FIRST/LAST N, NULLIFZERO/ZEROIFNULL, PI
 		googlesql.LanguageFeature(14027),
 		googlesql.LanguageFeature(14028),
 		googlesql.LanguageFeature(14029),
@@ -124,7 +124,7 @@ func newAnalyzerOptions() (*googlesql.AnalyzerOptions, error) {
 		ast.CreateRowAccessPolicyStmt,
 	})
 	// Enable QUALIFY without WHERE
-	//https://github.com/google/zetasql/issues/124
+	//https://github.com/google/googlesql/issues/124
 	err := langOpt.EnableReservableKeyword("QUALIFY", true)
 	if err != nil {
 		return nil, err
@@ -425,7 +425,7 @@ func (a *Analyzer) Analyze(ctx context.Context, conn *Conn, query string, args [
 }
 
 func GoogleSQLTypeFromBigQueryType(t *bigquery.QueryParameterType) (types.Type, error) {
-	// Generates ZetaSQL annotated types from a list of bigquery query parameters
+	// Generates GoogleSQL annotated types from a list of bigquery query parameters
 	if t.Type == "ARRAY" {
 		element, err := GoogleSQLTypeFromBigQueryType(t.ArrayType)
 		if err != nil {
@@ -447,48 +447,48 @@ func GoogleSQLTypeFromBigQueryType(t *bigquery.QueryParameterType) (types.Type, 
 		return types.NewStructType(fields)
 	}
 
-	var zetasqlType types.Type
+	var googlesqlType types.Type
 	switch t.Type {
 	case "INT32":
-		zetasqlType = types.Int32Type()
+		googlesqlType = types.Int32Type()
 	case "INT64":
-		zetasqlType = types.Int64Type()
+		googlesqlType = types.Int64Type()
 	case "UINT32":
-		zetasqlType = types.Uint32Type()
+		googlesqlType = types.Uint32Type()
 	case "UINT64":
-		zetasqlType = types.Uint64Type()
+		googlesqlType = types.Uint64Type()
 	case "BOOL":
-		zetasqlType = types.BoolType()
+		googlesqlType = types.BoolType()
 	case "FLOAT", "FLOAT32":
-		zetasqlType = types.FloatType()
+		googlesqlType = types.FloatType()
 	case "FLOAT64", "DOUBLE":
-		zetasqlType = types.DoubleType()
+		googlesqlType = types.DoubleType()
 	case "STRING":
-		zetasqlType = types.StringType()
+		googlesqlType = types.StringType()
 	case "BYTES":
-		zetasqlType = types.BytesType()
+		googlesqlType = types.BytesType()
 	case "DATE":
-		zetasqlType = types.DateType()
+		googlesqlType = types.DateType()
 	case "TIMESTAMP":
-		zetasqlType = types.TimestampType()
+		googlesqlType = types.TimestampType()
 	case "TIME":
-		zetasqlType = types.TimeType()
+		googlesqlType = types.TimeType()
 	case "DATETIME":
-		zetasqlType = types.DatetimeType()
+		googlesqlType = types.DatetimeType()
 	case "GEOGRAPHY":
-		zetasqlType = types.GeographyType()
+		googlesqlType = types.GeographyType()
 	case "NUMERIC", "DECIMAL":
-		zetasqlType = types.NumericType()
+		googlesqlType = types.NumericType()
 	case "BIGDECIMAL", "BIGNUMERIC":
-		zetasqlType = types.BigNumericType()
+		googlesqlType = types.BigNumericType()
 	case "JSON":
-		zetasqlType = types.JsonType()
+		googlesqlType = types.JsonType()
 	case "INTERVAL":
-		zetasqlType = types.IntervalType()
+		googlesqlType = types.IntervalType()
 	default:
 		return nil, fmt.Errorf("unsupported query parameter type: %s", t.Type)
 	}
-	return zetasqlType, nil
+	return googlesqlType, nil
 
 }
 
@@ -809,7 +809,7 @@ func (a *Analyzer) newQueryStmtAction(ctx context.Context, query string, args []
 	params := getParamsFromNode(node)
 	if disabledFormatting, ok := ctx.Value(DisableQueryFormattingKey{}).(bool); ok && disabledFormatting {
 		formattedQuery = query
-		// ZetaSQL will always lowercase parameter names, so we must match it in the query
+		// GoogleSQL will always lowercase parameter names, so we must match it in the query
 		queryBytes := []byte(query)
 		for _, param := range params {
 			location := param.ParseLocationRange()

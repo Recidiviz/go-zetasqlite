@@ -91,10 +91,10 @@ func (e *NodeExtractor) extractLiteralData(node *ast.LiteralNode, ctx TransformC
 	originalValue := node.Value()
 	originalType := node.Type()
 
-	// Convert ZetaSQL value to googlesqlite Value
+	// Convert GoogleSQL value to googlesqlite Value
 	googlesqliteValue, err := ValueFromGoogleSQLValue(originalValue)
 	if err != nil {
-		return ExpressionData{}, fmt.Errorf("failed to convert ZetaSQL value to googlesqlite Value: %w", err)
+		return ExpressionData{}, fmt.Errorf("failed to convert GoogleSQL value to googlesqlite Value: %w", err)
 	}
 
 	var typeName string
@@ -156,7 +156,7 @@ func resolvedFunctionNamePath(node ast.Node) []string {
 	return path
 }
 
-func getZetasqliteFuncName(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, error) {
+func getGoogleSQLiteFuncName(ctx context.Context, node *ast.BaseFunctionCallNode, isWindowFunc bool) (string, error) {
 	funcName := node.Function().FullName(false)
 	funcName = strings.ReplaceAll(funcName, ".", "_")
 
@@ -204,7 +204,7 @@ func getZetasqliteFuncName(ctx context.Context, node *ast.BaseFunctionCallNode, 
 // extractFunctionCallData extracts data from function call nodes
 func (e *NodeExtractor) extractFunctionCallData(node *ast.BaseFunctionCallNode, ctx TransformContext, isWindowFunc bool) (ExpressionData, error) {
 	// Extract function name
-	funcName, err := getZetasqliteFuncName(ctx.Context(), node, isWindowFunc)
+	funcName, err := getGoogleSQLiteFuncName(ctx.Context(), node, isWindowFunc)
 	if err != nil {
 		return ExpressionData{}, fmt.Errorf("failed to get function name: %w", err)
 	}
@@ -1302,7 +1302,7 @@ func (e *NodeExtractor) extractWithRefScanNode(node *ast.WithRefScanNode, ctx Tr
 }
 
 func (e *NodeExtractor) extractSetOperationScanData(node *ast.SetOperationScanNode, ctx TransformContext) (ScanData, error) {
-	// Map ZetaSQL set operation types to SQLite equivalents
+	// Map GoogleSQL set operation types to SQLite equivalents
 	var opType string
 	var modifier string
 	switch node.OpType() {

@@ -1731,7 +1731,7 @@ func bindJsonRemove(args ...Value) (Value, error) {
 
 func bindJsonSet(args ...Value) (Value, error) {
 	// JSON_SET(JSON, path, value[, path, value]... [, create_if_missing BOOL])
-	// ZetaSQL: json_set(json, string, any[, string, any, ...]); optional trailing BOOL.
+	// GoogleSQL: json_set(json, string, any[, string, any, ...]); optional trailing BOOL.
 	if len(args) < 3 {
 		return nil, fmt.Errorf("JSON_SET: invalid argument num %d", len(args))
 	}

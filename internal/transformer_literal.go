@@ -4,14 +4,14 @@ import (
 	"fmt"
 )
 
-// LiteralTransformer handles transformation of literal values from ZetaSQL to SQLite.
+// LiteralTransformer handles transformation of literal values from GoogleSQL to SQLite.
 //
-// BigQuery/ZetaSQL supports rich literal types including complex values like STRUCT literals,
+// BigQuery/GoogleSQL supports rich literal types including complex values like STRUCT literals,
 // ARRAY literals, and typed NULL values that don't have direct SQLite equivalents.
 // Literals represent constant values in SQL expressions (numbers, strings, booleans, etc.).
 //
-// The transformer converts ZetaSQL literal values by:
-// - Encoding complex ZetaSQL literals into SQLite-compatible string representations
+// The transformer converts GoogleSQL literal values by:
+// - Encoding complex GoogleSQL literals into SQLite-compatible string representations
 // - Preserving type information through the encoding process
 // - Handling special values like typed NULL, NaN, and infinity
 // - Using the LiteralFromValue function for consistent encoding

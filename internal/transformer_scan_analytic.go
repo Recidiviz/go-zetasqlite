@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// AnalyticScanTransformer handles analytic scan (window function) transformations from ZetaSQL to SQLite.
+// AnalyticScanTransformer handles analytic scan (window function) transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, analytic scans represent window functions that compute values over
+// In BigQuery/GoogleSQL, analytic scans represent window functions that compute values over
 // a set of rows related to the current row. This includes functions like ROW_NUMBER(),
 // RANK(), LAG(), LEAD(), SUM() OVER(), etc. with PARTITION BY and ORDER BY clauses.
 //
-// The transformer converts ZetaSQL AnalyticScan nodes by:
+// The transformer converts GoogleSQL AnalyticScan nodes by:
 // - Recursively transforming the input scan that provides the base data
 // - Pre-transforming all window function expressions before column registration
 // - Creating SELECT list with both passthrough columns and computed window functions

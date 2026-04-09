@@ -5,11 +5,11 @@ import (
 	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
-// CreateViewStmtTransformer handles transformation of CreateViewStmt nodes from ZetaSQL to SQLite.
+// CreateViewStmtTransformer handles transformation of CreateViewStmt nodes from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a CreateViewStmt represents a CREATE VIEW statement,
+// In BigQuery/GoogleSQL, a CreateViewStmt represents a CREATE VIEW statement,
 // which creates a new view based on the result of a SELECT query. This transformer converts
-// ZetaSQL CREATE VIEW statements to SQLite-compatible CREATE VIEW syntax.
+// GoogleSQL CREATE VIEW statements to SQLite-compatible CREATE VIEW syntax.
 //
 // The transformer handles:
 // - Extracting view name and creation options (IF NOT EXISTS)
@@ -17,7 +17,7 @@ import (
 // - Transforming each output column expression in the SELECT list
 // - Creating the final CreateViewStatement structure for SQL generation
 //
-// This transformer bridges the gap between ZetaSQL's resolved AST structure and
+// This transformer bridges the gap between GoogleSQL's resolved AST structure and
 // the SQLite CREATE VIEW statement representation.
 type CreateViewStmtTransformer struct {
 	coordinator Coordinator // For recursive transformation of the inner SELECT query

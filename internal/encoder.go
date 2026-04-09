@@ -327,7 +327,7 @@ func arrayValueFromLiteral(v types.Value) (*ArrayValue, error) {
 		elem := v.Element(i)
 		value, err := ValueFromGoogleSQLValue(elem)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert from zetasql value: %w", err)
+			return nil, fmt.Errorf("failed to convert from GoogleSQL value: %w", err)
 		}
 		ret.values = append(ret.values, value)
 	}

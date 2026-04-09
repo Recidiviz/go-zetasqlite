@@ -5,20 +5,20 @@ import (
 	ast "github.com/vantaboard/go-googlesql/resolved_ast"
 )
 
-// OrderByScanTransformer handles ORDER BY scan transformations from ZetaSQL to SQLite.
+// OrderByScanTransformer handles ORDER BY scan transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, ORDER BY scans sort result rows based on one or more expressions.
+// In BigQuery/GoogleSQL, ORDER BY scans sort result rows based on one or more expressions.
 // This includes complex sorting semantics like NULLS FIRST/LAST, collation handling,
 // and expressions that can reference columns, functions, or computed values.
 //
-// The transformer converts ZetaSQL OrderByScan nodes into SQLite ORDER BY clauses by:
+// The transformer converts GoogleSQL OrderByScan nodes into SQLite ORDER BY clauses by:
 // - Recursively transforming the input scan to get the data source
 // - Transforming each ORDER BY expression through the coordinator
-// - Handling ZetaSQL's NULL ordering semantics (NULLS FIRST/LAST) via additional sort keys
+// - Handling GoogleSQL's NULL ordering semantics (NULLS FIRST/LAST) via additional sort keys
 // - Applying googlesqlite_collate for consistent string ordering behavior
 // - Creating SELECT * FROM (...) ORDER BY structure for complex queries
 //
-// ZetaSQL's NULL ordering is more sophisticated than SQLite's default behavior,
+// GoogleSQL's NULL ordering is more sophisticated than SQLite's default behavior,
 // requiring additional ORDER BY items to ensure consistent results.
 type OrderByScanTransformer struct {
 	coordinator Coordinator // For recursive transformation of the inner scan

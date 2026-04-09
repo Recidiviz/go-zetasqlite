@@ -6,7 +6,7 @@ import (
 
 // RecursiveRefScanTransformer handles recursive CTE reference transformations.
 //
-// In BigQuery/ZetaSQL, a RecursiveRefScanNode represents a self-reference within
+// In BigQuery/GoogleSQL, a RecursiveRefScanNode represents a self-reference within
 // a recursive CTE's recursive term. This is the mechanism by which the CTE references
 // itself to build up results iteratively.
 //

@@ -837,7 +837,6 @@ func (f *WINDOW_COVAR_POP) Done(agg *WindowFuncAggregatedStatus) (Value, error) 
 	if len(x) == 0 || len(y) == 0 {
 		return nil, nil
 	}
-	// TODO(goccy/go-zetasqlite#168): Use population covariance instead of sample covariance
 	return FloatValue(stat.Covariance(x, y, nil)), nil
 }
 

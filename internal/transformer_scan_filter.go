@@ -4,13 +4,13 @@ import (
 	"fmt"
 )
 
-// FilterScanTransformer handles WHERE clause filter transformations from ZetaSQL to SQLite.
+// FilterScanTransformer handles WHERE clause filter transformations from GoogleSQL to SQLite.
 //
-// In BigQuery/ZetaSQL, a FilterScan represents SQL WHERE clause operations that filter
+// In BigQuery/GoogleSQL, a FilterScan represents SQL WHERE clause operations that filter
 // rows from an input scan based on boolean expressions. This corresponds to row-level
 // filtering that occurs before grouping, aggregation, or other operations.
 //
-// The transformer converts ZetaSQL FilterScan nodes into SQLite WHERE clauses by:
+// The transformer converts GoogleSQL FilterScan nodes into SQLite WHERE clauses by:
 // - Recursively transforming the input scan to get the data source
 // - Transforming the filter expression through the coordinator
 // - Creating a SELECT * FROM (...) WHERE <condition> wrapper
