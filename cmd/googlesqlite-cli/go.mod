@@ -9,7 +9,7 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/vantaboard/go-googlesql v0.5.5
+	github.com/vantaboard/go-googlesql v0.5.6
 	github.com/vantaboard/go-googlesqlite v0.4.0
 	golang.org/x/crypto v0.36.0
 )

@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.2
 
 require (
-	github.com/vantaboard/go-googlesql v0.5.5
+	github.com/vantaboard/go-googlesql v0.5.6
 	modernc.org/sqlite v1.37.0
 )
 
