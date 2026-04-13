@@ -8,7 +8,7 @@ GO_CACHE_ROOT ?= $(HOME)/.cache/go-googlesql
 GOOGLESQL_BUILD_TAGS ?= googlesql,googlesql_unified_prebuilt
 
 GOBIN := $(CURDIR)/bin
-PKGS := $(shell go list ./... | grep -v cmd | grep -v benchmarks )
+PKGS := $(shell go list -tags "$(GOOGLESQL_BUILD_TAGS)" ./... | grep -v cmd | grep -v benchmarks )
 COVER_PKGS := $(foreach pkg,$(PKGS),$(subst $(PKG),.,$(pkg)))
 
 COMMA := ,
@@ -21,11 +21,11 @@ $(GOBIN):
 
 .PHONY: build
 build:
-	cd ./cmd/googlesqlite-cli && go build .
+	bash -c "set -euo pipefail; source \"$(GO_GOOGLESQL_ROOT)/scripts/go-googlesql-stack-bootstrap.sh\"; cd ./cmd/googlesqlite-cli && go build -tags \"$(GOOGLESQL_BUILD_TAGS)\" ."
 
 .PHONY: cover
 cover:
-	go test -coverpkg=$(COVERPKG_OPT) -coverprofile=cover.out ./...
+	bash -c "set -euo pipefail; source \"$(GO_GOOGLESQL_ROOT)/scripts/go-googlesql-stack-bootstrap.sh\"; go test -tags \"$(GOOGLESQL_BUILD_TAGS)\" -coverpkg=$(COVERPKG_OPT) -coverprofile=cover.out ./..."
 
 .PHONY: cover-html
 cover-html: cover
@@ -33,7 +33,7 @@ cover-html: cover
 
 .PHONY: lint
 lint: lint/install
-	$(GOBIN)/golangci-lint run --timeout 30m
+	bash -c "set -euo pipefail; source \"$(GO_GOOGLESQL_ROOT)/scripts/go-googlesql-stack-bootstrap.sh\"; $(GOBIN)/golangci-lint run --timeout 30m --build-tags=\"$(GOOGLESQL_BUILD_TAGS)\""
 
 lint/install: | $(GOBIN)
 	# binary will be $(go env GOPATH)/bin/golangci-lint

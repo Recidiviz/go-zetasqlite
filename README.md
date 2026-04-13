@@ -29,7 +29,7 @@ CGO_ENABLED=1
 CXX=clang++
 ```
 
-For a full local stack (`go-googlesql`, `go-googlesqlite`, `bigquery-emulator` as sibling repos), add `replace` lines in `go.mod` (for example `replace github.com/vantaboard/go-googlesql => ../go-googlesql`). Emulator Docker builds use only that module’s tree, so they rely on published versions unless you change the build context.
+For a full local stack (`go-googlesql`, `go-googlesqlite`, `bigquery-emulator` as sibling repos), add `replace` lines in `go.mod` (for example `replace github.com/vantaboard/go-googlesql => ../go-googlesql`). Emulator Docker builds use only that module's tree, so they rely on published versions unless you change the build context.
 
 When exercising the whole stack, run **`go test` in each repo one at a time** (not in parallel) to avoid OOM from overlapping CGO builds, and set a **shared `GOCACHE`** (and optionally `GOMODCACHE`) as described in the [go-googlesql README](https://github.com/vantaboard/go-googlesql#development) so `go-googlesql` compile artifacts are reused.
 
@@ -47,7 +47,7 @@ When exercising the whole stack, run **`go test` in each repo one at a time** (n
 
 To match the **`go-googlesql:dev` Docker cache** used in `go-googlesql`, run **`make test/linux`** here after **`make docker/build-dev`** in `../go-googlesql` (same **`GO_CACHE_ROOT`** as `go-googlesql`).
 
-**CI vs local prebuilt parity:** GitHub Actions runs plain **`go test`** against the **public module** (no sibling `replace`), which uses the **non–unified-prebuilt** CGO compile path bundled in the module. For the supported **`googlesql,googlesql_unified_prebuilt`** path with **`libprotobuf_cgo.a`** + **`libgooglesql.a`**, use **`make test/prebuilt`**, **`make test/linux`**, or **`make cover`** / **`go test`** with **`replace`** to a **`go-googlesql`** checkout that has prebuilts (see above).
+**CI:** [`.github/workflows/go.yml`](.github/workflows/go.yml) checks out **`vantaboard/go-googlesql`** at the pinned **`go.mod`** version, runs **`scripts/ci-download-or-build-default-prebuilts.sh`** in that tree (release tarball on **linux/amd64** when available, otherwise Bazel), then **`make build`**, **`make cover`**, and **`make lint`** with [`go-googlesql-stack-bootstrap.sh`](https://github.com/vantaboard/go-googlesql/blob/main/scripts/go-googlesql-stack-bootstrap.sh) so CI always uses **`googlesql,googlesql_unified_prebuilt`** with the same prebuilt archives as local development.
 
 # Synopsis
 

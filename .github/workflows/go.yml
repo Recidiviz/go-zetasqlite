@@ -5,75 +5,86 @@ on:
       - main
   pull_request:
 
+defaults:
+  run:
+    shell: bash
+
 env:
   CGO_ENABLED: "1"
   CC: clang
   CXX: clang++
+
 jobs:
-  build:
-    name: build
+  ci:
+    name: CI
     strategy:
+      fail-fast: false
       matrix:
-        os: [ "ubuntu-latest", "macos-latest" ]
-        go-version: [ "1.24" ]
+        os: [ubuntu-latest, macos-latest]
+        go-version: ["1.24"]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 180
     steps:
-    - name: checkout
-      uses: actions/checkout@v4
-    - name: setup Go ${{ matrix.go-version }}
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
-        cache: true
-    - name: build
-      run: |
-        make build
-  test:
-    name: test
-    strategy:
-      matrix:
-        os: [ "ubuntu-latest", "macos-latest" ]
-        go-version: [ "1.24" ]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - name: checkout
-      uses: actions/checkout@v4
-    - name: setup Go ${{ matrix.go-version }}
-      uses: actions/setup-go@v4
-      with:
-        go-version: ${{ matrix.go-version }}
-        cache: true
-    - name: test
-      run: go test -v ./... -count=1
-  coverage:
-    name: coverage
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout
+      - name: Checkout go-googlesqlite
         uses: actions/checkout@v4
-      - name: setup Go
+        with:
+          path: go-googlesqlite
+      - name: Resolve go-googlesql version
+        id: gsql
+        run: |
+          v=$(awk '/github.com\/vantaboard\/go-googlesql /{print $2; exit}' go-googlesqlite/go.mod)
+          echo "v=${v}" >> "$GITHUB_OUTPUT"
+          echo "go-googlesql module version: ${v}"
+      - name: Checkout go-googlesql
+        uses: actions/checkout@v4
+        with:
+          repository: vantaboard/go-googlesql
+          ref: ${{ steps.gsql.outputs.v }}
+          path: go-googlesql
+      - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: ${{ matrix.go-version }}
           cache: true
-      - name: measure coverage
+          cache-dependency-path: go-googlesqlite/go.sum
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+      - name: Install clang (Linux)
+        if: runner.os == 'Linux'
         run: |
-          make cover
-      - uses: codecov/codecov-action@v3
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang
+      - name: Install bazelisk
+        run: |
+          go install github.com/bazelbuild/bazelisk@v1.20.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Cache Bazel
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel
+          key: ${{ runner.os }}-bazel-googlesql-${{ hashFiles('go-googlesql/internal/cmd/updater/googlesql.ref', 'go-googlesql/internal/cmd/updater/Dockerfile', 'go-googlesql/go.mod', 'go-googlesql/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-bazel-googlesql-
+      - name: Default prebuilts (release tarball or Bazel)
+        working-directory: ${{ github.workspace }}
+        env:
+          GOOGLESQL_VERSION: ${{ steps.gsql.outputs.v }}
+        run: bash go-googlesql/scripts/ci-download-or-build-default-prebuilts.sh go-googlesql
+      - name: Build
+        working-directory: go-googlesqlite
+        run: make build
+      - name: Test with coverage
+        working-directory: go-googlesqlite
+        run: make cover
+      - name: Lint
+        working-directory: go-googlesqlite
+        run: make lint
+      - name: Upload coverage to Codecov
+        if: runner.os == 'Linux'
+        uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: false
           verbose: true
-  lint:
-    name: lint
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-      - name: setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.24'
-          cache: true
-      - name: run linter
-        run: |
-          make lint
+          files: go-googlesqlite/cover.out
