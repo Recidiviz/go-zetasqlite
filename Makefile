@@ -4,6 +4,8 @@ PKG := github.com/vantaboard/go-googlesqlite
 GO_GOOGLESQL_ROOT ?= $(abspath $(CURDIR)/../go-googlesql)
 DOCKER_DEV_IMAGE ?= go-googlesql:dev
 GO_CACHE_ROOT ?= $(HOME)/.cache/go-googlesql
+# Default GoogleSQL CGO tags (match go-googlesql Taskfile / docs/prebuilt-cgo.md).
+GOOGLESQL_BUILD_TAGS ?= googlesql,googlesql_unified_prebuilt
 
 GOBIN := $(CURDIR)/bin
 PKGS := $(shell go list ./... | grep -v cmd | grep -v benchmarks )
@@ -37,6 +39,11 @@ lint/install: | $(GOBIN)
 	# binary will be $(go env GOPATH)/bin/golangci-lint
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s -- -b $(GOBIN) v2.4.0
 
+# Host test with the same CGO/linker env as go-googlesql Task (requires sibling go-googlesql + prebuilts).
+.PHONY: test/prebuilt
+test/prebuilt:
+	bash -c 'set -euo pipefail; source "$(GO_GOOGLESQL_ROOT)/scripts/go-googlesql-stack-bootstrap.sh"; go test -tags "$(GOOGLESQL_BUILD_TAGS)" -p 1 -count=1 ./...'
+
 # Run tests in the same go-googlesql:dev toolchain + shared GO_CACHE_ROOT as ../go-googlesql.
 .PHONY: docker/build-dev-googlesql test/linux
 docker/build-dev-googlesql:
@@ -54,4 +61,4 @@ test/linux: docker/build-dev-googlesql
 		-v "$(GO_CACHE_ROOT)/ccache":/root/.ccache \
 		-w /work/go-googlesqlite \
 		$(DOCKER_DEV_IMAGE) \
-		bash -c "go test -race -v ./... -count=1"
+		bash -c 'set -euo pipefail; source /work/go-googlesql/scripts/go-googlesql-stack-bootstrap.sh; go test -race -v ./... -count=1'
