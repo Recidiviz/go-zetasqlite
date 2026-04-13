@@ -74,13 +74,19 @@ jobs:
         run: bash go-googlesql/scripts/ci-download-or-build-default-prebuilts.sh go-googlesql
       - name: Build
         working-directory: go-googlesqlite
-        run: make build
+        env:
+          GO_GOOGLESQL_ROOT: ${{ github.workspace }}/go-googlesql
+        run: task build
       - name: Test with coverage
         working-directory: go-googlesqlite
-        run: make cover
+        env:
+          GO_GOOGLESQL_ROOT: ${{ github.workspace }}/go-googlesql
+        run: task cover
       - name: Lint
         working-directory: go-googlesqlite
-        run: make lint
+        env:
+          GO_GOOGLESQL_ROOT: ${{ github.workspace }}/go-googlesql
+        run: task lint
       - name: Upload coverage to Codecov
         if: runner.os == 'Linux'
         uses: codecov/codecov-action@v4

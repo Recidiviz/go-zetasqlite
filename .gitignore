@@ -16,6 +16,12 @@
 
 .idea
 
+# golangci-lint (task lint:install)
+/bin/
+
+# Local direnv overrides (optional; see .envrc)
+.envrc.local
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 .googlesqlite_history
