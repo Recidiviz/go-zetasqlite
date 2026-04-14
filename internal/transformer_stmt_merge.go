@@ -58,13 +58,12 @@ func (t *MergeStmtTransformer) Transform(data StatementData, ctx TransformContex
 		return nil, fmt.Errorf("failed to transform merge expression: %w", err)
 	}
 
-	// Validate merge expression is an equality condition (like the original implementation)
+	// Validate merge expression (conjunction of = or IS NOT DISTINCT FROM column pairs)
 	if err := t.validateMergeExpression(mergeData.MergeExpr); err != nil {
 		return nil, fmt.Errorf("unsupported merge expression: %w", err)
 	}
 
-	// Extract source and target column references from merge expression
-	sourceColumn, targetColumn, err := t.extractMergeColumns(mergeData, mergeData.MergeExpr, mergeData.TargetTable)
+	columnPairs, err := t.extractMergeColumnPairs(mergeData, mergeData.MergeExpr, mergeData.TargetTable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract merge columns: %w", err)
 	}
@@ -75,13 +74,9 @@ func (t *MergeStmtTransformer) Transform(data StatementData, ctx TransformContex
 		return nil, fmt.Errorf("failed to create merged table statement: %w", err)
 	}
 
-	mergedTableSourceColumnName, found := columnMapping.LookupName(sourceColumn)
-	if !found {
-		return nil, fmt.Errorf("failed to lookup merged source column name")
-	}
-	mergedTableTargetColumnName, found := columnMapping.LookupName(targetColumn)
-	if !found {
-		return nil, fmt.Errorf("failed to lookup merged target column name")
+	mergeKeys, err := buildMergeKeys(columnPairs, columnMapping)
+	if err != nil {
+		return nil, err
 	}
 
 	// Build the list of SQL statements
@@ -94,10 +89,8 @@ func (t *MergeStmtTransformer) Transform(data StatementData, ctx TransformContex
 	for _, whenClause := range mergeData.WhenClauses {
 		stmt, err := t.transformWhenClause(
 			whenClause, mergeData.TargetTable,
-			targetColumn.Name,
 			sourceTable,
-			mergedTableSourceColumnName,
-			mergedTableTargetColumnName,
+			mergeKeys,
 			columnMapping,
 			ctx,
 		)
@@ -116,112 +109,254 @@ func (t *MergeStmtTransformer) Transform(data StatementData, ctx TransformContex
 	return NewCompoundSQLFragment(statements), nil
 }
 
-// validateMergeExpression ensures the merge expression is a supported equality condition
+// mergeColumnPair holds one source/target key column pair from the MERGE ON clause (before merged-table aliases).
+type mergeColumnPair struct {
+	sourceCol *ColumnData
+	targetCol *ColumnData
+}
+
+// mergeKeyPair carries merged-table column aliases for one key pair.
+type mergeKeyPair struct {
+	sourceCol        *ColumnData
+	targetCol        *ColumnData
+	mergedSourceName string
+	mergedTargetName string
+}
+
+// flattenMergeAnd unwraps nested googlesqlite_and into a flat list of comparison leaves.
+func flattenMergeAnd(expr ExpressionData) []ExpressionData {
+	if expr.Type != ExpressionTypeFunction || expr.Function == nil {
+		return []ExpressionData{expr}
+	}
+	if expr.Function.Name != "googlesqlite_and" {
+		return []ExpressionData{expr}
+	}
+	var out []ExpressionData
+	for _, arg := range expr.Function.Arguments {
+		out = append(out, flattenMergeAnd(arg)...)
+	}
+	return out
+}
+
+// validateMergeExpression ensures the merge ON clause is a conjunction of = or IS NOT DISTINCT FROM
+// comparisons between source and target column references.
 func (t *MergeStmtTransformer) validateMergeExpression(mergeExpr ExpressionData) error {
-	if mergeExpr.Type != ExpressionTypeFunction || mergeExpr.Function == nil {
-		return fmt.Errorf("merge expression must be a function call")
+	leaves := flattenMergeAnd(mergeExpr)
+	if len(leaves) == 0 {
+		return fmt.Errorf("empty merge expression")
 	}
-
-	// Check if it's an equality function
-	if mergeExpr.Function.Name != "googlesqlite_equal" {
-		return fmt.Errorf("currently MERGE expression is supported equal expression only")
-	}
-
-	if len(mergeExpr.Function.Arguments) != 2 {
-		return fmt.Errorf("unexpected MERGE expression column num. expected 2 columns but specified %d", len(mergeExpr.Function.Arguments))
-	}
-
-	// Validate both arguments are column references
-	for i, arg := range mergeExpr.Function.Arguments {
-		if arg.Type != ExpressionTypeColumn {
-			return fmt.Errorf("unexpected MERGE expression. expected column reference but got %v at position %d", arg.Type, i)
+	for i, leaf := range leaves {
+		if err := validateMergeLeaf(leaf); err != nil {
+			return fmt.Errorf("merge ON part %d: %w", i+1, err)
 		}
 	}
-
 	return nil
 }
 
-// extractMergeColumns extracts source and target column references from the merge expression
-func (t *MergeStmtTransformer) extractMergeColumns(mergeData *MergeData, mergeExpr ExpressionData, targetTableName string) (*ColumnData, *ColumnData, error) {
-	if mergeExpr.Type != ExpressionTypeFunction || mergeExpr.Function == nil {
-		return &ColumnData{}, &ColumnData{}, fmt.Errorf("invalid merge expression")
+func validateMergeLeaf(leaf ExpressionData) error {
+	if leaf.Type != ExpressionTypeFunction || leaf.Function == nil {
+		return fmt.Errorf("expected comparison, got %v", leaf.Type)
 	}
-
-	args := mergeExpr.Function.Arguments
-	if len(args) != 2 {
-		return &ColumnData{}, &ColumnData{}, fmt.Errorf("merge expression must have exactly 2 arguments")
+	switch leaf.Function.Name {
+	case "googlesqlite_equal", "googlesqlite_is_not_distinct_from":
+	default:
+		return fmt.Errorf("unsupported comparison %q (use = or IS NOT DISTINCT FROM between columns)", leaf.Function.Name)
 	}
-
-	colA := args[0]
-	colB := args[1]
-
-	// Determine which column belongs to target table and which to source table
-	// (following the logic from the original implementation)
-	if colA.Type == ExpressionTypeColumn && colA.Column != nil {
-		if colA.Column.TableName == targetTableName {
-			source := mergeData.SourceScan.FindColumnByID(colB.Column.ColumnID)
-			target := mergeData.TargetScan.FindColumnByID(colA.Column.ColumnID)
-			return source, target, nil // source, target
+	if len(leaf.Function.Arguments) != 2 {
+		return fmt.Errorf("expected 2 arguments, got %d", len(leaf.Function.Arguments))
+	}
+	for i, arg := range leaf.Function.Arguments {
+		if arg.Type != ExpressionTypeColumn {
+			return fmt.Errorf("expected column reference at position %d, got %v", i, arg.Type)
 		}
 	}
+	return nil
+}
 
-	if colB.Type == ExpressionTypeColumn && colB.Column != nil {
+// extractMergeColumnPairs extracts source/target column pairs from the MERGE ON expression tree.
+func (t *MergeStmtTransformer) extractMergeColumnPairs(mergeData *MergeData, mergeExpr ExpressionData, targetTableName string) ([]mergeColumnPair, error) {
+	leaves := flattenMergeAnd(mergeExpr)
+	pairs := make([]mergeColumnPair, 0, len(leaves))
+	seen := make(map[string]struct{})
+	for _, leaf := range leaves {
+		src, tgt, err := t.extractMergePairFromLeaf(mergeData, leaf, targetTableName)
+		if err != nil {
+			return nil, err
+		}
+		key := fmt.Sprintf("%d:%d", tgt.ID, src.ID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		pairs = append(pairs, mergeColumnPair{sourceCol: src, targetCol: tgt})
+	}
+	if len(pairs) == 0 {
+		return nil, fmt.Errorf("no merge key columns extracted")
+	}
+	return pairs, nil
+}
+
+func (t *MergeStmtTransformer) extractMergePairFromLeaf(mergeData *MergeData, leaf ExpressionData, targetTableName string) (*ColumnData, *ColumnData, error) {
+	if leaf.Type != ExpressionTypeFunction || leaf.Function == nil {
+		return nil, nil, fmt.Errorf("invalid merge ON leaf")
+	}
+	switch leaf.Function.Name {
+	case "googlesqlite_equal", "googlesqlite_is_not_distinct_from":
+	default:
+		return nil, nil, fmt.Errorf("unsupported merge ON leaf %q", leaf.Function.Name)
+	}
+	args := leaf.Function.Arguments
+	if len(args) != 2 {
+		return nil, nil, fmt.Errorf("merge comparison must have exactly 2 arguments")
+	}
+	return t.disambiguateSourceTarget(mergeData, args[0], args[1], targetTableName)
+}
+
+func (t *MergeStmtTransformer) disambiguateSourceTarget(mergeData *MergeData, colA, colB ExpressionData, targetTableName string) (*ColumnData, *ColumnData, error) {
+	if colA.Type != ExpressionTypeColumn || colA.Column == nil || colB.Type != ExpressionTypeColumn || colB.Column == nil {
+		return nil, nil, fmt.Errorf("expected two column references")
+	}
+	if colA.Column.TableName == targetTableName {
+		source := mergeData.SourceScan.FindColumnByID(colB.Column.ColumnID)
+		target := mergeData.TargetScan.FindColumnByID(colA.Column.ColumnID)
+		return source, target, nil
+	}
+	if colB.Column.TableName == targetTableName {
 		source := mergeData.SourceScan.FindColumnByID(colA.Column.ColumnID)
 		target := mergeData.TargetScan.FindColumnByID(colB.Column.ColumnID)
-		if colB.Column.TableName == targetTableName {
-			return source, target, nil // source, target
-		} // source, target
+		return source, target, nil
 	}
+	return nil, nil, fmt.Errorf("could not determine source and target columns for %q and %q (target table %q)",
+		colA.Column.ColumnName, colB.Column.ColumnName, targetTableName)
+}
 
-	return &ColumnData{}, &ColumnData{}, fmt.Errorf("could not determine source and target columns")
+func buildMergeKeys(pairs []mergeColumnPair, columnMapping *ColumnMapping) ([]mergeKeyPair, error) {
+	keys := make([]mergeKeyPair, 0, len(pairs))
+	for _, p := range pairs {
+		ms, ok := columnMapping.LookupName(p.sourceCol)
+		if !ok {
+			return nil, fmt.Errorf("failed to lookup merged source column name for %s", p.sourceCol.Name)
+		}
+		mt, ok := columnMapping.LookupName(p.targetCol)
+		if !ok {
+			return nil, fmt.Errorf("failed to lookup merged target column name for %s", p.targetCol.Name)
+		}
+		keys = append(keys, mergeKeyPair{
+			sourceCol:        p.sourceCol,
+			targetCol:        p.targetCol,
+			mergedSourceName: ms,
+			mergedTargetName: mt,
+		})
+	}
+	return keys, nil
+}
+
+func chainAndExprs(parts []*SQLExpression) *SQLExpression {
+	if len(parts) == 0 {
+		return nil
+	}
+	out := parts[0]
+	for i := 1; i < len(parts); i++ {
+		out = NewBinaryExpression(out, "AND", parts[i])
+	}
+	return out
+}
+
+// mergeWhenFilter builds the row filter on googlesqlite_merged_table for the given match type and key columns.
+// Predicates correlate to the outer DML row by comparing merged_* aliases to bare target/source column names
+// (e.g. `id`) so EXISTS subqueries in DELETE/UPDATE behave correctly.
+func mergeWhenFilter(matchType ast.MatchType, keys []mergeKeyPair) (*SQLExpression, error) {
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("no merge keys")
+	}
+	var parts []*SQLExpression
+	switch matchType {
+	case ast.MatchTypeMatched:
+		// Join succeeded: both sides match the outer row's key (same shape as legacy merged_source = k AND merged_target = k).
+		for _, k := range keys {
+			tn := k.targetCol.Name
+			parts = append(parts,
+				NewBinaryExpression(NewColumnExpression(k.mergedSourceName), "IS NOT DISTINCT FROM", NewColumnExpression(tn)),
+				NewBinaryExpression(NewColumnExpression(k.mergedTargetName), "IS NOT DISTINCT FROM", NewColumnExpression(tn)),
+			)
+		}
+	case ast.MatchTypeNotMatchedBySource:
+		// Target-only row for this outer key: source side null, target side populated and equals outer key.
+		for _, k := range keys {
+			tn := k.targetCol.Name
+			parts = append(parts,
+				NewBinaryExpression(NewColumnExpression(k.mergedTargetName), "IS NOT", NewLiteralExpression("NULL")),
+				NewBinaryExpression(NewColumnExpression(k.mergedSourceName), "IS", NewLiteralExpression("NULL")),
+				NewBinaryExpression(NewColumnExpression(k.mergedTargetName), "IS NOT DISTINCT FROM", NewColumnExpression(tn)),
+			)
+		}
+	case ast.MatchTypeNotMatchedByTarget:
+		// Source-only row for this outer key: target side null, source side populated and equals outer source key.
+		for _, k := range keys {
+			sn := k.sourceCol.Name
+			parts = append(parts,
+				NewBinaryExpression(NewColumnExpression(k.mergedTargetName), "IS", NewLiteralExpression("NULL")),
+				NewBinaryExpression(NewColumnExpression(k.mergedSourceName), "IS NOT", NewLiteralExpression("NULL")),
+				NewBinaryExpression(NewColumnExpression(k.mergedSourceName), "IS NOT DISTINCT FROM", NewColumnExpression(sn)),
+			)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported match type: %v", matchType)
+	}
+	return chainAndExprs(parts), nil
+}
+
+func (t *MergeStmtTransformer) applyMergedColumnAliases(sql string, columnMapping *ColumnMapping, ctx TransformContext) (string, error) {
+	out := sql
+	for column, mapping := range columnMapping.AllColumnMap {
+		expr, err := t.coordinator.TransformExpression(ExpressionData{
+			Type:   ExpressionTypeColumn,
+			Column: &ColumnRefData{ColumnID: column.ID},
+		}, ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to transform column for merge WHEN alias: %w", err)
+		}
+		out = strings.ReplaceAll(out, expr.String(), fmt.Sprintf("`%s`", mapping))
+	}
+	return out, nil
 }
 
 // transformWhenClause transforms a single WHEN clause into an appropriate SQL statement
 func (t *MergeStmtTransformer) transformWhenClause(
 	whenClause *MergeWhenClauseData,
 	targetTableName string,
-	targetColumnName string,
 	sourceTable SQLFragment,
-	mergedTableSourceColumnName,
-	mergedTableTargetColumnName string,
+	mergeKeys []mergeKeyPair,
 	columnMapping *ColumnMapping,
 	ctx TransformContext,
 ) (string, error) {
 
-	// Generate the appropriate FROM clause for this match type
-	var fromFilter *SQLExpression
-	switch whenClause.MatchType {
-	case ast.MatchTypeMatched:
-		// Both target and source table have matching records
-		// TODO: this used to use targetColumnName?
-		fromFilter = NewBinaryExpression(
-			NewBinaryExpression(NewColumnExpression(mergedTableSourceColumnName), "=", NewColumnExpression(targetColumnName)),
-			"AND",
-			NewBinaryExpression(NewColumnExpression(mergedTableTargetColumnName), "=", NewColumnExpression(targetColumnName)),
-		)
-	case ast.MatchTypeNotMatchedBySource:
-		// Target table has record but source table doesn't
-		fromFilter = NewBinaryExpression(
-			NewBinaryExpression(NewColumnExpression(mergedTableTargetColumnName), "IS NOT", NewLiteralExpression("NULL")),
-			"AND",
-			NewBinaryExpression(NewColumnExpression(mergedTableSourceColumnName), "IS", NewLiteralExpression("NULL")),
-		)
-	case ast.MatchTypeNotMatchedByTarget:
-		// Source table has record but target table doesn't
-		fromFilter = NewBinaryExpression(
-			NewBinaryExpression(NewColumnExpression(mergedTableTargetColumnName), "IS", NewLiteralExpression("NULL")),
-			"AND",
-			NewBinaryExpression(NewColumnExpression(mergedTableSourceColumnName), "IS NOT", NewLiteralExpression("NULL")),
-		)
-	default:
-		return "", fmt.Errorf("unsupported match type: %v", whenClause.MatchType)
+	fromFilter, err := mergeWhenFilter(whenClause.MatchType, mergeKeys)
+	if err != nil {
+		return "", err
+	}
+
+	combinedWhere := fromFilter
+	if whenClause.Condition != nil {
+		condExpr, err := t.coordinator.TransformExpression(*whenClause.Condition, ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to transform WHEN condition: %w", err)
+		}
+		condStr, err := t.applyMergedColumnAliases(condExpr.String(), columnMapping, ctx)
+		if err != nil {
+			return "", err
+		}
+		combinedWhere = NewBinaryExpression(fromFilter, "AND", &SQLExpression{
+			Type:  ExpressionTypeLiteral,
+			Value: "(" + condStr + ")",
+		})
 	}
 
 	// Create WHERE clause with existence check
 	subq := NewSelectStatement()
 	subq.FromClause = &FromItem{Type: FromItemTypeTable, TableName: "googlesqlite_merged_table"}
-	subq.SelectList = []*SelectListItem{{Expression: NewColumnExpression(mergedTableSourceColumnName)}, {Expression: NewColumnExpression(mergedTableTargetColumnName)}}
-	subq.WhereClause = fromFilter
+	subq.SelectList = []*SelectListItem{{Expression: NewLiteralExpression("1")}}
+	subq.WhereClause = combinedWhere
 	existsStmt := NewExistsExpression(subq)
 
 	// Generate the appropriate statement based on action type
@@ -229,7 +364,7 @@ func (t *MergeStmtTransformer) transformWhenClause(
 	case ast.ActionTypeInsert:
 		return t.transformInsertAction(whenClause, targetTableName, sourceTable, existsStmt.String(), columnMapping, ctx)
 	case ast.ActionTypeUpdate:
-		return t.transformUpdateAction(whenClause, targetTableName, fromFilter.String(), columnMapping, ctx)
+		return t.transformUpdateAction(whenClause, targetTableName, combinedWhere.String(), columnMapping, ctx)
 	case ast.ActionTypeDelete:
 		return (&DeleteStatement{
 			Table:     &FromItem{TableName: targetTableName},

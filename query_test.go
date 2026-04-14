@@ -7147,6 +7147,48 @@ SELECT * FROM target;
 			expectedRows: [][]interface{}{{int64(1), "test"}},
 		},
 		{
+			name: "merge ON single column IS NOT DISTINCT FROM",
+			query: `
+CREATE TEMP TABLE target(id INT64, name STRING);
+CREATE TEMP TABLE source(id INT64, name STRING);
+INSERT INTO source(id, name) VALUES (1, "new");
+MERGE target T USING source S ON T.id IS NOT DISTINCT FROM S.id
+WHEN MATCHED THEN UPDATE SET id = S.id, name = S.name
+WHEN NOT MATCHED THEN INSERT (id, name) VALUES (id, name);
+SELECT * FROM target;
+`,
+			expectedRows: [][]interface{}{{int64(1), "new"}},
+		},
+		{
+			name: "merge ON composite IS NOT DISTINCT FROM",
+			query: `
+CREATE TEMP TABLE target(a INT64, b INT64, c INT64, v STRING);
+CREATE TEMP TABLE source(a INT64, b INT64, c INT64, v STRING);
+INSERT INTO target(a, b, c, v) VALUES (1, 2, 3, "old");
+INSERT INTO source(a, b, c, v) VALUES (1, 2, 3, "new");
+MERGE target T USING source S
+ON T.a IS NOT DISTINCT FROM S.a AND T.b IS NOT DISTINCT FROM S.b AND T.c IS NOT DISTINCT FROM S.c
+WHEN MATCHED THEN UPDATE SET v = S.v;
+SELECT a, b, c, v FROM target ORDER BY a, b, c;
+`,
+			expectedRows: [][]interface{}{{int64(1), int64(2), int64(3), "new"}},
+		},
+		{
+			name: "merge WHEN MATCHED AND applies extra predicate",
+			query: `
+CREATE TEMP TABLE target(id INT64, v1 STRING, v2 STRING);
+CREATE TEMP TABLE source(id INT64, v1 STRING, v2 STRING);
+INSERT INTO target(id, v1, v2) VALUES (1, "a", "keep");
+INSERT INTO source(id, v1, v2) VALUES (1, "b", "y");
+MERGE target T USING source S ON T.id = S.id
+WHEN MATCHED AND T.v1 IS DISTINCT FROM S.v1 THEN UPDATE SET v2 = S.v2;
+SELECT id, v1, v2 FROM target ORDER BY id;
+`,
+			expectedRows: [][]interface{}{
+				{int64(1), "a", "y"},
+			},
+		},
+		{
 			name: "simple truncate",
 			query: `
 CREATE TEMP TABLE test_dataset.target(id INT64, name STRING);

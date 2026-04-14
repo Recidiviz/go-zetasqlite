@@ -272,13 +272,15 @@ func canOptimizeFunction(function *FunctionCallData) bool {
 
 var functionToOperator = map[string]string{
 	// Comparison operators
-	"googlesqlite_equal":            "=",
-	"googlesqlite_not_equal":        "!=",
-	"googlesqlite_less":             "<",
-	"googlesqlite_greater":          ">",
-	"googlesqlite_less_or_equal":    "<=",
-	"googlesqlite_greater_or_equal": ">=",
-	"googlesqlite_in":               "IN",
+	"googlesqlite_equal":                "=",
+	"googlesqlite_not_equal":            "!=",
+	"googlesqlite_less":                 "<",
+	"googlesqlite_greater":              ">",
+	"googlesqlite_less_or_equal":        "<=",
+	"googlesqlite_greater_or_equal":     ">=",
+	"googlesqlite_in":                   "IN",
+	"googlesqlite_is_not_distinct_from": "IS NOT DISTINCT FROM",
+	"googlesqlite_is_distinct_from":     "IS DISTINCT FROM",
 	// Logical operators
 	"googlesqlite_and": "AND",
 	"googlesqlite_or":  "OR",
