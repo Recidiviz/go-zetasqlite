@@ -216,16 +216,37 @@ func (t *MergeStmtTransformer) disambiguateSourceTarget(mergeData *MergeData, co
 	if colA.Type != ExpressionTypeColumn || colA.Column == nil || colB.Type != ExpressionTypeColumn || colB.Column == nil {
 		return nil, nil, fmt.Errorf("expected two column references")
 	}
+	idA := colA.Column.ColumnID
+	idB := colB.Column.ColumnID
+
+	inScan := func(s *ScanData, id int) bool { return s != nil && s.FindColumnByID(id) != nil }
+	aInT, aInS := inScan(mergeData.TargetScan, idA), inScan(mergeData.SourceScan, idA)
+	bInT, bInS := inScan(mergeData.TargetScan, idB), inScan(mergeData.SourceScan, idB)
+
+	// Prefer scan membership: ON clause may use aliases (target/source) while TargetTable is a flattened name.
+	if aInT && !aInS && bInS && !bInT {
+		return mergeData.SourceScan.FindColumnByID(idB), mergeData.TargetScan.FindColumnByID(idA), nil
+	}
+	if bInT && !bInS && aInS && !aInT {
+		return mergeData.SourceScan.FindColumnByID(idA), mergeData.TargetScan.FindColumnByID(idB), nil
+	}
+
+	// Legacy: resolved table name matches merge target table string
 	if colA.Column.TableName == targetTableName {
-		source := mergeData.SourceScan.FindColumnByID(colB.Column.ColumnID)
-		target := mergeData.TargetScan.FindColumnByID(colA.Column.ColumnID)
-		return source, target, nil
+		source := mergeData.SourceScan.FindColumnByID(idB)
+		target := mergeData.TargetScan.FindColumnByID(idA)
+		if source != nil && target != nil {
+			return source, target, nil
+		}
 	}
 	if colB.Column.TableName == targetTableName {
-		source := mergeData.SourceScan.FindColumnByID(colA.Column.ColumnID)
-		target := mergeData.TargetScan.FindColumnByID(colB.Column.ColumnID)
-		return source, target, nil
+		source := mergeData.SourceScan.FindColumnByID(idA)
+		target := mergeData.TargetScan.FindColumnByID(idB)
+		if source != nil && target != nil {
+			return source, target, nil
+		}
 	}
+
 	return nil, nil, fmt.Errorf("could not determine source and target columns for %q and %q (target table %q)",
 		colA.Column.ColumnName, colB.Column.ColumnName, targetTableName)
 }

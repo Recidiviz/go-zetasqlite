@@ -7174,6 +7174,20 @@ SELECT a, b, c, v FROM target ORDER BY a, b, c;
 			expectedRows: [][]interface{}{{int64(1), int64(2), int64(3), "new"}},
 		},
 		{
+			name: "merge ON composite IS NOT DISTINCT FROM with aliases target and source",
+			query: `
+CREATE TEMP TABLE ingest(a INT64, b INT64, c INT64, v STRING);
+CREATE TEMP TABLE src(a INT64, b INT64, c INT64, v STRING);
+INSERT INTO ingest(a, b, c, v) VALUES (1, 2, 3, "old");
+INSERT INTO src(a, b, c, v) VALUES (1, 2, 3, "new");
+MERGE ingest AS target USING src AS source
+ON target.a IS NOT DISTINCT FROM source.a AND target.b IS NOT DISTINCT FROM source.b AND target.c IS NOT DISTINCT FROM source.c
+WHEN MATCHED THEN UPDATE SET v = source.v;
+SELECT a, b, c, v FROM ingest ORDER BY a, b, c;
+`,
+			expectedRows: [][]interface{}{{int64(1), int64(2), int64(3), "new"}},
+		},
+		{
 			name: "merge WHEN MATCHED AND applies extra predicate",
 			query: `
 CREATE TEMP TABLE target(id INT64, v1 STRING, v2 STRING);
