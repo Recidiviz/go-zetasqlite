@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	googlesqlite "github.com/vantaboard/go-googlesqlite"
 	"github.com/google/go-cmp/cmp"
+	googlesqlite "github.com/vantaboard/go-googlesqlite"
 )
 
 func TestQuery(t *testing.T) {
