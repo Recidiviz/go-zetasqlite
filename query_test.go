@@ -6263,6 +6263,14 @@ SELECT
 			expectedRows: [][]interface{}{{"world"}},
 		},
 		{
+			// Regression test: JSON_EXTRACT_SCALAR used to panic
+			// ("reflect: call of reflect.Value.Type on zero Value") when the
+			// extracted value was JSON null.
+			name:         "json_extract_scalar with null",
+			query:        `SELECT JSON_EXTRACT_SCALAR('{"a": null}', '$.a'), JSON_EXTRACT_SCALAR(JSON 'null'), JSON_EXTRACT_SCALAR(NULL), JSON_EXTRACT_SCALAR('{}', '$.does_not_exist')`,
+			expectedRows: [][]interface{}{{nil, nil, nil, nil}},
+		},
+		{
 			name:         "json_value with number",
 			query:        `SELECT JSON_VALUE(JSON '{ "name" : "Jakob", "age" : "6" }', '$.age')`,
 			expectedRows: [][]interface{}{{`6`}},
@@ -6429,6 +6437,13 @@ SELECT
 			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil, nil}},
 		},
 		{
+			// Regression test: a JSON null element used to panic instead of
+			// producing a NULL array element.
+			name:         "json_extract_string_array with null element",
+			query:        `SELECT JSON_EXTRACT_STRING_ARRAY('["a", null]', '$')`,
+			expectedRows: [][]interface{}{{[]interface{}{"a", nil}}},
+		},
+		{
 			name:         "json_extract_string_array with empty array",
 			query:        `SELECT JSON_EXTRACT_STRING_ARRAY('{"a":"foo","b":[]}','$.b')`,
 			expectedRows: [][]interface{}{{[]interface{}{}}},
@@ -6473,6 +6488,13 @@ SELECT
   JSON_VALUE_ARRAY('{"a":[10, {"b": 20}]','$.a'),
   JSON_VALUE_ARRAY(JSON 'null', '$')`,
 			expectedRows: [][]interface{}{{nil, nil, nil, nil, nil, nil, nil}},
+		},
+		{
+			// Regression test: a JSON null element used to panic instead of
+			// producing a NULL array element.
+			name:         "json_value_array with null element",
+			query:        `SELECT JSON_VALUE_ARRAY('["a", null]', '$')`,
+			expectedRows: [][]interface{}{{[]interface{}{"a", nil}}},
 		},
 		{
 			name:         "json_value_array with empty array",

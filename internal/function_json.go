@@ -99,6 +99,9 @@ func JSON_EXTRACT_SCALAR(v, path string) (Value, error) {
 		return nil, nil
 	}
 	value := values[0]
+	if !reflect.ValueOf(value).IsValid() {
+		return nil, nil
+	}
 	switch reflect.ValueOf(value).Type().Kind() {
 	case reflect.Map, reflect.Slice:
 		return nil, nil
@@ -166,6 +169,10 @@ func JSON_EXTRACT_STRING_ARRAY(v, path string) (Value, error) {
 	ret := &ArrayValue{}
 	for i := 0; i < rv.Len(); i++ {
 		elem := rv.Index(i).Interface()
+		if elem == nil {
+			ret.values = append(ret.values, nil)
+			continue
+		}
 		elemV := reflect.ValueOf(elem)
 		elemKind := elemV.Type().Kind()
 		if elemKind == reflect.Map || elemKind == reflect.Slice {
@@ -293,6 +300,10 @@ func JSON_VALUE_ARRAY(v, path string) (Value, error) {
 	ret := &ArrayValue{}
 	for i := 0; i < rv.Len(); i++ {
 		elem := rv.Index(i).Interface()
+		if elem == nil {
+			ret.values = append(ret.values, nil)
+			continue
+		}
 		elemV := reflect.ValueOf(elem)
 		elemKind := elemV.Type().Kind()
 		if elemKind == reflect.Map || elemKind == reflect.Slice {
