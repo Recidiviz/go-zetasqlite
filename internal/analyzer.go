@@ -85,6 +85,7 @@ func newAnalyzerOptions() (*zetasql.AnalyzerOptions, error) {
 		zetasql.FeatureV13WithRecursive,
 		zetasql.FeatureV12GroupByArray,
 		zetasql.FeatureV12GroupByStruct,
+		zetasql.FeatureV13ColumnDefaultValue,
 	})
 	langOpt.SetSupportedStatementKinds([]ast.Kind{
 		ast.BeginStmt,
@@ -425,7 +426,10 @@ func (a *Analyzer) newNullStmtAction(_ context.Context, query string, args []dri
 }
 
 func (a *Analyzer) newCreateTableStmtAction(ctx context.Context, args []driver.NamedValue, node *ast.CreateTableStmtNode) (*CreateTableStmtAction, error) {
-	spec := newTableSpec(a.namePath, node)
+	spec, err := newTableSpec(ctx, a.namePath, node)
+	if err != nil {
+		return nil, err
+	}
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
@@ -456,7 +460,10 @@ func (a *Analyzer) newCreateTableAsSelectStmtAction(ctx context.Context, _ strin
 	}
 
 	query := createTableStmt.AsSelect
-	spec := newTableAsSelectSpec(a.namePath, query, node)
+	spec, err := newTableAsSelectSpec(ctx, a.namePath, query.String(), node)
+	if err != nil {
+		return nil, err
+	}
 	params := getParamsFromNode(node)
 	queryArgs, err := getArgsFromParams(args, params)
 	if err != nil {
