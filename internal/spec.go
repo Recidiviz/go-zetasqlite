@@ -50,6 +50,13 @@ func (s *FunctionSpec) FuncName() string {
 	return formatPath(s.NamePath)
 }
 
+// sameSignature reports whether both specs would produce the same ZetaSQL function signature.
+func (s *FunctionSpec) sameSignature(other *FunctionSpec) bool {
+	return s.IsAggregate == other.IsAggregate &&
+		reflect.DeepEqual(s.Args, other.Args) &&
+		reflect.DeepEqual(s.Return, other.Return)
+}
+
 func (s *FunctionSpec) SQL() string {
 	args := []string{}
 	for _, arg := range s.Args {
@@ -126,6 +133,11 @@ func (s *TableSpec) Column(name string) *ColumnSpec {
 
 func (s *TableSpec) TableName() string {
 	return formatPath(s.NamePath)
+}
+
+// sameSchema reports whether both specs would produce the same ZetaSQL table.
+func (s *TableSpec) sameSchema(other *TableSpec) bool {
+	return reflect.DeepEqual(s.Columns, other.Columns)
 }
 
 func (s *TableSpec) SQLiteSchema() string {
