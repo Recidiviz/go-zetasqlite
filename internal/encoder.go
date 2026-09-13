@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -578,6 +579,8 @@ func valueFromGoReflectValue(v reflect.Value) (Value, error) {
 			ret.values = append(ret.values, value)
 			ret.m[k] = value
 		}
+		// A map has no order, so sort by key to keep the struct (and its JSON form) deterministic.
+		sort.Sort(byKey{ret})
 		return ret, nil
 	case reflect.Struct:
 		t, ok := v.Interface().(time.Time)
@@ -736,4 +739,14 @@ func valueLayoutFromValue(v Value) (*ValueLayout, error) {
 		}, nil
 	}
 	return nil, fmt.Errorf("unexpected value type to get value layout: %T", v)
+}
+
+// byKey sorts a StructValue's parallel key and value slices by key.
+type byKey struct{ *StructValue }
+
+func (s byKey) Len() int           { return len(s.keys) }
+func (s byKey) Less(i, j int) bool { return s.keys[i] < s.keys[j] }
+func (s byKey) Swap(i, j int) {
+	s.keys[i], s.keys[j] = s.keys[j], s.keys[i]
+	s.values[i], s.values[j] = s.values[j], s.values[i]
 }
