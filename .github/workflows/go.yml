@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest", "macos-latest" ]
-        go-version: [ "1.24" ]
+        go-version: [ "1.26" ]
     runs-on: ${{ matrix.os }}
     steps:
     - name: checkout
@@ -32,7 +32,7 @@ jobs:
     strategy:
       matrix:
         os: [ "ubuntu-latest", "macos-latest" ]
-        go-version: [ "1.24" ]
+        go-version: [ "1.26" ]
     runs-on: ${{ matrix.os }}
     steps:
     - name: checkout
@@ -53,7 +53,7 @@ jobs:
       - name: setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.26'
           cache: true
       - name: measure coverage
         run: |
@@ -71,7 +71,7 @@ jobs:
       - name: setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.26'
           cache: true
       - name: run linter
         run: |
