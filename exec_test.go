@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -229,6 +230,86 @@ func TestCreateTempTable(t *testing.T) {
 	}
 	if _, err := db.ExecContext(ctx, "CREATE TABLE tmp_table (id INT64)"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestDropTable(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, query := range []string{
+		"CREATE TABLE `proj.drop_ds1.t` (id INT64)",
+		"CREATE TABLE `proj.drop_ds2.t` (id INT64)",
+		"INSERT `proj.drop_ds2.t` (id) VALUES (2)",
+		"DROP TABLE `proj.drop_ds1.t`",
+	} {
+		if _, err := db.ExecContext(ctx, query); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	if _, err := db.QueryContext(ctx, "SELECT id FROM `proj.drop_ds1.t`"); err == nil {
+		t.Fatal("expected querying the dropped table to fail")
+	} else if !strings.Contains(err.Error(), "Table not found: `proj.drop_ds1.t`") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var id int64
+	if err := db.QueryRowContext(ctx, "SELECT id FROM `proj.drop_ds2.t`").Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	if id != 2 {
+		t.Fatalf("expected the table in the other dataset to be intact, got id %d", id)
+	}
+}
+
+func TestCreateOrReplaceTableWithNewSchema(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, query := range []string{
+		"CREATE TABLE `proj.replace_ds.t` (old_column INT64)",
+		"CREATE OR REPLACE TABLE `proj.replace_ds.t` (new_column STRING)",
+		"INSERT `proj.replace_ds.t` (new_column) VALUES ('hello')",
+	} {
+		if _, err := db.ExecContext(ctx, query); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	var value string
+	if err := db.QueryRowContext(ctx, "SELECT new_column FROM `proj.replace_ds.t`").Scan(&value); err != nil {
+		t.Fatal(err)
+	}
+	if value != "hello" {
+		t.Fatalf("unexpected value %q", value)
+	}
+}
+
+func TestCreateOrReplaceFunctionWithNewSignature(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("zetasqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, query := range []string{
+		"CREATE FUNCTION `proj.replace_ds.add`(x INT64) RETURNS INT64 AS (x + 1)",
+		"CREATE OR REPLACE FUNCTION `proj.replace_ds.add`(x INT64, y INT64) RETURNS INT64 AS (x + y)",
+	} {
+		if _, err := db.ExecContext(ctx, query); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+	var sum int64
+	if err := db.QueryRowContext(ctx, "SELECT `proj.replace_ds.add`(2, 3)").Scan(&sum); err != nil {
+		t.Fatal(err)
+	}
+	if sum != 5 {
+		t.Fatalf("expected the replaced function to be used, got %d", sum)
 	}
 }
 

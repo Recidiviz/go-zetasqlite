@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"reflect"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -61,18 +62,66 @@ const (
 type Catalog struct {
 	db           *sql.DB
 	lastSyncedAt time.Time
-	mu           sync.Mutex
-	tables       []*TableSpec
-	functions    []*FunctionSpec
-	catalog      *types.SimpleCatalog
-	tableMap     map[string]*TableSpec
-	funcMap      map[string]*FunctionSpec
+	mu           sync.RWMutex
+	tables       []*catalogTable
+	functions    []*catalogFunction
+	tableMap     map[string]*catalogTable
+	funcMap      map[string]*catalogFunction
+	tableIndex   nameIndex[*types.SimpleTable]
+	funcIndex    nameIndex[*types.Function]
+	// catalog holds only the ZetaSQL builtin functions. Tables and user-defined functions are
+	// resolved through the name indexes above instead, because the analyzer calls back into
+	// this Go Catalog for name resolution and a ZetaSQL catalog can never be shrunk or freed.
+	catalog *types.SimpleCatalog
 }
 
+// catalogTable pairs a spec with the ZetaSQL table built from it. The ZetaSQL table is C++
+// memory that is never freed, so it is built once per schema and reused across lookups.
+type catalogTable struct {
+	spec  *TableSpec
+	table *types.SimpleTable
+}
+
+type catalogFunction struct {
+	spec *FunctionSpec
+	fn   *types.Function
+}
+
+// zetaSQLCatalogsAllocated counts the ZetaSQL catalogs created by this process. Each one is
+// C++ memory that go-zetasql never frees, so tests assert it stays flat as the catalog changes.
+var zetaSQLCatalogsAllocated atomic.Int64
+
 func newSimpleCatalog(name string) *types.SimpleCatalog {
+	zetaSQLCatalogsAllocated.Add(1)
 	catalog := types.NewSimpleCatalog(name)
 	catalog.AddZetaSQLBuiltinFunctions(nil)
 	return catalog
+}
+
+// nameIndex resolves the name paths the analyzer asks for. It stands in for nesting
+// sub-catalogs inside the ZetaSQL catalog: a value registered under project.dataset.name is
+// also reachable as dataset.name and as name, the first registration under a given name
+// wins, and lookups are case-insensitive, all as SimpleCatalog behaves. Paths are keyed by
+// their dot-joined form because a quoted identifier such as `project.dataset.name` reaches
+// the catalog as a single path element.
+type nameIndex[T any] map[string]T
+
+func (i nameIndex[T]) add(namePath []string, v T) {
+	for start := range namePath {
+		key := indexKey(namePath[start:])
+		if _, exists := i[key]; !exists {
+			i[key] = v
+		}
+	}
+}
+
+func (i nameIndex[T]) find(path []string) (T, bool) {
+	v, exists := i[indexKey(path)]
+	return v, exists
+}
+
+func indexKey(path []string) string {
+	return strings.ToLower(strings.Join(path, "."))
 }
 
 // These function definitions are missing from go-zetasql, either due to being on an older version
@@ -151,10 +200,12 @@ var MISSING_FUNCTIONS = []*FunctionSpec{
 
 func NewCatalog(db *sql.DB) (*Catalog, error) {
 	catalog := &Catalog{
-		db:       db,
-		catalog:  newSimpleCatalog(catalogName),
-		tableMap: map[string]*TableSpec{},
-		funcMap:  map[string]*FunctionSpec{},
+		db:         db,
+		catalog:    newSimpleCatalog(catalogName),
+		tableMap:   map[string]*catalogTable{},
+		funcMap:    map[string]*catalogFunction{},
+		tableIndex: nameIndex[*types.SimpleTable]{},
+		funcIndex:  nameIndex[*types.Function]{},
 	}
 
 	for _, spec := range MISSING_FUNCTIONS {
@@ -171,10 +222,27 @@ func (c *Catalog) FullName() string {
 }
 
 func (c *Catalog) FindTable(path []string) (types.Table, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if c.isWildcardTable(path) {
 		return c.createWildcardTable(path)
 	}
-	return c.catalog.FindTable(path)
+	if table, exists := c.tableIndex.find(path); exists {
+		return table, nil
+	}
+	return nil, fmt.Errorf("table not found: %s", strings.Join(path, "."))
+}
+
+// tableSpecByName returns the spec registered under the given TableName, if any.
+func (c *Catalog) tableSpecByName(name string) *TableSpec {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if table, exists := c.tableMap[name]; exists {
+		return table.spec
+	}
+	return nil
 }
 
 func (c *Catalog) FindModel(path []string) (types.Model, error) {
@@ -186,7 +254,18 @@ func (c *Catalog) FindConnection(path []string) (types.Connection, error) {
 }
 
 func (c *Catalog) FindFunction(path []string) (*types.Function, error) {
-	return c.catalog.FindFunction(path)
+	// Builtins take precedence over user-defined functions of the same name.
+	if fn, err := c.catalog.FindFunction(path); err == nil {
+		return fn, nil
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if fn, exists := c.funcIndex.find(path); exists {
+		return fn, nil
+	}
+	return nil, fmt.Errorf("function not found: %s", strings.Join(path, "."))
 }
 
 func (c *Catalog) FindTableValuedFunction(path []string) (types.TableValuedFunction, error) {
@@ -238,12 +317,19 @@ func (c *Catalog) formatNamePath(path []string) string {
 }
 
 func (c *Catalog) getFunctions(namePath *NamePath) []*FunctionSpec {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	specs := make([]*FunctionSpec, 0, len(c.functions))
 	if namePath.empty() {
-		return c.functions
+		for _, function := range c.functions {
+			specs = append(specs, function.spec)
+		}
+		return specs
 	}
 	key := c.formatNamePath(namePath.path)
-	specs := make([]*FunctionSpec, 0, len(c.functions))
-	for _, fn := range c.functions {
+	for _, function := range c.functions {
+		fn := function.spec
 		if len(fn.NamePath) == 1 {
 			// function name only
 			specs = append(specs, fn)
@@ -357,60 +443,43 @@ func (c *Catalog) DeleteFunctionSpec(ctx context.Context, conn *Conn, name strin
 }
 
 func (c *Catalog) deleteTableSpecByName(name string) error {
-	spec, exists := c.tableMap[name]
-	if !exists {
+	if _, exists := c.tableMap[name]; !exists {
 		return fmt.Errorf("failed to find table spec from map by %s", name)
 	}
-	tables := make([]*TableSpec, 0, len(c.tables))
-	specName := c.formatNamePath(spec.NamePath)
-	for _, table := range c.tables {
-		if specName == c.formatNamePath(table.NamePath) {
-			continue
-		}
-		tables = append(tables, table)
-	}
-	if err := c.resetCatalog(tables, c.functions); err != nil {
-		return err
-	}
+	delete(c.tableMap, name)
+	c.tables = slices.DeleteFunc(c.tables, func(table *catalogTable) bool {
+		return table.spec.TableName() == name
+	})
+	c.rebuildTableIndex()
 	return nil
 }
 
 func (c *Catalog) deleteFunctionSpecByName(name string) error {
-	spec, exists := c.funcMap[name]
-	if !exists {
+	if _, exists := c.funcMap[name]; !exists {
 		return fmt.Errorf("failed to find function spec from map by %s", name)
 	}
-	functions := make([]*FunctionSpec, 0, len(c.functions))
-	specName := c.formatNamePath(spec.NamePath)
-	for _, function := range c.functions {
-		if specName == c.formatNamePath(function.NamePath) {
-			continue
-		}
-		functions = append(functions, function)
-	}
-	if err := c.resetCatalog(c.tables, functions); err != nil {
-		return err
-	}
+	delete(c.funcMap, name)
+	c.functions = slices.DeleteFunc(c.functions, func(function *catalogFunction) bool {
+		return function.spec.FuncName() == name
+	})
+	c.rebuildFunctionIndex()
 	return nil
 }
 
-func (c *Catalog) resetCatalog(tables []*TableSpec, functions []*FunctionSpec) error {
-	c.catalog = newSimpleCatalog(catalogName)
-	c.tables = []*TableSpec{}
-	c.functions = []*FunctionSpec{}
-	c.tableMap = map[string]*TableSpec{}
-	c.funcMap = map[string]*FunctionSpec{}
-	for _, spec := range tables {
-		if err := c.addTableSpec(spec); err != nil {
-			return err
-		}
+// rebuildTableIndex re-registers the live tables in creation order, so that a name
+// previously shadowed by a dropped or replaced table resolves to the next one claiming it.
+func (c *Catalog) rebuildTableIndex() {
+	clear(c.tableIndex)
+	for _, table := range c.tables {
+		c.tableIndex.add(table.spec.NamePath, table.table)
 	}
-	for _, spec := range functions {
-		if err := c.addFunctionSpec(spec); err != nil {
-			return err
-		}
+}
+
+func (c *Catalog) rebuildFunctionIndex() {
+	clear(c.funcIndex)
+	for _, function := range c.functions {
+		c.funcIndex.add(function.spec.NamePath, function.fn)
 	}
-	return nil
 }
 
 func (c *Catalog) saveTableSpec(ctx context.Context, conn *Conn, spec *TableSpec) error {
@@ -498,76 +567,76 @@ func (c *Catalog) trimmedLastPath(path []string) []string {
 
 func (c *Catalog) addFunctionSpec(spec *FunctionSpec) error {
 	funcName := spec.FuncName()
-	if _, exists := c.funcMap[funcName]; exists {
-		c.funcMap[funcName] = spec // update current spec
-		return nil
+	if function, exists := c.funcMap[funcName]; exists {
+		return c.replaceFunctionSpec(function, spec)
 	}
-	c.functions = append(c.functions, spec)
-	c.funcMap[funcName] = spec
-	if err := c.addFunctionSpecRecursive(c.catalog, spec); err != nil {
+	fn, err := c.createFunction(spec)
+	if err != nil {
 		return err
 	}
+	function := &catalogFunction{spec: spec, fn: fn}
+	c.functions = append(c.functions, function)
+	c.funcMap[funcName] = function
+	c.funcIndex.add(spec.NamePath, fn)
 	return nil
 }
 
 func (c *Catalog) addTableSpec(spec *TableSpec) error {
 	tableName := spec.TableName()
-	if _, exists := c.tableMap[tableName]; exists {
-		c.tableMap[tableName] = spec // update current spec
-		return nil
+	if table, exists := c.tableMap[tableName]; exists {
+		return c.replaceTableSpec(table, spec)
 	}
-	c.tables = append(c.tables, spec)
-	c.tableMap[tableName] = spec
-	if err := c.addTableSpecRecursive(c.catalog, spec); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Catalog) addTableSpecRecursive(cat *types.SimpleCatalog, spec *TableSpec) error {
-	if len(spec.NamePath) > 1 {
-		subCatalogName := spec.NamePath[0]
-		subCatalog, _ := cat.Catalog(subCatalogName)
-		if subCatalog == nil {
-			subCatalog = newSimpleCatalog(subCatalogName)
-			cat.AddCatalog(subCatalog)
-		}
-		fullTableName := strings.Join(spec.NamePath, ".")
-		if !c.existsTable(cat, fullTableName) {
-			table, err := c.createSimpleTable(fullTableName, spec)
-			if err != nil {
-				return err
-			}
-			cat.AddTable(table)
-		}
-		newNamePath := spec.NamePath[1:]
-		// add sub catalog to root catalog
-		if err := c.addTableSpecRecursive(cat, c.copyTableSpec(spec, newNamePath)); err != nil {
-			return fmt.Errorf("failed to add table spec to root catalog: %w", err)
-		}
-		// add sub catalog to parent catalog
-		if err := c.addTableSpecRecursive(subCatalog, c.copyTableSpec(spec, newNamePath)); err != nil {
-			return fmt.Errorf("failed to add table spec to parent catalog: %w", err)
-		}
-		return nil
-	}
-	if len(spec.NamePath) == 0 {
-		return fmt.Errorf("table name is not found")
-	}
-
-	tableName := spec.NamePath[0]
-	if c.existsTable(cat, tableName) {
-		return nil
-	}
-	table, err := c.createSimpleTable(tableName, spec)
+	zetaTable, err := c.createSimpleTable(spec)
 	if err != nil {
 		return err
 	}
-	cat.AddTable(table)
+	table := &catalogTable{spec: spec, table: zetaTable}
+	c.tables = append(c.tables, table)
+	c.tableMap[tableName] = table
+	c.tableIndex.add(spec.NamePath, zetaTable)
 	return nil
 }
 
-func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.SimpleTable, error) {
+// replaceTableSpec updates a table that is re-added under its existing name, as
+// CREATE OR REPLACE TABLE and the catalog sync do. The ZetaSQL table is only rebuilt when the
+// schema changed, since every one built is C++ memory that stays allocated.
+func (c *Catalog) replaceTableSpec(table *catalogTable, spec *TableSpec) error {
+	sameSchema := table.spec.sameSchema(spec)
+	table.spec = spec
+	if sameSchema {
+		return nil
+	}
+	zetaTable, err := c.createSimpleTable(spec)
+	if err != nil {
+		return err
+	}
+	table.table = zetaTable
+	c.rebuildTableIndex()
+	return nil
+}
+
+// replaceFunctionSpec is the function counterpart of replaceTableSpec: the ZetaSQL function is
+// only rebuilt when its signature changed.
+func (c *Catalog) replaceFunctionSpec(function *catalogFunction, spec *FunctionSpec) error {
+	sameSignature := function.spec.sameSignature(spec)
+	function.spec = spec
+	if sameSignature {
+		return nil
+	}
+	fn, err := c.createFunction(spec)
+	if err != nil {
+		return err
+	}
+	function.fn = fn
+	c.rebuildFunctionIndex()
+	return nil
+}
+
+func (c *Catalog) createSimpleTable(spec *TableSpec) (*types.SimpleTable, error) {
+	if len(spec.NamePath) == 0 {
+		return nil, fmt.Errorf("table name is not found")
+	}
+	tableName := strings.Join(spec.NamePath, ".")
 	columns := []types.Column{}
 	for _, column := range spec.Columns {
 		typ, err := column.Type.ToZetaSQLType()
@@ -581,44 +650,22 @@ func (c *Catalog) createSimpleTable(tableName string, spec *TableSpec) (*types.S
 	return types.NewSimpleTable(tableName, columns), nil
 }
 
-func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *FunctionSpec) error {
-	if len(spec.NamePath) > 1 {
-		subCatalogName := spec.NamePath[0]
-		subCatalog, _ := cat.Catalog(subCatalogName)
-		if subCatalog == nil {
-			subCatalog = newSimpleCatalog(subCatalogName)
-			cat.AddCatalog(subCatalog)
-		}
-		newNamePath := spec.NamePath[1:]
-		// add sub catalog to root catalog
-		if err := c.addFunctionSpecRecursive(cat, c.copyFunctionSpec(spec, newNamePath)); err != nil {
-			return fmt.Errorf("failed to add function spec to root catalog: %w", err)
-		}
-		// add sub catalog to parent catalog
-		if err := c.addFunctionSpecRecursive(subCatalog, c.copyFunctionSpec(spec, newNamePath)); err != nil {
-			return fmt.Errorf("failed to add function spec to parent catalog: %w", err)
-		}
-		return nil
-	}
+func (c *Catalog) createFunction(spec *FunctionSpec) (*types.Function, error) {
 	if len(spec.NamePath) == 0 {
-		return fmt.Errorf("function name is not found")
+		return nil, fmt.Errorf("function name is not found")
 	}
-
-	funcName := spec.NamePath[0]
-	if c.existsFunction(cat, funcName) {
-		return nil
-	}
+	funcName := spec.NamePath[len(spec.NamePath)-1]
 	argTypes := []*types.FunctionArgumentType{}
 	for _, arg := range spec.Args {
 		argType, err := arg.FunctionArgumentType()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		argTypes = append(argTypes, argType)
 	}
 	retType, err := spec.Return.FunctionArgumentType()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sig := types.NewFunctionSignature(retType, argTypes)
 
@@ -628,44 +675,5 @@ func (c *Catalog) addFunctionSpecRecursive(cat *types.SimpleCatalog, spec *Funct
 		mode = types.AggregateMode
 	}
 
-	newFunc := types.NewFunction([]string{funcName}, "", mode, []*types.FunctionSignature{sig})
-	cat.AddFunction(newFunc)
-	return nil
-}
-
-func (c *Catalog) existsTable(cat *types.SimpleCatalog, name string) bool {
-	foundTable, _ := cat.FindTable([]string{name})
-	return !c.isNilTable(foundTable)
-}
-
-func (c *Catalog) existsFunction(cat *types.SimpleCatalog, name string) bool {
-	foundFunc, _ := cat.FindFunction([]string{name})
-	return foundFunc != nil
-}
-
-func (c *Catalog) isNilTable(t types.Table) bool {
-	v := reflect.ValueOf(t)
-	if !v.IsValid() {
-		return true
-	}
-	return v.IsNil()
-}
-
-func (c *Catalog) copyTableSpec(spec *TableSpec, newNamePath []string) *TableSpec {
-	return &TableSpec{
-		NamePath:   newNamePath,
-		Columns:    spec.Columns,
-		CreateMode: spec.CreateMode,
-	}
-}
-
-func (c *Catalog) copyFunctionSpec(spec *FunctionSpec, newNamePath []string) *FunctionSpec {
-	return &FunctionSpec{
-		NamePath: newNamePath,
-		Language: spec.Language,
-		Args:     spec.Args,
-		Return:   spec.Return,
-		Code:     spec.Code,
-		Body:     spec.Body,
-	}
+	return types.NewFunction([]string{funcName}, "", mode, []*types.FunctionSignature{sig}), nil
 }

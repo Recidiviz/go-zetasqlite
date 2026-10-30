@@ -113,9 +113,9 @@ func (c *Catalog) createWildcardTable(path []string) (types.Table, error) {
 		return nil, fmt.Errorf("failed to compile %s: %w", name, err)
 	}
 	matchedSpecs := make([]*TableSpec, 0, len(c.tableMap))
-	for name, spec := range c.tableMap {
+	for name, table := range c.tableMap {
 		if re.MatchString(name) {
-			matchedSpecs = append(matchedSpecs, spec)
+			matchedSpecs = append(matchedSpecs, table.spec)
 		}
 	}
 	sort.Slice(matchedSpecs, func(i, j int) bool {

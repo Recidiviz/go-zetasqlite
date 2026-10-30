@@ -293,7 +293,7 @@ func (a *DropStmtAction) exec(ctx context.Context, conn *Conn) error {
 		if _, err := conn.ExecContext(ctx, a.formattedQuery, a.args...); err != nil {
 			return fmt.Errorf("failed to exec %s: %w", a.query, err)
 		}
-		spec := a.catalog.tableMap[a.name]
+		spec := a.catalog.tableSpecByName(a.name)
 		if err := a.catalog.DeleteTableSpec(ctx, conn, a.name); err != nil {
 			return fmt.Errorf("failed to delete table spec: %w", err)
 		}
